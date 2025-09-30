@@ -1,0 +1,348 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using minutechart.Models;
+using minutechart.Data;
+using minutechart.ViewModels;
+using Microsoft.EntityFrameworkCore;
+using minutechart.Services;
+
+namespace minutechart.Controllers.Api
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AccountController : ControllerBase
+    {
+        private readonly SignInManager<AppUser> _signInManager;
+        private readonly UserManager<AppUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly MinutechartDbContext _mainDb;
+        private readonly IConfiguration _configuration;
+        private readonly IEmailSender _emailSender;
+
+        public AccountController(
+            SignInManager<AppUser> signInManager,
+            UserManager<AppUser> userManager,
+            RoleManager<IdentityRole> roleManager,
+            MinutechartDbContext mainDb,
+            IConfiguration configuration,
+            IEmailSender emailSender)
+        {
+            _signInManager = signInManager;
+            _userManager = userManager;
+            _roleManager = roleManager;
+            _mainDb = mainDb;
+            _configuration = configuration;
+            _emailSender = emailSender;
+        }
+
+        // -------------------- REGISTER --------------------
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] AuthViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new { errors = ModelState });
+
+            var user = new AppUser
+            {
+                CompanyName = model.CompanyName ?? "",
+                CustomerName = model.CustomerName,
+                PhoneNumber = model.PhoneNumber,
+                UserName = model.Email,
+                Email = model.Email,
+                EmailConfirmed = false,
+                AccountStatus = "Pending"
+            };
+
+            var result = await _userManager.CreateAsync(user, model.Password);
+            if (!result.Succeeded)
+                return BadRequest(new { errors = result.Errors });
+
+            if (!await _roleManager.RoleExistsAsync("User"))
+                await _roleManager.CreateAsync(new IdentityRole("User"));
+
+            await _userManager.AddToRoleAsync(user, "User");
+
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            user.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
+            var confirmationLink = Url.Action("ConfirmEmail", "Account",
+                new { userId = user.Id, token = token }, Request.Scheme);
+
+            var subject = "Minutechart Registration Confirmation";
+            var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
+
+            var htmlContent = $@"
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset='UTF-8'>
+                    <meta name='viewport' content='width=device-width, initial-scale=1'>
+                    <title>Confirm Your Email - Minutechart</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; background-color: white; margin: 0; padding: 0; }}
+                        .container {{ max-width: 600px; margin: 40px auto; background: #0f172a; padding: 30px; border-radius: 12px; text-align: center; }}
+                        .button:hover {{ background-color: #a30000; transform: scale(1.05); }}
+                        .tagline {{ font-size: 14px; background: linear-gradient(to right, #A855F7, #0000FF); margin-bottom: 20px; font-style: italic;
+                                -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+                    </style>
+                </head>
+                <body>
+                <div class='container'>
+                    <img src='https://i.ibb.co/rG1Ysrbw/minutechartlogo.png' alt='Minutechart' style='max-width: 220px;' />
+                    <div class='tagline'>Your Comfort, Our Commitment.</div>
+                    <h2 style='color:white;'>Welcome to Minutechart!</h2>
+                    <p style='color:white;'>Thanks for signing up. Please confirm your email by clicking below:</p>
+                    <a href='{confirmationLink}' style='display:inline-block; background:#ffffff; color:#0f172a;
+                        padding:14px 28px; border-radius:6px; font-size:16px; font-weight:bold; text-decoration:none;'>Verify Email Address</a>
+                    <p style='color:#aaa; margin-top:20px;'>If you didn’t create an account, ignore this email.</p>
+                </div>
+                </body>
+                </html>";
+
+            await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+
+            return Ok(new
+            {
+                message = "Registration successful! Please confirm your email and wait for admin approval before logging in."
+            });
+        }
+
+        // -------------------- CONFIRM EMAIL --------------------
+        [HttpGet("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail(string userId, string token)
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
+                return BadRequest("Invalid email confirmation request.");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound("User not found.");
+
+            if (user.EmailConfirmationTokenGeneratedAt.HasValue)
+            {
+                var tokenIssuedAt = user.EmailConfirmationTokenGeneratedAt.Value;
+                var tokenLifetime = TimeSpan.FromHours(1); // ⏳ more realistic than 5 minutes
+
+                if ((DateTime.UtcNow - tokenIssuedAt) > tokenLifetime)
+                {
+                    return BadRequest(new { message = "This confirmation link has expired. Please request a new one." });
+                }
+            }
+
+            var result = await _userManager.ConfirmEmailAsync(user, token);
+            if (result.Succeeded)
+            {
+                var loginUrl = $"{_configuration["Frontend:LoginUrl"]}?emailConfirmed=true";
+                return Redirect(loginUrl);
+            }
+
+            return BadRequest(new { message = "Email confirmation failed." });
+        }
+
+        // -------------------- RESEND CONFIRMATION --------------------
+        [HttpPost("resend-confirmation")]
+        public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationViewModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Email))
+                return BadRequest(new { message = "Email is required." });
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return NotFound(new { message = "User not found." });
+
+            if (user.EmailConfirmed)
+                return BadRequest(new { message = "Email is already confirmed." });
+
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            user.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
+            var confirmationLink = Url.Action("ConfirmEmail", "Account",
+                new { userId = user.Id, token = token }, Request.Scheme);
+
+            var subject = "Minutechart Registration Confirmation";
+            var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
+            var htmlContent = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
+
+            await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+
+            return Ok(new { message = "A new confirmation email has been sent." });
+        }
+
+        // -------------------- FORGOT PASSWORD --------------------
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordViewModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Email))
+                return BadRequest(new { message = "Email is required." });
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return NotFound(new { message = "User not found." });
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var frontendUrl = _configuration["Frontend:ResetPasswordUrl"];
+            var resetLink = $"{frontendUrl}?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+
+            var subject = "Reset Your Password - Minutechart";
+            var plainText = $"You requested a password reset. Click this link to reset your password: {resetLink}";
+
+            var htmlContent = $@"
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset='UTF-8'>
+                    <meta name='viewport' content='width=device-width, initial-scale=1'>
+                    <title>Reset Your Password - Minutechart</title>
+                </head>
+                <body>
+                <div style='max-width:600px;margin:40px auto;background:#0f172a;padding:30px;border-radius:12px;text-align:center;'>
+                    <img src='https://i.ibb.co/rG1Ysrbw/minutechartlogo.png' alt='Minutechart' style='max-width: 220px;' />
+                    <h2 style='color:white;'>Reset Your Password!</h2>
+                    <p style='color:white;'>Click below to reset your password:</p>
+                    <a href='{resetLink}' style='display:inline-block;background:#ffffff;color:#0f172a;
+                        padding:14px 28px;border-radius:6px;font-size:16px;font-weight:bold;text-decoration:none;'>Reset Password</a>
+                    <p style='color:#aaa;margin-top:20px;'>If you didn’t request this, ignore this email.</p>
+                </div>
+                </body>
+                </html>";
+
+            await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+
+            return Ok(new { message = "Password reset link has been sent to your email." });
+        }
+
+        // -------------------- RESET PASSWORD --------------------
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordViewModel model)
+        {
+            if (string.IsNullOrEmpty(model.UserId) || string.IsNullOrEmpty(model.Token))
+                return BadRequest(new { message = "Invalid reset request." });
+
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+                return NotFound(new { message = "User not found." });
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+            if (result.Succeeded)
+                return Ok(new { message = "Password has been reset successfully." });
+
+            return BadRequest(new { message = "Password reset failed.", errors = result.Errors });
+        }
+
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordViewModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.CurrentPassword) ||
+                string.IsNullOrWhiteSpace(model.NewPassword) ||
+                string.IsNullOrWhiteSpace(model.ConfirmNewPassword))
+            {
+                return BadRequest(new { message = "All fields are required." });
+            }
+
+            if (model.NewPassword != model.ConfirmNewPassword)
+            {
+                return BadRequest(new { message = "New passwords do not match." });
+            }
+            
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+            if (result.Succeeded)
+                return Ok(new { message = "Password updated successfully." });
+
+            return BadRequest(new { message = "Password update failed.", errors = result.Errors });
+        }
+
+
+        // ------------------ LOGIN ------------------
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(new { errors = ModelState });
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return BadRequest(new { message = "User not found" });
+
+            if (user.AccountStatus == "Pending")
+                return BadRequest(new { message = "Your account is pending activation by admin." });
+            if (user.AccountStatus == "Blocked")
+                return BadRequest(new { message = "Your account is blocked by admin." });
+
+            var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, true, false);
+            if (!result.Succeeded)
+                return BadRequest(new { message = "Invalid login attempt" });
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return Ok(new
+            {
+                message = "Login successful",
+                user = new
+                {
+                    user.Email,
+                    user.CompanyName,
+                    user.AccountStatus,
+                    Roles = roles
+                }
+            });
+        }
+
+        // ------------------ LOGOUT ------------------
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            await _signInManager.SignOutAsync();
+            return Ok(new { message = "Logged out successfully" });
+        }
+
+        // ------------------ GET CURRENT USER ------------------
+        [HttpGet("me")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            return Ok(new
+            {
+                user.UserName,
+                user.CompanyName,
+                user.AdminName,
+                user.Email,
+                user.AccountStatus,
+                Roles = roles
+            });
+        }
+
+        [HttpGet("my-profile")]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+                return Unauthorized(new { message = "User not found" });
+
+            var profile = await _mainDb.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+
+            var dto = new UserProfileDto
+            {
+                CompanyName = user.CompanyName,
+                ServerName = profile?.ServerName ?? "",
+                DatabaseName = profile?.DatabaseName ?? "",
+                DbUsername = profile?.DbUsername ?? "",
+                DbPassword = profile?.DbPassword ?? "",
+                RefreshTime = profile?.RefreshTime ?? 60000
+            };
+
+            return Ok(dto);
+        }
+
+    }
+}
