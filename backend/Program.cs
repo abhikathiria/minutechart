@@ -76,7 +76,7 @@ namespace minutechart
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("http://localhost:3000", "http://192.168.1.102:3000")
+                    policy.WithOrigins("http://192.168.1.102:3000", "https://minutechart.vercel.app")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
