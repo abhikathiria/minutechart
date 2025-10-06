@@ -70,10 +70,20 @@ export default function InvoiceSettingsPage() {
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
-    setSettings((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    let newValue = type === "checkbox" ? checked : value;
+
+    setSettings((prev) => {
+      if (name === "igstPercent") {
+        const igst = parseFloat(newValue) || 0;
+        return {
+          ...prev,
+          igstPercent: igst,
+          cgstPercent: igst / 2,
+          sgstPercent: igst / 2,
+        };
+      }
+      return { ...prev, [name]: newValue };
+    });
   }
 
   function handleColumnChange(idx, field, value) {
@@ -239,20 +249,25 @@ export default function InvoiceSettingsPage() {
 
           {/* Section: Tax Details */}
           <SectionCard title="💰 Tax Details">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Input
                 type="number"
-                label="CGST %"
-                name="cgstPercent"
-                value={settings.cgstPercent}
+                label="IGST %"
+                name="igstPercent"
+                value={settings.igstPercent}
                 onChange={handleChange}
               />
               <Input
                 type="number"
+                label="CGST %"
+                value={settings.cgstPercent}
+                readOnly
+              />
+              <Input
+                type="number"
                 label="SGST %"
-                name="sgstPercent"
                 value={settings.sgstPercent}
-                onChange={handleChange}
+                readOnly
               />
             </div>
           </SectionCard>

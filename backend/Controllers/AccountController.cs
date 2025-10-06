@@ -5,7 +5,7 @@ using minutechart.Data;
 using minutechart.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using minutechart.Services;
-
+using System.Net;
 namespace minutechart.Controllers.Api
 {
     [ApiController]
@@ -42,6 +42,44 @@ namespace minutechart.Controllers.Api
             if (!ModelState.IsValid)
                 return BadRequest(new { errors = ModelState });
 
+            var existingUser = await _userManager.FindByEmailAsync(model.Email);
+
+            if (existingUser != null)
+            {
+                if (!existingUser.EmailConfirmed)
+                {
+                    // User exists but didn't confirm — resend confirmation
+                    await _userManager.UpdateSecurityStampAsync(existingUser);
+
+                    var token = await _userManager.GenerateEmailConfirmationTokenAsync(existingUser);
+                    existingUser.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
+                    await _userManager.UpdateAsync(existingUser);
+
+                    var encodedToken = WebUtility.UrlEncode(token);
+                    var confirmationLink = Url.Action("ConfirmEmail", "Account",
+                        new { userId = existingUser.Id, token = encodedToken }, Request.Scheme);
+
+                    var subject = "Minutechart Registration Confirmation";
+                    var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
+                    var htmlContent = $@"
+                <p>Hello {existingUser.CustomerName},</p>
+                <p>You already registered but didn't confirm your email. Please click the link below to verify your account:</p>
+                <a href='{confirmationLink}'>Confirm Email</a>";
+
+                    await _emailSender.SendEmailAsync(existingUser.Email, subject, plainText, htmlContent);
+
+                    return Ok(new
+                    {
+                        message = "You already registered but didn’t confirm your email. A new confirmation email has been sent."
+                    });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Email already exists." });
+                }
+            }
+
+            // -------------------- CREATE NEW USER --------------------
             var user = new AppUser
             {
                 CompanyName = model.CompanyName ?? "",
@@ -61,18 +99,20 @@ namespace minutechart.Controllers.Api
                 await _roleManager.CreateAsync(new IdentityRole("User"));
 
             await _userManager.AddToRoleAsync(user, "User");
+            await _userManager.UpdateSecurityStampAsync(user);
 
-            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            var tokenNew = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             user.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
 
-            var confirmationLink = Url.Action("ConfirmEmail", "Account",
-                new { userId = user.Id, token = token }, Request.Scheme);
+            var encodedTokenNew = WebUtility.UrlEncode(tokenNew);
+            var confirmationLinkNew = Url.Action("ConfirmEmail", "Account",
+                new { userId = user.Id, token = encodedTokenNew }, Request.Scheme);
 
-            var subject = "Minutechart Registration Confirmation";
-            var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
+            var subjectNew = "Minutechart Registration Confirmation";
+            var plainTextNew = $"Please confirm your email by clicking this link: {confirmationLinkNew}";
 
-            var htmlContent = $@"
+            var htmlContentNew = $@"
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -93,14 +133,14 @@ namespace minutechart.Controllers.Api
                     <div class='tagline'>Your Comfort, Our Commitment.</div>
                     <h2 style='color:white;'>Welcome to Minutechart!</h2>
                     <p style='color:white;'>Thanks for signing up. Please confirm your email by clicking below:</p>
-                    <a href='{confirmationLink}' style='display:inline-block; background:#ffffff; color:#0f172a;
+                    <a href='{confirmationLinkNew}' style='display:inline-block; background:#ffffff; color:#0f172a;
                         padding:14px 28px; border-radius:6px; font-size:16px; font-weight:bold; text-decoration:none;'>Verify Email Address</a>
                     <p style='color:#aaa; margin-top:20px;'>If you didn’t create an account, ignore this email.</p>
                 </div>
                 </body>
                 </html>";
 
-            await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+            await _emailSender.SendEmailAsync(user.Email, subjectNew, plainTextNew, htmlContentNew);
 
             return Ok(new
             {
@@ -130,7 +170,9 @@ namespace minutechart.Controllers.Api
                 }
             }
 
-            var result = await _userManager.ConfirmEmailAsync(user, token);
+            var decodedToken = WebUtility.UrlDecode(token);
+
+            var result = await _userManager.ConfirmEmailAsync(user, decodedToken);
             if (result.Succeeded)
             {
                 var loginUrl = $"{_configuration["Frontend:LoginUrl"]}?emailConfirmed=true";
@@ -154,12 +196,22 @@ namespace minutechart.Controllers.Api
             if (user.EmailConfirmed)
                 return BadRequest(new { message = "Email is already confirmed." });
 
+            var minInterval = TimeSpan.FromMinutes(2);
+            if (user.EmailConfirmationTokenGeneratedAt.HasValue &&
+                (DateTime.UtcNow - user.EmailConfirmationTokenGeneratedAt.Value) < minInterval)
+            {
+                return BadRequest(new { message = "Please wait a bit before requesting another confirmation email." });
+            }
+
+            await _userManager.UpdateSecurityStampAsync(user);
+
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             user.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
 
+            var encodedToken = WebUtility.UrlEncode(token);
             var confirmationLink = Url.Action("ConfirmEmail", "Account",
-                new { userId = user.Id, token = token }, Request.Scheme);
+                new { userId = user.Id, token = encodedToken }, Request.Scheme);
 
             var subject = "Minutechart Registration Confirmation";
             var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
@@ -245,7 +297,7 @@ namespace minutechart.Controllers.Api
             {
                 return BadRequest(new { message = "New passwords do not match." });
             }
-            
+
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
                 return Unauthorized();

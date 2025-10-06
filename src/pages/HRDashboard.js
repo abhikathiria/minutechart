@@ -5,8 +5,8 @@ import AllTimeEmployeesCount from "../components/hr/AllTimeEmployeesCount";
 import TotalActiveEmployees from "../components/hr/TotalActiveEmployees";
 import HiringExitingTrend from "../components/hr/HiringExitingTrend";
 import GenderDistribution from "../components/hr/GenderDistribution";
-import RoleWiseHeadCount from "../components/hr/RoleWiseHeadCount";
 import TopItemsTable from "../components/hr/TopItemsTable";
+import RoleWiseHeadCount from "../components/hr/RoleWiseHeadCount";
 
 const HRDashboard = () => {
   const [departments, setDepartments] = useState(["All"]);

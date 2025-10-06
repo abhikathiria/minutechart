@@ -109,8 +109,7 @@ namespace minutechart.Controllers
                         TrialStartDate = user.TrialStartDate,
                         TrialEndDate = user.TrialEndDate,
                         SubscriptionStartDate = user.SubscriptionStartDate,
-                        SubscriptionEndDate = user.SubscriptionEndDate,
-                        SubscriptionPlan = user.SubscriptionPlan
+                        SubscriptionEndDate = user.SubscriptionEndDate
                     });
                 }
             }
@@ -122,7 +121,7 @@ namespace minutechart.Controllers
         public async Task<IActionResult> GetUserPurchases(string id)
         {
             var invoices = await _db.Invoices
-                .Where(p => p.UserId == id)
+                .Where(p => p.AppUserId == id)
                 .Include(p => p.Plan)
                 .OrderByDescending(p => p.PaymentDate)
                 .ToListAsync();
@@ -577,6 +576,7 @@ Minutechart Team";
                     BranchName = "",
                     BankAccountNumber = "",
                     IFSC = "",
+                    IgstPercent = 18,
                     CgstPercent = 9,
                     SgstPercent = 9,
                     TermsAndConditions = "",
@@ -618,6 +618,7 @@ Minutechart Team";
                 BranchName = settings.BranchName,
                 BankAccountNumber = settings.BankAccountNumber,
                 IFSC = settings.IFSC,
+                IgstPercent = settings.IgstPercent,
                 CgstPercent = settings.CgstPercent,
                 SgstPercent = settings.SgstPercent,
                 TermsAndConditions = settings.TermsAndConditions,
@@ -671,8 +672,9 @@ Minutechart Team";
             settings.BranchName = dto.BranchName;
             settings.BankAccountNumber = dto.BankAccountNumber;
             settings.IFSC = dto.IFSC;
-            settings.CgstPercent = dto.CgstPercent;
-            settings.SgstPercent = dto.SgstPercent;
+            settings.IgstPercent = dto.IgstPercent;
+            settings.CgstPercent = dto.IgstPercent / 2;
+            settings.SgstPercent = dto.IgstPercent / 2;
             settings.TermsAndConditions = dto.TermsAndConditions;
             settings.ShowGst = dto.ShowGst;
             settings.ShowBankDetails = dto.ShowBankDetails;

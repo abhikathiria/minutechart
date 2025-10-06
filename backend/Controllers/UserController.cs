@@ -38,7 +38,7 @@ namespace minutechart.Controllers
             // Fetch paid invoices (invoice holds PlanStartDate and PlanEndDate)
             var invoices = await _mainDb.Invoices
                 .Include(i => i.Plan)
-                .Where(i => i.UserId == user.Id && i.Status == "Paid")
+                .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
                 .OrderBy(i => i.PlanStartDate ?? i.PaymentDate)
                 .ToListAsync();
 
@@ -92,7 +92,7 @@ namespace minutechart.Controllers
 
             var invoices = await _mainDb.Invoices
                 .Include(i => i.Plan)
-                .Where(i => i.UserId == userId)
+                .Where(i => i.AppUserId == userId)
                 .OrderByDescending(i => i.PaymentDate)
                 .Select(i => new
                 {

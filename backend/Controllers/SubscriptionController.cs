@@ -260,7 +260,7 @@ namespace minutechart.Controllers.Api
             // Create invoice with the correct scheduled dates
             var invoice = new Invoice
             {
-                UserId = userId,
+                AppUserId = userId,
                 PlanId = plan.Id,
                 Plan = plan,
                 RazorpayOrderId = orderRecord.OrderId,
@@ -309,7 +309,7 @@ namespace minutechart.Controllers.Api
             // Fetch the invoice associated with this order
             var invoice = await _db.Invoices
                 .Include(i => i.Plan)
-                .FirstOrDefaultAsync(i => i.RazorpayOrderId == orderId && i.UserId == userId);
+                .FirstOrDefaultAsync(i => i.RazorpayOrderId == orderId && i.AppUserId == userId);
 
             if (invoice == null || string.IsNullOrEmpty(invoice.PdfPath))
                 return NotFound();

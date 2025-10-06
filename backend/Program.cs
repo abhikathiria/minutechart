@@ -54,7 +54,7 @@ namespace minutechart
 
             builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
             {
-                options.TokenLifespan = TimeSpan.FromMinutes(5);
+                options.TokenLifespan = TimeSpan.FromMinutes(2);
             });
 
             builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
@@ -76,7 +76,7 @@ namespace minutechart
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("http://192.168.1.107:3000", "https://minutechart.vercel.app")
+                    policy.WithOrigins("http://192.168.1.104:3000", "https://minutechart.vercel.app")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();

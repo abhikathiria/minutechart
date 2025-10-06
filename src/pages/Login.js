@@ -43,7 +43,7 @@ export default function Login({ onLogin }) {
     } catch (err) {
       const errorData = err.response?.data;
       if (errorData?.message) {
-        if (errorData.message.includes("Invalid")) setMessage("❌ Incorrect email or password.");
+        if (errorData.message.includes("Invalid")) setMessage("❌ Incorrect password.");
         else if (errorData.message.includes("pending")) setMessage("⚠️ Your account is pending admin approval.");
         else setMessage(errorData.message);
       } else {

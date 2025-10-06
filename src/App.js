@@ -209,50 +209,54 @@ function AppContent() {
                 )}
               </div>
             ) : (
-              <div className="relative">
-                <button
-                  ref={dashboardButtonRef}
-                  onClick={() => setDashboardOpen(!dashboardOpen)}
-                  className="flex items-center gap-1 hover:text-cyan-400"
-                >
-                  Dashboard <FaChevronDown className="text-sm" />
-                </button>
-                {dashboardOpen && (
-                  <div
-                    ref={dropdownRef}
-                    className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
-                  >
-                    <Link
-                      to="/dashboard"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setDashboardOpen(false)}
-                    >
-                      Test Dashboard
-                    </Link>
-                    <Link
-                      to="/analysis"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setDashboardOpen(false)}
-                    >
-                      Analysis Dashboard
-                    </Link>
-                    <Link
-                      to="/product"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setDashboardOpen(false)}
-                    >
-                      Product Dashboard
-                    </Link>
-                    <Link
-                      to="/hr"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setDashboardOpen(false)}
-                    >
-                      HR Dashboard
-                    </Link>
-                  </div>
-                )}
-              </div>
+            //   <div className="relative">
+            //     <button
+            //       ref={dashboardButtonRef}
+            //       onClick={() => setDashboardOpen(!dashboardOpen)}
+            //       className="flex items-center gap-1 hover:text-cyan-400"
+            //     >
+            //       Dashboard <FaChevronDown className="text-sm" />
+            //     </button>
+            //     {dashboardOpen && (
+            //       <div
+            //         ref={dropdownRef}
+            //         className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
+            //       >
+            //         <Link
+            //           to="/dashboard"
+            //           className="block px-4 py-2 hover:bg-gray-100"
+            //           onClick={() => setDashboardOpen(false)}
+            //         >
+            //           Test Dashboard
+            //         </Link>
+            //         <Link
+            //           to="/analysis"
+            //           className="block px-4 py-2 hover:bg-gray-100"
+            //           onClick={() => setDashboardOpen(false)}
+            //         >
+            //           Analysis Dashboard
+            //         </Link>
+            //         <Link
+            //           to="/product"
+            //           className="block px-4 py-2 hover:bg-gray-100"
+            //           onClick={() => setDashboardOpen(false)}
+            //         >
+            //           Product Dashboard
+            //         </Link>
+            //         <Link
+            //           to="/hr"
+            //           className="block px-4 py-2 hover:bg-gray-100"
+            //           onClick={() => setDashboardOpen(false)}
+            //         >
+            //           HR Dashboard
+            //         </Link>
+            //       </div>
+            //     )}
+            //   </div>
+            // )}
+            <Link to="/dashboard" className="hover:text-cyan-400">
+                Dashboard
+              </Link>
             )}
             <Link
               to="/subscription/buy"
@@ -300,15 +304,37 @@ function AppContent() {
                 <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center gap-2 hover:text-cyan-400"
+                    className="flex items-center gap-3 hover:text-cyan-400"
                   >
-                    <FaUserCircle className="text-3xl" />
+                    {/* Identity Text */}
+                    <div className="flex flex-col items-end text-right leading-tight">
+                      <span className="font-semibold text-sm">
+                        {user.companyName || user.customerName || "User"}
+                      </span>
+                      <span className="text-xs text-gray-400 truncate max-w-[140px]">
+                        {user.email}
+                      </span>
+                    </div>
+
+                    {/* Optional icon (keeps UI neat) */}
                     <FaChevronDown className="text-sm" />
                   </button>
+
                   {profileOpen && (
-                    <div className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50">
+                    <div className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-56 z-50">
+                      {/* <div className="block w-full text-left px-4 py-2 border-b">
+                        <span className="block text-base font-bold">
+                          {user.companyName || user.customerName || "User"}
+                        </span>
+                        {user.email && (
+                          <span className="block text-sm text-gray-500 truncate">
+                            {user.email}
+                          </span>
+                        )}
+                      </div> */}
+
                       <Link
-                        to={`/my-profile`}
+                        to="/my-profile"
                         className="block px-4 py-2 hover:bg-gray-100"
                         onClick={() => setProfileOpen(false)}
                       >

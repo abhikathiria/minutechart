@@ -29,6 +29,7 @@ namespace minutechart.Models
         public string IFSC { get; set; } = string.Empty;
 
         // ---------------- Amount / Tax ----------------
+        public decimal IgstPercent { get; set; } = 18m;
         public decimal CgstPercent { get; set; } = 9m;
         public decimal SgstPercent { get; set; } = 9m;
 

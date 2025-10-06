@@ -335,9 +335,6 @@ namespace Backend.Migrations
                     b.Property<DateTime?>("SubscriptionEndDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("SubscriptionPlan")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime?>("SubscriptionStartDate")
                         .HasColumnType("datetime2");
 
@@ -466,6 +463,9 @@ namespace Backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal>("IgstPercent")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("OtherDetails")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -590,6 +590,10 @@ namespace Backend.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -622,10 +626,6 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 

@@ -30,7 +30,7 @@ namespace minutechart.Services
             if (companySettings == null)
                 throw new Exception("Company invoice settings not configured.");
 
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == invoice.UserId);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == invoice.AppUserId);
             if (user == null)
                 throw new Exception("User not found for invoice.");
 

@@ -5,7 +5,7 @@ namespace minutechart.Models
     public class Invoice
     {
         public int Id { get; set; }
-        public string UserId { get; set; }
+        public string AppUserId { get; set; }
         public int PlanId { get; set; }
         public SubscriptionPlan Plan { get; set; }
         public string RazorpayOrderId { get; set; }

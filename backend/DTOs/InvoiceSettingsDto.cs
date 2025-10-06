@@ -26,6 +26,7 @@ namespace minutechart.DTOs
         public string IFSC { get; set; } = string.Empty;
 
         // Tax Info
+        public decimal IgstPercent { get; set; }
         public decimal CgstPercent { get; set; }
         public decimal SgstPercent { get; set; }
         public string TermsAndConditions { get; set; }

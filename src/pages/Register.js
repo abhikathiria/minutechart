@@ -1,5 +1,5 @@
 // src/pages/Register.js
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
 import { Building2, User, Phone, Mail, Lock, Eye, EyeOff, UserPlus } from "lucide-react";
@@ -13,13 +13,33 @@ export default function Register() {
     Password: "",
     ConfirmPassword: "",
   });
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [resendMessage, setResendMessage] = useState("");
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const[isUnconfirmed, setIsUnConfirmed] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  // ⏳ cooldown countdown
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+
+    // ❌ if user edits fields after registration, hide resend section
+    if (registrationComplete) {
+      setRegistrationComplete(false);
+      setResendMessage("");
+      setCooldown(0);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,20 +51,68 @@ export default function Register() {
       return;
     }
 
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(formData.PhoneNumber)) {
+      setMessage("❌ Invalid phone number.");
+      return;
+    }
+
     try {
-      await api.post("/account/register", formData);
-      setMessage("✅ Registration successful! Confirm your email and wait for admin approval.");
-      setRegistrationComplete(true);
+      const response = await api.post("/account/register", formData);
+
+      // Check if the server says this email is already registered but unconfirmed
+      if (response.data.message?.includes("didn’t confirm your email")) {
+        // setMessage("⚠️ You already registered but didn’t confirm your email.");
+        setIsUnConfirmed(true);
+        setRegistrationComplete(false);
+        setCooldown(120);
+      } else {
+        setIsUnConfirmed(false);
+        setRegistrationComplete(true);
+        setCooldown(120);
+      }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "An error occurred.";
-      setMessage("❌ " + errorMsg);
+      const data = err.response?.data;
+      const errorMessages = [];
+
+      if (!data) {
+        setMessage("❌ An error occurred.");
+        return;
+      }
+
+      if (typeof data === "string") {
+        errorMessages.push("❌ " + data);
+      } else if (data.message) {
+        errorMessages.push("❌ " + data.message);
+      } else if (Array.isArray(data.errors)) {
+        data.errors
+          .filter(errObj => errObj.code !== "DuplicateUserName")
+          .forEach(errObj => {
+            errorMessages.push("❌ " + (errObj.description || JSON.stringify(errObj)));
+          });
+      } else if (data.errors && typeof data.errors === "object") {
+        for (const key in data.errors) {
+          if (["email", "password", "phonenumber"].includes(key.toLowerCase())) {
+            data.errors[key].forEach(msg => {
+              if (typeof msg === "object" && msg !== null) msg = msg.description || JSON.stringify(msg);
+              errorMessages.push("❌ " + msg);
+            });
+          }
+        }
+      } else if (data.error) {
+        errorMessages.push("❌ " + data.error);
+      }
+
+      setMessage(errorMessages.join("\n"));
     }
   };
 
   const handleResendConfirmation = async () => {
+    setResendMessage("");
     try {
       await api.post("/account/resend-confirmation", { email: formData.Email });
       setResendMessage("✅ A new confirmation email has been sent.");
+      setCooldown(120);
     } catch {
       setResendMessage("❌ Could not resend confirmation.");
     }
@@ -155,18 +223,38 @@ export default function Register() {
           </button>
         </form>
 
-        {message && <p className="mt-4 text-center text-sm text-gray-600">{message}</p>}
+        {message && <p className="mt-4 text-center text-sm text-red-600">{message}</p>}
 
-        {registrationComplete && (
+        {registrationComplete && !isUnconfirmed && (
+          <p className="text-sm text-gray-600">
+            ✅ Registration successful! Confirm your email and wait for admin approval.
+          </p>
+        )}
+
+        {isUnconfirmed && (
           <div className="mt-4 text-center space-y-2">
+            <p className="text-sm text-gray-600">
+              ⚠️ You already registered but didn’t confirm your email. A new confirmation link has been sent to your email.
+            </p>
+
             <p className="text-sm text-gray-600">Didn’t get the email?</p>
-            <button
-              onClick={handleResendConfirmation}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
-            >
-              Resend Confirmation Email
-            </button>
-            {resendMessage && <p className="text-sm text-gray-600">{resendMessage}</p>}
+
+            {cooldown > 0 ? (
+              <p className="text-sm font-medium text-gray-700">
+                You can resend in {cooldown}s
+              </p>
+            ) : (
+              <button
+                onClick={handleResendConfirmation}
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:opacity-90 transition"
+              >
+                Resend Confirmation Email
+              </button>
+            )}
+
+            {resendMessage && (
+              <p className="text-sm text-green-600">{resendMessage}</p>
+            )}
           </div>
         )}
 

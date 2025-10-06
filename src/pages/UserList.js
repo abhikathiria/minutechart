@@ -184,8 +184,8 @@ function UserList() {
                                     <td className="p-3 border-r border-gray-500 font-medium text-gray-900">
                                         {user.companyName}
                                     </td>
-                                    <td className="p-3 border-r border-gray-500">{user.customerName}</td>
-                                    <td className="p-3 border-r border-gray-500">{user.phoneNumber}</td>
+                                    <td className="p-3 border-r border-gray-500 whitespace-nowrap">{user.customerName}</td>
+                                    <td className="p-3 border-r border-gray-500 whitespace-nowrap">{user.phoneNumber}</td>
                                     <td className="p-3 border-r border-gray-500">{user.email}</td>
                                     <td className="p-3 border-r border-gray-500">
                                         <StatusBadge status={user.accountStatus} />

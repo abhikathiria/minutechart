@@ -61,7 +61,10 @@ export default function ModuleChart({ data, type }) {
                 {data.map((row, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     {keys.map((k) => (
-                      <td key={k} className="border px-3 py-2">
+                      <td
+                        key={k}
+                        className={`border px-3 py-2 ${!isNaN(Number(row[k])) ? "text-right" : ""}`}
+                      >
                         {row[k]}
                       </td>
                     ))}
@@ -166,6 +169,9 @@ export default function ModuleChart({ data, type }) {
                 activeIndex={activeIndex}
                 activeShape={renderActiveShape}
                 onClick={handleClick}
+                isAnimationActive={true}
+                animationDuration={400}
+                animationBegin={0}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -235,7 +241,7 @@ export default function ModuleChart({ data, type }) {
                       return (
                         <td
                           key={j}
-                          className="border px-3 py-2 text-center font-semibold"
+                          className="border px-3 py-2 font-semibold text-right"
                           style={{ backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)` }}
                         >
                           {value.toLocaleString()}

@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [queries, setQueries] = useState([]);
   const [results, setResults] = useState({});
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [countdown, setCountdown] = useState("");
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -40,6 +41,7 @@ export default function Dashboard() {
 
   // Calculate total subscription days remaining
   let totalDaysRemaining = 0;
+  let subscriptionEnd = null;
 
   if (subscriptionStatus?.activePlans?.length > 0) {
     const now = new Date();
@@ -49,6 +51,7 @@ export default function Dashboard() {
 
       // Only count if subscription is currently active
       if (start <= now && end >= now) {
+        subscriptionEnd = end;
         const remaining = Math.max(Math.ceil((end - now) / (1000 * 60 * 60 * 24)), 0);
         return sum + remaining;
       }
@@ -58,12 +61,51 @@ export default function Dashboard() {
   }
 
   let trialDaysRemaining = 0;
+  let trialEnd = null;
 
   if (subscriptionStatus?.isTrialActive && subscriptionStatus?.trialEnd) {
     const now = new Date();
-    const trialEnd = new Date(subscriptionStatus.trialEnd);
+    trialEnd = new Date(subscriptionStatus.trialEnd);
     trialDaysRemaining = Math.max(Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24)), 0);
   }
+
+  useEffect(() => {
+    let timer;
+    const target = subscriptionEnd || trialEnd;
+
+    if (
+      target &&
+      ((totalDaysRemaining === 1 && !trialEnd) ||
+        (trialDaysRemaining === 1 && trialEnd))
+    ) {
+      const updateCountdown = () => {
+        const now = new Date();
+        const diff = target - now;
+
+        if (diff <= 0) {
+          setCountdown("Expired");
+          clearInterval(timer);
+          return;
+        }
+
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((diff / (1000 * 60)) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+
+        setCountdown(
+          `${hours.toString().padStart(2, "0")}:${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        );
+      };
+
+      updateCountdown();
+      timer = setInterval(updateCountdown, 1000);
+    }
+
+    return () => clearInterval(timer);
+  }, [totalDaysRemaining, trialDaysRemaining, subscriptionEnd, trialEnd]);
+
 
   const now = new Date();
   const subscriptionStart = subscriptionStatus?.subscriptionStart
@@ -167,7 +209,10 @@ export default function Dashboard() {
               <span className="text-3xl">📅</span>
               <div>
                 <div className="text-lg font-semibold">
-                  {totalDaysRemaining} day{totalDaysRemaining > 1 ? "s" : ""} left
+                  {totalDaysRemaining === 1 && countdown
+                    ? `Time left: ${countdown}`
+                    : `${totalDaysRemaining} day${totalDaysRemaining > 1 ? "s" : ""
+                    } left`}
                 </div>
                 <div className="text-sm opacity-90">
                   Keep exploring your dashboards and modules!
@@ -189,7 +234,10 @@ export default function Dashboard() {
               <span className="text-3xl">🎁</span>
               <div>
                 <div className="text-lg font-semibold">
-                  {trialDaysRemaining} day{trialDaysRemaining > 1 ? "s" : ""} left in trial
+                  {trialDaysRemaining === 1 && countdown
+                    ? `Time left: ${countdown}`
+                    : `${trialDaysRemaining} day${trialDaysRemaining > 1 ? "s" : ""
+                    } left in trial`}
                 </div>
                 <div className="text-sm opacity-90">
                   Enjoy full access during your trial period!

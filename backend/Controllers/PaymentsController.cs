@@ -82,7 +82,7 @@ namespace minutechart.Controllers.Api
                 return BadRequest(new { message = "Invalid plan." });
 
             var now = DateTimeHelper.GetIndianTime();
-            user.SubscriptionPlan = plan.Name;
+            // user.SubscriptionPlan = plan.Name;
             user.SubscriptionStartDate = now;
             user.SubscriptionEndDate = now.AddDays(plan.DurationDays);
 
