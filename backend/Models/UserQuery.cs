@@ -10,5 +10,6 @@ namespace minutechart.Models
         public DateTime UserQueryCreatedAtTime { get; set; }
         public DateTime UserQueryLastUpdated { get; set; }
         public string UserIpAddress { get; set; }
+        public bool HideQuery { get; set; }
     }
 }

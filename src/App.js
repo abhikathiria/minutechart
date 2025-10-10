@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
-import { FaUserCircle, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield } from "react-icons/fa";
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
+import { FaUserCircle, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe } from "react-icons/fa";
 import ProductDashboard from "./pages/ProductDashboard";
 import HRDashboard from "./pages/HRDashboard";
 import AnalysisDashboard from "./pages/AnalysisDashboard";
@@ -16,8 +16,9 @@ import api from "./api";
 import ChangePassword from "./pages/ChangePassword";
 import ResetPassword from "./pages/ResetPassword";
 import UserModules from "./pages/UserModules";
+import TransferModules from "./pages/TransferModules";
 import PlanPage from "./pages/PlanPage";
-import RenewPage from "./pages/RenewPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
 import PurchaseHistory from "./pages/PurchaseHistory";
 import InvoicePrintable from "./pages/InvoicePrintable";
 import EmailSettings from "./pages/EmailSettings";
@@ -55,14 +56,15 @@ function Footer() {
               <Link to="/admin/users" className="hover:text-cyan-400">User Settings</Link>
               <Link to="/admin/emailsettings" className="hover:text-cyan-400">Email Settings</Link>
               <Link to="/admin/invoicesettings" className="hover:text-cyan-400">Invoice Settings</Link>
-              <Link to="/contact" className="hover:text-cyan-400">Contact Us</Link>
+              <Link to="/information" className="hover:text-cyan-400">Information</Link>
+              <Link to="/subscription/buy" className="hover:text-cyan-400">Plans</Link>
             </>
           ) : (
             <>
               <Link to="/" className="hover:text-cyan-400">Home</Link>
-              <Link to="/product" className="hover:text-cyan-400">Product Dashboard</Link>
-              <Link to="/hr" className="hover:text-cyan-400">HR Dashboard</Link>
-              <Link to="/contact" className="hover:text-cyan-400">Contact Us</Link>
+              <Link to="/dashboard" className="hover:text-cyan-400">Dashboard</Link>
+              <Link to="/information" className="hover:text-cyan-400">Information</Link>
+              <Link to="/subscription/buy" className="hover:text-cyan-400">Plans</Link>
             </>
           )}
         </div>
@@ -76,11 +78,14 @@ function Footer() {
             Phone: <a href="tel:+1234567890" className="hover:text-cyan-400">+91-261-2979903</a>
           </p>
           <div className="flex justify-center md:justify-start space-x-5 mt-4 text-gray-400">
-            <a href="https://twitter.com/nchart" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="Twitter">
-              <FaTwitter className="h-6 w-6" />
+            <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="Website">
+              <FaGlobe className="h-6 w-6" />
             </a>
-            <a href="https://linkedin.com/company/nchart" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="LinkedIn">
+            <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="LinkedIn">
               <FaLinkedin className="h-6 w-6" />
+            </a>
+            <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Nchart" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="WhatsApp">
+              <FaWhatsapp className="h-6 w-6" />
             </a>
           </div>
         </div>
@@ -101,6 +106,19 @@ function AppContent() {
   const adminSettingsRef = useRef(null);
   const adminSettingsButtonRef = useRef(null);
   const dashboardButtonRef = useRef(null);
+
+  const PublicRoute = ({ children }) => children;
+
+  const PrivateRoute = ({ children }) => {
+    if (!user) return <Navigate to="/login" replace />;
+    return children;
+  };
+
+  const AdminRoute = ({ children }) => {
+    if (!user) return <Navigate to="/login" replace />;
+    if (!user.roles?.includes("Admin")) return <Navigate to="/" replace />;
+    return children;
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -209,52 +227,7 @@ function AppContent() {
                 )}
               </div>
             ) : (
-            //   <div className="relative">
-            //     <button
-            //       ref={dashboardButtonRef}
-            //       onClick={() => setDashboardOpen(!dashboardOpen)}
-            //       className="flex items-center gap-1 hover:text-cyan-400"
-            //     >
-            //       Dashboard <FaChevronDown className="text-sm" />
-            //     </button>
-            //     {dashboardOpen && (
-            //       <div
-            //         ref={dropdownRef}
-            //         className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
-            //       >
-            //         <Link
-            //           to="/dashboard"
-            //           className="block px-4 py-2 hover:bg-gray-100"
-            //           onClick={() => setDashboardOpen(false)}
-            //         >
-            //           Test Dashboard
-            //         </Link>
-            //         <Link
-            //           to="/analysis"
-            //           className="block px-4 py-2 hover:bg-gray-100"
-            //           onClick={() => setDashboardOpen(false)}
-            //         >
-            //           Analysis Dashboard
-            //         </Link>
-            //         <Link
-            //           to="/product"
-            //           className="block px-4 py-2 hover:bg-gray-100"
-            //           onClick={() => setDashboardOpen(false)}
-            //         >
-            //           Product Dashboard
-            //         </Link>
-            //         <Link
-            //           to="/hr"
-            //           className="block px-4 py-2 hover:bg-gray-100"
-            //           onClick={() => setDashboardOpen(false)}
-            //         >
-            //           HR Dashboard
-            //         </Link>
-            //       </div>
-            //     )}
-            //   </div>
-            // )}
-            <Link to="/dashboard" className="hover:text-cyan-400">
+              <Link to="/dashboard" className="hover:text-cyan-400">
                 Dashboard
               </Link>
             )}
@@ -383,28 +356,31 @@ function AppContent() {
       </header>
 
       <Routes>
-        <Route path="/" element={<HomeContent />} />
-        <Route path="/login" element={<Login onLogin={setUser} />} />
-        <Route path="/register" element={<Register onRegister={setUser} />} />
-        <Route path="/profile/:id" element={<Profile />} />
-        <Route path="/my-profile" element={<MyProfile />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/product" element={<ProductDashboard />} />
-        <Route path="/analysis" element={<AnalysisDashboard />} />
-        <Route path="/hr" element={<HRDashboard />} />
-        <Route path="/admin/users" element={<UserList />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/change-password" element={<ChangePassword />} />
-        <Route path="/user/:id/modules" element={<UserModules />} />
-        <Route path="/plan" element={<PlanPage />} />
-        <Route path="/subscription/buy" element={<RenewPage />} />
-        <Route path="/purchase-history" element={<PurchaseHistory />} />
-        <Route path="/invoice-printable/:invoiceId" element={<InvoicePrintable noLayout />} />
-        <Route path="/admin/emailsettings" element={<EmailSettings />} />
-        <Route path="/admin/invoicesettings" element={<InvoiceSettingsPage />} />
-        <Route path="/information" element={<Information />} />
+        {/* Public routes */}
+        <Route path="/" element={<PublicRoute><HomeContent /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login onLogin={setUser} /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register onRegister={setUser} /></PublicRoute>} />
+        <Route path="/dashboard" element={<PublicRoute><Dashboard /></PublicRoute>} />
+        <Route path="/plan" element={<PublicRoute><PlanPage /></PublicRoute>} />
+        <Route path="/subscription/buy" element={<PublicRoute><SubscriptionPage /></PublicRoute>} />
+        <Route path="/information" element={<PublicRoute><Information /></PublicRoute>} />
 
+        {/* Admin routes */}
+        <Route path="/profile/:id" element={<AdminRoute><Profile /></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><UserList /></AdminRoute>} />
+        <Route path="/user/:id/modules" element={<AdminRoute><UserModules /></AdminRoute>} />
+        <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
+        <Route path="/admin/emailsettings" element={<AdminRoute><EmailSettings /></AdminRoute>} />
+        <Route path="/admin/invoicesettings" element={<AdminRoute><InvoiceSettingsPage /></AdminRoute>} />
 
+        {/* Private routes (logged-in users) */}
+        <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
+        <Route path="/purchase-history" element={<PrivateRoute><PurchaseHistory /></PrivateRoute>} />
+        <Route path="/reset-password" element={<PrivateRoute><ResetPassword /></PrivateRoute>} />
+        <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <Footer />

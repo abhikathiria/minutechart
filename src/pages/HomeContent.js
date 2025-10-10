@@ -11,33 +11,42 @@ import {
     FaChartBar,
     FaCreditCard,
 } from "react-icons/fa";
+import { toast } from "react-hot-toast";
+import { CheckCircle2, Lock, XCircle } from "lucide-react";
 
 function HomeContent() {
     const [plans, setPlans] = useState([]);
     const [subscriptionStatus, setSubscriptionStatus] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [verifying, setVerifying] = useState(false);
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user"));
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [plansRes, subRes] = await Promise.all([
-                    api.get("/dashboard/plan-details"),
-                    api.get("/user/subscription-status"),
-                ]);
-
+                // ✅ Always fetch plans
+                const plansRes = await api.get("/dashboard/plan-details");
                 const sortedPlans = plansRes.data.sort(
                     (a, b) => a.durationDays - b.durationDays
                 );
                 setPlans(sortedPlans);
 
-                setSubscriptionStatus(subRes.data);
+                // ✅ Try fetching subscription status only if user is logged in
+                try {
+                    const subRes = await api.get("/user/subscription-status");
+                    setSubscriptionStatus(subRes.data);
+                } catch (statusErr) {
+                    console.warn("No subscription status (probably not logged in)", statusErr);
+                    setSubscriptionStatus(null);
+                }
             } catch (err) {
-                console.error("Failed to fetch plans or subscription status", err);
+                console.error("Failed to fetch plans", err);
             } finally {
                 setIsLoading(false);
             }
         };
+
         fetchData();
     }, []);
 
@@ -63,48 +72,110 @@ function HomeContent() {
         });
     };
 
+    const showSuccessToast = () => {
+        toast.custom(
+            (t) => (
+                <div
+                    className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 border-green-500`}
+                >
+                    <div className="flex-1 w-0 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0 pt-0.5">
+                                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                            </div>
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-black">
+                                    Payment Verified Successfully
+                                </p>
+                                <p className="mt-1 text-sm text-black">
+                                    Your subscription is now active. An invoice has been emailed and
+                                    is also available in your Purchase History.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ),
+            { duration: 8000 }
+        );
+    };
+
+    const showErrorToast = () => {
+        toast.custom(
+            (t) => (
+                <div
+                    className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 border-red-500`}
+                >
+                    <div className="flex-1 w-0 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0 pt-0.5">
+                                <XCircle className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-black">
+                                    Payment Verification Failed
+                                </p>
+                                <p className="mt-1 text-sm text-black">
+                                    We couldn’t verify your payment. Please try again or contact
+                                    support.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ),
+            { duration: 8000 }
+        );
+    };
+
     const handleChoose = async (plan) => {
+        if (!user) {
+            toast.error("⚠️ Please log in to subscribe to a plan.");
+            navigate("/login", { state: { from: "/subscription/buy" } });
+            return;
+        }
+
         try {
-            const createResp = await api.post("/subscription/create-order", {
-                planId: plan.id,
-            });
+            const createResp = await api.post("/subscription/create-order", { planId: plan.id });
             const { orderId, amount, currency, key } = createResp.data;
 
             const loaded = await loadRazorpayScript();
             if (!loaded) {
-                alert("Failed to load payment SDK");
+                toast.error("Failed to load payment SDK");
                 return;
             }
 
             const options = {
-                key: key,
+                key,
                 amount,
                 currency,
                 name: "minutechart",
                 description: `${plan.name} plan`,
                 order_id: orderId,
-                handler: async function (response) {
+                handler: async (response) => {
+                    setVerifying(true);
                     try {
                         await api.post("/subscription/verify", {
                             orderId: response.razorpay_order_id,
                             paymentId: response.razorpay_payment_id,
                             signature: response.razorpay_signature,
                         });
-                        alert("✅ Payment successful — subscription activated.");
-                        navigate("/dashboard");
+
+                        showSuccessToast();
+                        setTimeout(() => setVerifying(false), 500);
                     } catch (verifyErr) {
                         console.error("Verification failed", verifyErr);
-                        alert("⚠️ Payment verification failed. Contact support.");
+                        showErrorToast();
+                        setTimeout(() => setVerifying(false), 500);
                     }
                 },
                 theme: { color: "#6d28d9" },
             };
 
-            const rzp = new window.Razorpay(options);
-            rzp.open();
+            new window.Razorpay(options).open();
         } catch (err) {
             console.error("Error in handleChoose", err);
-            alert("Failed to start payment");
+            toast.error("Failed to start payment");
         }
     };
 
@@ -177,7 +248,7 @@ function HomeContent() {
 
                     <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                         <Link className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg shadow transition w-full sm:w-auto"
-                        to="/information">
+                            to="/information">
                             More Info
                         </Link>
                         <Link

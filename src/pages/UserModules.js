@@ -14,6 +14,17 @@ export default function UserModules() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [copied, setCopied] = useState(false);
     const [copiedQuery, setCopiedQuery] = useState(false);
+    const [users, setUsers] = useState([]);
+    const [targetUser, setTargetUser] = useState("");
+    const [showUserList, setShowUserList] = useState(false);
+    const [duplicates, setDuplicates] = useState([]);
+    const [selectedModules, setSelectedModules] = useState([]);
+    const [currentUserId, setCurrentUserId] = useState(id);
+
+    useEffect(() => {
+        setCurrentUserId(id);
+        loadUserAndModules();
+    }, [id]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(formData.sqlQuery);
@@ -26,7 +37,7 @@ export default function UserModules() {
         setCopiedQuery(true);
         setTimeout(() => setCopiedQuery(false), 2000);
     };
-    
+
     const [messages, setMessages] = useState({ type: "", text: "", visible: false });
     const [moduleToDelete, setModuleToDelete] = useState(null);
     const [formError, setFormError] = useState("");
@@ -52,6 +63,21 @@ export default function UserModules() {
         }, 3000);
     };
 
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "N/A";
+        const date = new Date(dateStr);
+
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const seconds = String(date.getSeconds()).padStart(2, "0");
+
+        return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    };
+
     const loadUserAndModules = async () => {
         try {
             const modulesRes = await api.get(`/admin/user/${id}/queries`);
@@ -60,10 +86,16 @@ export default function UserModules() {
                 title: m.userTitle || "Untitled Module",
                 sqlQuery: m.userQueryText || "",
                 visualizationType: m.visualizationType || "table",
+                createdAt: m.userQueryCreatedAtTime,
+                updatedAt: m.userQueryLastUpdated,
+                hideQuery: m.hideQuery || false,
             }));
             setModules(normalizedModules);
 
             const userRes = await api.get(`/admin/users`);
+            const activeUsers = (userRes.data || []).filter((u) => u.accountStatus === "Active");
+            setUsers(activeUsers);
+
             const user = (userRes.data || []).find((u) => u.id === id);
             if (user) {
                 setCompanyName(user.companyName || "Unknown Company");
@@ -203,6 +235,58 @@ export default function UserModules() {
         setFormSuccess("");
     };
 
+    const handleTransferCheck = async () => {
+        const res = await api.post("/admin/transfer-modules", {
+            sourceUserId: currentUserId,
+            targetUserId: targetUser,
+            moduleIds: selectedModules,
+            action: "check"
+        });
+
+        if (res.data.duplicates?.length) {
+            setDuplicates(res.data.duplicates);
+        } else {
+            alert("Modules transferred successfully!");
+            setShowUserList(false);
+        }
+    };
+
+    const handleDuplicateAction = async (action) => {
+        const res = await api.post("/admin/transfer-modules", {
+            sourceUserId: currentUserId,
+            targetUserId: targetUser,
+            moduleIds: selectedModules,
+            action
+        });
+
+        alert(res.data.message);
+        setDuplicates([]);
+        setShowUserList(false);
+    };
+
+    const toggleHideModule = async (module) => {
+        try {
+            const res = await api.post(`/admin/hide-query/${module.id}`, {
+                HideQuery: !module.hideQuery,
+            });
+            if (res.data?.success) {
+                showMessages(
+                    "success",
+                    module.hideQuery
+                        ? `Module "${module.title}" is now visible.`
+                        : `Module "${module.title}" is now hidden.`
+                );
+                loadUserAndModules();
+            } else {
+                showMessages("error", res.data?.message || "Failed to update visibility");
+            }
+        } catch (err) {
+            console.error(err);
+            showMessages("error", err.response?.data?.message || "Failed to toggle visibility");
+        }
+    };
+
+
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-r from-indigo-50 to-blue-100">
             {/* Header */}
@@ -213,6 +297,7 @@ export default function UserModules() {
                 </div>
                 <Link
                     to="/admin/users"
+                    state={{ keepFilters: true }}
                     className="px-4 py-2 bg-white text-indigo-700 rounded-lg font-semibold hover:bg-gray-100 flex items-center justify-center"
                 >
                     ⬅ Back to Users
@@ -234,14 +319,46 @@ export default function UserModules() {
             <div className="flex flex-1 flex-col lg:flex-row">
                 {/* Sidebar */}
                 <aside className="w-full lg:w-96 bg-white shadow-xl p-6 border-r flex flex-col">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg sm:text-xl font-bold">Module List</h2>
-                        <button
-                            onClick={handleAddNew}
-                            className="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                        >
-                            ＋ Add
-                        </button>
+                    <div className="flex flex-col gap-3 mb-4">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-lg sm:text-xl font-bold">Module List</h2>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleAddNew}
+                                    className="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                >
+                                    ＋ Add
+                                </button>
+                                <button
+                                    disabled={selectedModules.length === 0}
+                                    onClick={() => setShowUserList(true)}
+                                    className="px-4 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+                                >
+                                    Transfer
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ✅ Select All */}
+                        {modules.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedModules.length === modules.length}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedModules(modules.map((m) => m.id));
+                                        } else {
+                                            setSelectedModules([]);
+                                        }
+                                    }}
+                                    className="w-4 h-4 accent-indigo-600"
+                                />
+                                <label className="text-sm sm:text-base font-medium text-gray-700">
+                                    Select All Modules
+                                </label>
+                            </div>
+                        )}
                     </div>
 
                     {/* Scrollable list */}
@@ -252,37 +369,59 @@ export default function UserModules() {
                         {modules.map((m) => (
                             <li
                                 key={m.id}
-                                onClick={() => handleSelect(m)}
-                                className={`p-5 rounded-xl bg-gradient-to-r from-indigo-100 to-blue-100 shadow transition cursor-pointer ${selectedModule?.id === m.id ? "border-4 border-indigo-400" : ""
-                                    }`}
+                                className={`p-5 rounded-xl shadow transition ${selectedModules.includes(m.id)
+                                    ? "border-4 border-indigo-400"
+                                    : "cursor-pointer"
+                                    } ${m.hideQuery ? "opacity-50 grayscale" : "bg-gradient-to-r from-indigo-100 to-blue-100"}`}
                             >
-                                <div className="font-bold text-lg sm:text-xl text-gray-900">
-                                    {m.title || "Untitled Module"}
-                                </div>
-
-                                <div className="text-sm sm:text-base text-gray-800 mt-2">
-                                    Visualization:{" "}
-                                    <span className="font-semibold text-indigo-700">
-                                        {m.visualizationType.charAt(0).toUpperCase() +
-                                            m.visualizationType.slice(1)}
-                                    </span>
+                                <div className="flex justify-between items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedModules.includes(m.id)}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedModules([...selectedModules, m.id]);
+                                            } else {
+                                                setSelectedModules(selectedModules.filter((mid) => mid !== m.id));
+                                            }
+                                        }}
+                                        className="w-4 h-4 accent-indigo-600"
+                                    />
+                                    <div
+                                        onClick={() => handleSelect(m)}
+                                        className="flex-1 ml-3 cursor-pointer"
+                                    >
+                                        <div className="font-bold text-lg sm:text-xl text-gray-900">
+                                            {m.title || "Untitled Module"}
+                                        </div>
+                                        <div className="text-sm sm:text-base text-gray-800 mt-2">
+                                            Visualization:{" "}
+                                            <span className="font-semibold text-indigo-700">
+                                                {m.visualizationType.charAt(0).toUpperCase() +
+                                                    m.visualizationType.slice(1)}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div
                                     className="flex flex-wrap gap-3 mt-3 text-sm sm:text-md"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    {/* <button
-                                        onClick={() => handleExecute(m)}
-                                        className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-100 text-green-700 font-medium rounded-lg hover:bg-green-200"
-                                    >
-                                        ▶ Run
-                                    </button> */}
                                     <button
                                         onClick={() => handleEdit(m)}
                                         className="px-3 py-1.5 sm:px-4 sm:py-2 bg-yellow-100 text-yellow-700 font-medium rounded-lg hover:bg-yellow-200"
                                     >
                                         ✎ Edit
+                                    </button>
+                                    <button
+                                        onClick={() => toggleHideModule(m)}
+                                        className={`px-3 py-1.5 sm:px-4 sm:py-2 font-medium rounded-lg ${m.hideQuery
+                                            ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                            : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                                            }`}
+                                    >
+                                        {m.hideQuery ? "👁 Unhide" : "🙈 Hide"}
                                     </button>
                                     <button
                                         onClick={() => {
@@ -293,6 +432,16 @@ export default function UserModules() {
                                     >
                                         🗑 Delete
                                     </button>
+                                </div>
+                                <div className="mt-2 text-xs text-gray-600 space-y-1">
+                                    <div className="flex">
+                                        <span className="w-14 font-bold">Created:</span>
+                                        <span>{formatDate(m.createdAt)}</span>
+                                    </div>
+                                    <div className="flex">
+                                        <span className="w-14 font-bold">Updated:</span>
+                                        <span>{formatDate(m.updatedAt)}</span>
+                                    </div>
                                 </div>
                             </li>
                         ))}
@@ -492,6 +641,43 @@ export default function UserModules() {
                             >
                                 Yes, Delete
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showUserList && (
+                <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md">
+                        <h3 className="text-lg font-bold mb-4">Select Target User</h3>
+                        <select
+                            className="w-full border rounded-lg p-2 mb-4"
+                            value={targetUser}
+                            onChange={(e) => setTargetUser(e.target.value)}
+                        >
+                            <option value="">Select a user</option>
+                            {users.map((u) => (
+                                <option key={u.id} value={u.id}>{u.companyName}</option>
+                            ))}
+                        </select>
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setShowUserList(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                            <button onClick={handleTransferCheck} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Transfer</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {duplicates.length > 0 && (
+                <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-xl p-6 max-w-lg w-full">
+                        <h3 className="text-lg font-bold mb-4">Duplicate Modules Found</h3>
+                        <p className="text-gray-700 mb-3">These modules already exist in target user:</p>
+                        <ul className="mb-4 text-sm text-gray-600 list-disc list-inside">
+                            {duplicates.map((d) => <li key={d.userQueryId}>{d.userTitle}</li>)}
+                        </ul>
+                        <div className="flex justify-end gap-3 flex-wrap">
+                            <button onClick={() => handleDuplicateAction("cancel")} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                            <button onClick={() => handleDuplicateAction("ignore")} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Ignore Duplicates</button>
+                            <button onClick={() => handleDuplicateAction("replace")} className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">Replace Existing</button>
                         </div>
                     </div>
                 </div>

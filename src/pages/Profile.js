@@ -122,6 +122,7 @@ export default function Profile() {
         </div>
         <Link
           to="/admin/users"
+          state={{ keepFilters: true }}
           className="px-4 py-2 bg-white text-indigo-700 rounded-lg font-semibold hover:bg-gray-100 transition"
         >
           ⬅ Back to Users

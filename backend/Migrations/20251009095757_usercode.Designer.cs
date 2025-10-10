@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using minutechart.Data;
 
@@ -11,9 +12,11 @@ using minutechart.Data;
 namespace Backend.Migrations
 {
     [DbContext(typeof(MinutechartDbContext))]
-    partial class MinutechartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251009095757_usercode")]
+    partial class usercode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -987,9 +990,6 @@ namespace Backend.Migrations
                     b.Property<string>("AppUserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("HideQuery")
-                        .HasColumnType("bit");
 
                     b.Property<string>("UserIpAddress")
                         .IsRequired()

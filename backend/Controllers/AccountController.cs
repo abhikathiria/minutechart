@@ -59,7 +59,7 @@ namespace minutechart.Controllers.Api
                     var confirmationLink = Url.Action("ConfirmEmail", "Account",
                         new { userId = existingUser.Id, token = encodedToken }, Request.Scheme);
 
-                    var subject = "Minutechart Registration Confirmation";
+                    var subject = "Nchart Registration Confirmation";
                     var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
                     var htmlContent = $@"
                 <p>Hello {existingUser.CustomerName},</p>
@@ -109,7 +109,7 @@ namespace minutechart.Controllers.Api
             var confirmationLinkNew = Url.Action("ConfirmEmail", "Account",
                 new { userId = user.Id, token = encodedTokenNew }, Request.Scheme);
 
-            var subjectNew = "Minutechart Registration Confirmation";
+            var subjectNew = "Nchart - Email Confirmation";
             var plainTextNew = $"Please confirm your email by clicking this link: {confirmationLinkNew}";
 
             var htmlContentNew = $@"
@@ -118,25 +118,16 @@ namespace minutechart.Controllers.Api
                 <head>
                     <meta charset='UTF-8'>
                     <meta name='viewport' content='width=device-width, initial-scale=1'>
-                    <title>Confirm Your Email - Minutechart</title>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; background-color: white; margin: 0; padding: 0; }}
-                        .container {{ max-width: 600px; margin: 40px auto; background: #0f172a; padding: 30px; border-radius: 12px; text-align: center; }}
-                        .button:hover {{ background-color: #a30000; transform: scale(1.05); }}
-                        .tagline {{ font-size: 14px; background: linear-gradient(to right, #A855F7, #0000FF); margin-bottom: 20px; font-style: italic;
-                                -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
-                    </style>
+                    <title>Email Confirmation</title>
                 </head>
-                <body>
-                <div class='container'>
-                    <img src='https://i.ibb.co/rG1Ysrbw/minutechartlogo.png' alt='Minutechart' style='max-width: 220px;' />
-                    <div class='tagline'>Your Comfort, Our Commitment.</div>
-                    <h2 style='color:white;'>Welcome to Minutechart!</h2>
-                    <p style='color:white;'>Thanks for signing up. Please confirm your email by clicking below:</p>
-                    <a href='{confirmationLinkNew}' style='display:inline-block; background:#ffffff; color:#0f172a;
-                        padding:14px 28px; border-radius:6px; font-size:16px; font-weight:bold; text-decoration:none;'>Verify Email Address</a>
-                    <p style='color:#aaa; margin-top:20px;'>If you didn’t create an account, ignore this email.</p>
-                </div>
+                <body style='font-family: Arial, sans-serif; background-color: #ffffff; color: #000000;'>
+                    <p>Hello,</p>
+                    <p>Thank you for registering with Nchart.</p>
+                    <p>Please confirm your email by clicking the link below:</p>
+                    <p><a href='{confirmationLinkNew}' style='color: #1a73e8;'>Confirm Email</a></p>
+                    <p>If you did not create an account, you can safely ignore this email.</p>
+                    <br/>
+                    <p>— The Nchart Team</p>
                 </body>
                 </html>";
 
@@ -162,7 +153,7 @@ namespace minutechart.Controllers.Api
             if (user.EmailConfirmationTokenGeneratedAt.HasValue)
             {
                 var tokenIssuedAt = user.EmailConfirmationTokenGeneratedAt.Value;
-                var tokenLifetime = TimeSpan.FromHours(1); // ⏳ more realistic than 5 minutes
+                var tokenLifetime = TimeSpan.FromHours(1);
 
                 if ((DateTime.UtcNow - tokenIssuedAt) > tokenLifetime)
                 {
@@ -213,7 +204,7 @@ namespace minutechart.Controllers.Api
             var confirmationLink = Url.Action("ConfirmEmail", "Account",
                 new { userId = user.Id, token = encodedToken }, Request.Scheme);
 
-            var subject = "Minutechart Registration Confirmation";
+            var subject = "Nchart Registration Confirmation";
             var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
             var htmlContent = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
 
@@ -237,7 +228,7 @@ namespace minutechart.Controllers.Api
             var frontendUrl = _configuration["Frontend:ResetPasswordUrl"];
             var resetLink = $"{frontendUrl}?userId={user.Id}&token={Uri.EscapeDataString(token)}";
 
-            var subject = "Reset Your Password - Minutechart";
+            var subject = "Reset Your Password - Nchart";
             var plainText = $"You requested a password reset. Click this link to reset your password: {resetLink}";
 
             var htmlContent = $@"
@@ -246,11 +237,10 @@ namespace minutechart.Controllers.Api
                 <head>
                     <meta charset='UTF-8'>
                     <meta name='viewport' content='width=device-width, initial-scale=1'>
-                    <title>Reset Your Password - Minutechart</title>
+                    <title>Reset Your Password - Nchart</title>
                 </head>
                 <body>
                 <div style='max-width:600px;margin:40px auto;background:#0f172a;padding:30px;border-radius:12px;text-align:center;'>
-                    <img src='https://i.ibb.co/rG1Ysrbw/minutechartlogo.png' alt='Minutechart' style='max-width: 220px;' />
                     <h2 style='color:white;'>Reset Your Password!</h2>
                     <p style='color:white;'>Click below to reset your password:</p>
                     <a href='{resetLink}' style='display:inline-block;background:#ffffff;color:#0f172a;

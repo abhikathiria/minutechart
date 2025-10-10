@@ -44,9 +44,18 @@ namespace minutechart.Controllers
             if (user == null)
                 return NotFound(new { message = "User not found" });
 
-            // Get queries stored in main DB for this user
-            var queries = await _db.UserQueries
-                .Where(q => q.AppUserId == user.Id)
+            bool isAdmin = User.IsInRole("Admin");
+
+            var queriesQuery = _db.UserQueries
+                .Where(q => q.AppUserId == user.Id);
+
+            if (!isAdmin)
+            {
+                // Normal users → only show non-hidden queries
+                queriesQuery = queriesQuery.Where(q => !q.HideQuery);
+            }
+
+            var queries = await queriesQuery
                 .OrderByDescending(q => q.UserQueryLastUpdated)
                 .ToListAsync();
 
@@ -67,6 +76,31 @@ namespace minutechart.Controllers
 
             return Ok(new { success = true, message = "Module deleted successfully" });
         }
+
+        [HttpPost("hide-query/{id}")]
+        public async Task<IActionResult> ToggleHideQuery(int id, [FromBody] HideQueryDto request)
+        {
+            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == id);
+            if (query == null)
+                return NotFound(new { success = false, message = "Module not found" });
+
+            // ✅ Toggle the hidden flag
+            query.HideQuery = request.HideQuery;
+            var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
+
+            query.UserQueryLastUpdated = istTime;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                success = true,
+                message = request.HideQuery
+                    ? $"Module '{query.UserTitle}' hidden successfully."
+                    : $"Module '{query.UserTitle}' is now visible."
+            });
+        }
+
 
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers()
@@ -376,26 +410,26 @@ namespace minutechart.Controllers
 
         private async Task SendAccountActivationEmailAsync(string toEmail, string customerName, string companyName)
         {
-            var subject = "Your Minutechart Account Has Been Activated";
+            var subject = "Your Nchart Account Has Been Activated";
 
             var htmlContent = $@"
                 <p>Hi {customerName},</p>
-                <p>Your <strong>Minutechart</strong> account for {companyName} has been <strong>activated</strong> and is now ready to use!</p>
+                <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>activated</strong> and is now ready to use!</p>
                 <p>You can now log in and start exploring our services.</p>
                 <p>If you need help, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
-                <p>Warm regards,<br/>Minutechart Team</p>";
+                <p>Warm regards,<br/>Nchart Team</p>";
 
             var plainTextContent = $@"
 Hi {customerName},
 
-Your Minutechart account for {companyName} has been activated and is ready to use!
+Your Nchart account for {companyName} has been activated and is ready to use!
 
 You can now log in and start exploring our services.
 
 For help, contact support@minutechart.com.
 
 Warm regards,
-Minutechart Team";
+Nchart Team";
 
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
@@ -421,19 +455,19 @@ Minutechart Team";
 
         private async Task SendAccountDeactivationEmailAsync(string toEmail, string customerName, string companyName)
         {
-            var subject = "Your Minutechart Account Has Been Blocked";
+            var subject = "Your Nchart Account Has Been Blocked";
 
             var htmlContent = $@"
                 <p>Hi {customerName},</p>
-                <p>Your <strong>Minutechart</strong> account for {companyName} has been <strong>blocked</strong>.</p>
+                <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>blocked</strong>.</p>
                 <p>Possible reasons include overdue payments, terms violations, or compliance checks.</p>
                 <p>If you think this is a mistake, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
-                <p>Warm regards,<br/>Minutechart Team</p>";
+                <p>Warm regards,<br/>Nchart Team</p>";
 
             var plainTextContent = $@"
 Hi {customerName},
 
-Your Minutechart account for {companyName} has been blocked.
+Your Nchart account for {companyName} has been blocked.
 
 Possible reasons:
 - Overdue payments
@@ -443,7 +477,7 @@ Possible reasons:
 If this is a mistake, please contact support@minutechart.com.
 
 Warm regards,
-Minutechart Team";
+Nchart Team";
 
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
@@ -469,26 +503,26 @@ Minutechart Team";
 
         private async Task SendAccountReactivationEmailAsync(string toEmail, string customerName, string companyName)
         {
-            var subject = "Your Minutechart Account Has Been Reactivated";
+            var subject = "Your Nchart Account Has Been Reactivated";
 
             var htmlContent = $@"
                 <p>Hi {customerName},</p>
-                <p>Your <strong>Minutechart</strong> account for {companyName} has been <strong>reactivated</strong> and is accessible again.</p>
+                <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>reactivated</strong> and is accessible again.</p>
                 <p>You can log in and continue using our services.</p>
                 <p>For help, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
-                <p>Warm regards,<br/>Minutechart Team</p>";
+                <p>Warm regards,<br/>Nchart Team</p>";
 
             var plainTextContent = $@"
 Hi {customerName},
 
-Your Minutechart account for {companyName} has been reactivated and is accessible again.
+Your Nchart account for {companyName} has been reactivated and is accessible again.
 
 You can log in and continue using our services.
 
 For help, contact support@minutechart.com.
 
 Warm regards,
-Minutechart Team";
+Nchart Team";
 
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
@@ -760,7 +794,142 @@ Minutechart Team";
             return Ok(new { path = publicUrl });
         }
 
+        [HttpPost("transfer-modules")]
+        public IActionResult TransferModules([FromBody] TransferModulesRequest request)
+        {
+            if (string.IsNullOrEmpty(request.SourceUserId) ||
+                string.IsNullOrEmpty(request.TargetUserId) ||
+                request.ModuleIds == null || request.ModuleIds.Count == 0)
+            {
+                return BadRequest(new { success = false, message = "Invalid input" });
+            }
+
+            // Fetch modules from source user and target user
+            var sourceModules = _db.UserQueries
+                .Where(q => q.AppUserId == request.SourceUserId && request.ModuleIds.Contains(q.UserQueryId))
+                .ToList();
+
+            var targetModules = _db.UserQueries
+                .Where(q => q.AppUserId == request.TargetUserId)
+                .ToList();
+
+            var duplicates = new List<UserQuery>();
+            var copied = new List<UserQuery>();
+
+            // Detect duplicates and prepare for action
+            foreach (var sm in sourceModules)
+            {
+                var existing = targetModules.FirstOrDefault(tm =>
+                    tm.UserTitle == sm.UserTitle && tm.UserQueryText == sm.UserQueryText);
+
+                if (existing != null)
+                {
+                    duplicates.Add(existing);
+
+                    // Handle based on requested action
+                    if (request.Action == "replace")
+                    {
+                        _db.UserQueries.Remove(existing);
+                    }
+                    else if (request.Action == "ignore")
+                    {
+                        continue; // skip this one
+                    }
+                    else if (request.Action == "cancel" || request.Action == "check")
+                    {
+                        continue;
+                    }
+                }
+
+                // Only add new module if not cancelling/checking
+                if (request.Action != "cancel" && request.Action != "check")
+                {
+                    var newQuery = new UserQuery
+                    {
+                        AppUserId = request.TargetUserId,
+                        UserTitle = sm.UserTitle,
+                        UserQueryText = sm.UserQueryText,
+                        VisualizationType = sm.VisualizationType,
+                        UserQueryCreatedAtTime = DateTime.UtcNow,
+                        UserQueryLastUpdated = DateTime.UtcNow,
+                        UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+                    };
+
+                    _db.UserQueries.Add(newQuery);
+                    copied.Add(newQuery);
+                }
+            }
+
+            // ✅ Handle check mode separately
+            if (request.Action == "check")
+            {
+                if (duplicates.Any())
+                {
+                    // duplicates found → send back to frontend
+                    return Ok(new
+                    {
+                        success = false,
+                        duplicates = duplicates.Select(d => new
+                        {
+                            d.UserQueryId,
+                            d.UserTitle
+                        })
+                    });
+                }
+                else
+                {
+                    // no duplicates → directly transfer all modules
+                    foreach (var sm in sourceModules)
+                    {
+                        var newQuery = new UserQuery
+                        {
+                            AppUserId = request.TargetUserId,
+                            UserTitle = sm.UserTitle,
+                            UserQueryText = sm.UserQueryText,
+                            VisualizationType = sm.VisualizationType,
+                            UserQueryCreatedAtTime = DateTime.UtcNow,
+                            UserQueryLastUpdated = DateTime.UtcNow,
+                            UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+                        };
+                        _db.UserQueries.Add(newQuery);
+                        copied.Add(newQuery);
+                    }
+
+                    _db.SaveChanges();
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = $"{copied.Count} modules transferred successfully (no duplicates found)."
+                    });
+                }
+            }
+
+            // Save changes for replace / ignore actions
+            _db.SaveChanges();
+
+            return Ok(new
+            {
+                success = true,
+                message = request.Action switch
+                {
+                    "replace" => $"{copied.Count} modules transferred and duplicates replaced.",
+                    "ignore" => $"{copied.Count} modules transferred, duplicates ignored.",
+                    "cancel" => "Transfer cancelled.",
+                    _ => $"{copied.Count} modules transferred successfully."
+                }
+            });
+        }
+
+        public class TransferModulesRequest
+        {
+            public string SourceUserId { get; set; }
+            public string TargetUserId { get; set; }
+            public List<int> ModuleIds { get; set; }
+            public string Action { get; set; } = "check"; // check, replace, ignore, cancel
+        }
     }
+
 
     // 🔹 DTO for profile input/output
     public class UserProfileDto

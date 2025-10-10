@@ -17,11 +17,13 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { FaCrown } from "react-icons/fa";
+import { FaCrown, FaFileExcel } from "react-icons/fa";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { scaleLinear } from "d3-scale";
 import { Marker } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 // const indiaGeoUrl = "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/india_states.geojson";
 const indiaGeoUrl = "/india_state_geo.json";
@@ -39,38 +41,78 @@ export default function ModuleChart({ data, type }) {
     "#FBCF00", "#423C2E", "#822513", "#D3974E", "#C084FC", "#E9D5FF", "#152342FF"
   ];
 
+  const handleExportTable = () => {
+    if (!data || data.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    saveAs(blob, "data.xlsx");
+  };
+
   switch (type) {
     case "table":
       return (
         <div className="mt-2 border rounded overflow-hidden">
+          <div className="flex justify-end p-2">
+            {/* <button
+              onClick={handleExportTable}
+              title="Export Table"
+              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
+            >
+              <FaFileExcel size={20} />
+            </button> */}
+          </div>
           <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
             <table className="border-collapse border w-full min-w-max text-sm">
-              <thead className="bg-gray-100 sticky top-0 z-10">
+              <thead className="bg-[#152342FF] sticky top-0 z-10">
                 <tr>
-                  {keys.map((k) => (
-                    <th
-                      key={k}
-                      className="border px-3 py-2 text-left font-semibold text-gray-700"
-                    >
-                      {k}
-                    </th>
-                  ))}
+                  {keys.map((k) => {
+                    const isNumeric = !isNaN(Number(data[0][k]));
+                    return (
+                      <th
+                        key={k}
+                        className={`border px-3 py-2 font-semibold text-white ${isNumeric ? "text-right" : "text-left"
+                          }`}
+                      >
+                        {k}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {data.map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    {keys.map((k) => (
-                      <td
-                        key={k}
-                        className={`border px-3 py-2 ${!isNaN(Number(row[k])) ? "text-right" : ""}`}
-                      >
-                        {row[k]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {data.map((row, i) => {
+                  const isTotalRow = Object.values(row).some(
+                    (val) => typeof val === "string" && val.toLowerCase().includes("total")
+                  );
+
+                  return (
+                    <tr
+                      key={i}
+                      className={isTotalRow ? "bg-[#152342FF] text-white font-semibold" : "hover:bg-gray-50"}
+                    >
+                      {keys.map((k, j) => {
+                        const cellValue = row[k];
+                        const isNumeric = !isNaN(Number(cellValue));
+                        const isTotalColumn = k.toLowerCase().includes("total");
+
+                        return (
+                          <td
+                            key={j}
+                            className={`border px-3 py-2 ${isNumeric ? "text-right" : "text-left"
+                              } ${isTotalRow || isTotalColumn ? "bg-[#152342FF] text-white font-semibold" : ""}`}
+                          >
+                            {cellValue}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
+
             </table>
           </div>
         </div>
@@ -215,15 +257,31 @@ export default function ModuleChart({ data, type }) {
 
       return (
         <div className="mt-4 border rounded overflow-hidden">
+          <div className="flex justify-end p-2">
+            {/* <button
+              onClick={handleExportTable}
+              title="Export Table"
+              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
+            >
+              <FaFileExcel size={20} />
+            </button> */}
+          </div>
           <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
             <table className="border-collapse border w-full min-w-max text-sm">
-              <thead className="bg-gray-100 sticky top-0 z-10">
+              <thead className="bg-[#152342FF] sticky top-0 z-10">
                 <tr>
-                  {keys.map(k => (
-                    <th key={k} className="border px-3 py-2 text-left font-semibold text-gray-700">
-                      {k}
-                    </th>
-                  ))}
+                  {keys.map((k) => {
+                    const isNumeric = !isNaN(Number(data[0][k]));
+                    return (
+                      <th
+                        key={k}
+                        className={`border px-3 py-2 font-semibold text-white ${isNumeric ? "text-right" : "text-left"
+                          }`}
+                      >
+                        {k}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>

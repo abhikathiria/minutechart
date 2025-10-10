@@ -3,12 +3,16 @@ import { Link } from "react-router-dom";
 import api from "../api";
 import ModuleChart from "../components/modules/ModuleChart";
 import PlanPage from "./PlanPage";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import { FaCrown, FaFileExcel } from "react-icons/fa";
 
 export default function Dashboard() {
   const [queries, setQueries] = useState([]);
   const [results, setResults] = useState({});
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [countdown, setCountdown] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -161,48 +165,78 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-72 border-b md:border-b-0 md:border-r p-4 bg-[#152342FF]">
-        <h1 className="text-2xl font-bold text-white mb-4 text-center md:text-left">
-          📊 Dashboard
-        </h1>
-        <div className="text-lg text-white font-semibold mb-2 text-center md:text-left">
-          Your Modules
+      <aside
+        className={`relative flex flex-col bg-[#152342FF] border-b md:border-b-0 md:border-r
+    transition-[width] duration-500 ease-in-out overflow-hidden
+    ${isSidebarOpen ? "w-full md:w-72" : "w-16 md:w-16"}`}
+      >
+        {/* Header with toggle button */}
+        <div className="flex items-center justify-between mb-4 relative px-2 mt-2">
+          <h1
+            className={`text-2xl font-bold text-white transition-opacity duration-300 ${isSidebarOpen ? "opacity-100" : "opacity-0"
+              }`}
+          >
+            📊 Dashboard
+          </h1>
+
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="absolute right-5 text-white py-1 rounded transition-all duration-300"
+            title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+            style={{
+              transform: isSidebarOpen ? "translateX(50%)" : "translateX(20%)",
+              transition: "transform 0.4s ease",
+              fontSize: "1.5rem",
+              padding: "0.6rem 0.8rem",
+            }}
+          >
+            {isSidebarOpen ? "⏪" : "⏩"}
+          </button>
         </div>
-        <hr className="border-black mb-4" />
 
-        <ul className="space-y-2">
-          {queries.length === 0 && (
-            <li className="text-gray-500 text-center md:text-left">
-              No modules available.
-            </li>
+        {/* Sidebar content */}
+        <div
+          className={`transition-all duration-500 ease-in-out flex-1 flex flex-col ${isSidebarOpen
+            ? "opacity-100 translate-x-0"
+            : "opacity-0 -translate-x-10 pointer-events-none"
+            }`}
+        >
+          <div className="text-lg text-white font-semibold mb-2 text-center md:text-left">
+            Your Modules
+          </div>
+          <hr className="border-black mb-4" />
+          <ul className="space-y-2 max-h-[70vh] overflow-auto pr-2">
+            {queries.length === 0 && (
+              <li className="text-gray-500 text-center md:text-left">
+                No modules available.
+              </li>
+            )}
+            {queries.map((q) => (
+              <li
+                key={q.userQueryId}
+                className="p-3 bg-gray-100 rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md transition cursor-default"
+              >
+                <div className="font-semibold">{q.userTitle || "Untitled Module"}</div>
+                <div className="text-sm text-gray-800 capitalize">
+                  {q.visualizationType} Chart
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {queries.length > 0 && (
+            <>
+              <hr className="my-4 border-white" />
+              <div className="mt-4 text-xl text-white text-center font-bold">
+                Total Modules: {queries.length}
+              </div>
+            </>
           )}
-          {queries.map((q) => (
-            <li
-              key={q.userQueryId}
-              className="p-3 bg-gray-100 rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md transition cursor-default"
-            >
-              <div className="font-semibold">
-                {q.userTitle || "Untitled Module"}
-              </div>
-              <div className="text-sm text-gray-800 capitalize">
-                {q.visualizationType} Chart
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {queries.length > 0 && (
-          <>
-            <hr className="my-4 border-white" />
-            <div className="mt-4 text-xl text-white text-center font-bold">
-              Total Modules: {queries.length}
-            </div>
-          </>
-        )}
+        </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-4 md:p-6">
+      <main className="flex-1 p-4 md:p-6 transition-all duration-300">
         {showSubscriptionBanner && (
           <div className="w-full mb-6 p-4 rounded-xl shadow-md bg-gradient-to-r from-[#152342FF] to-[#0000FF] text-white flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -258,15 +292,41 @@ export default function Dashboard() {
             No modules available to view.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
             {queries.map((q) => (
               <div
                 key={q.userQueryId}
                 className="bg-white rounded-xl shadow-lg p-4 flex flex-col hover:shadow-xl transition overflow-hidden"
               >
-                <h3 className="font-semibold text-lg sm:text-xl text-center mb-3">
-                  {q.userTitle || "Untitled Module"}
-                </h3>
+                {/* Title row with optional download button */}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-lg sm:text-xl">
+                    {q.userTitle || "Untitled Module"}
+                  </h3>
+                  {(q.visualizationType === "table" || q.visualizationType === "heatmap") && (
+                    <button
+                      onClick={() => {
+                        if (results[q.userQueryId]?.length > 0) {
+                          // Trigger export directly here
+                          const XLSX = require("xlsx");
+                          const { saveAs } = require("file-saver");
+                          const ws = XLSX.utils.json_to_sheet(results[q.userQueryId]);
+                          const wb = XLSX.utils.book_new();
+                          XLSX.utils.book_append_sheet(wb, ws, "Data");
+                          const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+                          const blob = new Blob([wbout], { type: "application/octet-stream" });
+                          saveAs(blob, `${q.userTitle || "data"}.xlsx`);
+                        }
+                      }}
+                      title="Export Table"
+                      className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
+                    >
+                      <FaFileExcel size={20} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Chart / Table area */}
                 <div className="flex-1 overflow-auto">
                   {results[q.userQueryId]?.length > 0 ? (
                     <ModuleChart

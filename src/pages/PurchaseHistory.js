@@ -1,6 +1,7 @@
 // src/pages/PurchaseHistory.jsx
 import React, { useState, useEffect } from "react";
 import api from "../api";
+import { FaArrowDown } from "react-icons/fa";
 
 export default function PurchaseHistory() {
   const [invoices, setInvoices] = useState([]);
@@ -45,12 +46,11 @@ export default function PurchaseHistory() {
       <div className="overflow-x-auto bg-white rounded shadow-md">
         <table className="min-w-full border-collapse border border-gray-200">
           <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="px-4 py-2 border">Invoice #</th>
+            <tr className="bg-[#152342FF] text-white">
+              <th className="px-4 py-2 border">Invoice Number</th>
               <th className="px-4 py-2 border">Plan Name</th>
               <th className="px-4 py-2 border">Duration (Days)</th>
-              <th className="px-4 py-2 border">Amount (₹)</th>
-              <th className="px-4 py-2 border">Currency</th>
+              <th className="px-4 py-2 border">Amount</th>
               <th className="px-4 py-2 border">Payment Date</th>
               <th className="px-4 py-2 border">Actions</th>
             </tr>
@@ -67,19 +67,20 @@ export default function PurchaseHistory() {
                     className={`hover:bg-gray-50 ${isActive ? "bg-green-100 font-semibold" : ""
                       }`}
                   >
-                    <td className="px-4 py-2 border">{inv.invoiceNumber}</td>
-                    <td className="px-4 py-2 border flex items-center gap-2">
-                      {inv.planName}
-                      {isActive && (
-                        <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
-                          Active
-                        </span>
-                      )}
+                    <td className="px-4 py-2 border text-center">{inv.invoiceNumber}</td>
+                    <td className="px-4 py-2 border text-center">
+                      <div className="flex justify-center items-center gap-2">
+                        {inv.planName}
+                        {isActive && (
+                          <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
+                            Active
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-2 border">{inv.planDuration}</td>
-                    <td className="px-4 py-2 border">{inv.amount.toFixed(2)}</td>
-                    <td className="px-4 py-2 border">{inv.currency}</td>
-                    <td className="px-4 py-2 border">
+                    <td className="px-4 py-2 border text-center">{inv.planDuration}</td>
+                    <td className="px-4 py-2 border text-center">₹ {inv.amount.toFixed(2)}</td>
+                    <td className="px-4 py-2 border text-center">
                       {new Date(inv.paymentDate).toLocaleString("en-IN", {
                         timeZone: "Asia/Kolkata",
                         day: "2-digit",
@@ -89,15 +90,17 @@ export default function PurchaseHistory() {
                         minute: "2-digit",
                       })}
                     </td>
-                    <td className="px-4 py-2 border">
-                      <button
-                        onClick={() =>
-                          downloadInvoice(inv.razorpayOrderId, inv.invoiceNumber)
-                        }
-                        className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
-                      >
-                        Download PDF
-                      </button>
+                    <td className="px-4 py-2 border text-center">
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() =>
+                            downloadInvoice(inv.razorpayOrderId, inv.invoiceNumber)
+                          }
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                        >
+                          <FaArrowDown />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

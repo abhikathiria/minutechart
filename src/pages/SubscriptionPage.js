@@ -1,4 +1,4 @@
-// src/pages/RenewPage.jsx
+// src/pages/SubscriptionPage.jsx
 import React, { useState, useEffect } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
@@ -6,30 +6,40 @@ import { CheckCircle2, Lock, XCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 
-export default function RenewPage() {
+export default function SubscriptionPage() {
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const navigate = useNavigate();
 
+  const user = JSON.parse(localStorage.getItem("user"));
+
   useEffect(() => {
-    const fetchPlansAndStatus = async () => {
+    const fetchPlans = async () => {
       try {
-        const [plansRes, subRes] = await Promise.all([
-          api.get("/dashboard/plan-details"),
-          api.get("/user/subscription-status"),
-        ]);
+        const plansRes = await api.get("/dashboard/plan-details");
         setPlans(plansRes.data.sort((a, b) => a.durationDays - b.durationDays));
-        setSubscriptionStatus(subRes.data);
       } catch (err) {
-        console.error("Failed to fetch plans or subscription status", err);
+        console.error("Failed to fetch plans", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchPlansAndStatus();
-  }, []);
+
+    const fetchStatus = async () => {
+      if (!user) return;
+      try {
+        const subRes = await api.get("/user/subscription-status");
+        setSubscriptionStatus(subRes.data);
+      } catch (err) {
+        console.error("Failed to fetch subscription status", err);
+      }
+    };
+
+    fetchPlans();
+    fetchStatus();
+  }, [user]);
 
   const getDiscountNote = (plan, prevPlan) => {
     if (!prevPlan) return null;
@@ -100,6 +110,12 @@ export default function RenewPage() {
   };
 
   const handleChoose = async (plan) => {
+    if (!user) {
+      toast.error("⚠️ Please log in to subscribe to a plan.");
+      navigate("/login", { state: { from: "/subscription/buy" } });
+      return;
+    }
+
     try {
       const createResp = await api.post("/subscription/create-order", { planId: plan.id });
       const { orderId, amount, currency, key } = createResp.data;
@@ -168,7 +184,7 @@ export default function RenewPage() {
     <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-indigo-50 py-16 px-6">
 
       {/* Active Subscription (if any) */}
-      {subscriptionStatus?.hasActivePlan && subscriptionStatus.activePlans?.length > 0 && (
+      {user && subscriptionStatus?.hasActivePlan && subscriptionStatus.activePlans?.length > 0 && (
         <div className="max-w-4xl mx-auto mb-16 p-8 bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-purple-200">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Your Current Subscription</h2>
 

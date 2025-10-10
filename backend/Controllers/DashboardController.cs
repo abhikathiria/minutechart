@@ -98,6 +98,7 @@ namespace minutechart.Controllers
         }
 
         [HttpGet("plan-details")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetPlans()
         {
             var plans = await _mainDb.SubscriptionPlans
@@ -116,7 +117,7 @@ namespace minutechart.Controllers
             if (user == null) return Unauthorized();
 
             var queries = await _mainDb.UserQueries
-                .Where(q => q.AppUserId == user.Id)
+                .Where(q => q.AppUserId == user.Id && !q.HideQuery) // only non-hidden
                 .OrderByDescending(q => q.UserQueryLastUpdated)
                 .ToListAsync();
 
