@@ -75,7 +75,6 @@ namespace minutechart.Controllers
             if (profile == null)
                 return null;
 
-            // Pass profile directly to factory
             return await _factory.CreateAsync(profile);
         }
 
@@ -103,13 +102,43 @@ namespace minutechart.Controllers
         {
             var plans = await _mainDb.SubscriptionPlans
                 .AsNoTracking()
-                .OrderBy(p => p.DurationDays) // shortest first
+                .OrderBy(p => p.DurationDays)
                 .ToListAsync();
 
             return Ok(plans);
         }
 
-        // ✅ Get all queries for the current user
+        [HttpPost("reorder-modules")]
+        public async Task<IActionResult> ReorderModules([FromBody] ReorderModulesRequest request)
+        {
+            if (request?.Order == null || request.Order.Count == 0)
+                return BadRequest("Invalid reorder data.");
+
+            foreach (var item in request.Order)
+            {
+                var module = await _mainDb.UserQueries.FindAsync(item.Id);
+                if (module != null)
+                {
+                    module.Position = item.Position;
+                }
+            }
+
+            await _mainDb.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Modules reordered successfully." });
+        }
+
+        public class ReorderModulesRequest
+        {
+            public List<ModuleOrderItem> Order { get; set; }
+        }
+
+        public class ModuleOrderItem
+        {
+            public int Id { get; set; }
+            public int Position { get; set; }
+        }
+
         [HttpGet("queries")]
         public async Task<IActionResult> GetUserQueries()
         {
@@ -117,8 +146,8 @@ namespace minutechart.Controllers
             if (user == null) return Unauthorized();
 
             var queries = await _mainDb.UserQueries
-                .Where(q => q.AppUserId == user.Id && !q.HideQuery) // only non-hidden
-                .OrderByDescending(q => q.UserQueryLastUpdated)
+                .Where(q => q.AppUserId == user.Id && !q.HideQuery)
+                .OrderBy(q => q.Position)
                 .ToListAsync();
 
             return Ok(queries);
@@ -139,14 +168,12 @@ namespace minutechart.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Unauthorized();
 
-            // basic validation: not empty + must be SELECT
             if (string.IsNullOrWhiteSpace(req.UserQueryText) ||
                 !req.UserQueryText.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequest(new { success = false, message = "Only SELECT queries are allowed." });
             }
 
-            // validate query by actually executing it
             try
             {
                 var clientDb = await GetClientDbAsync();
@@ -159,7 +186,6 @@ namespace minutechart.Controllers
                 var cmd = db.CreateCommand();
                 cmd.CommandText = req.UserQueryText;
 
-                // just try reading, no need to capture results for save
                 var reader = await cmd.ExecuteReaderAsync();
                 await reader.CloseAsync();
                 await db.CloseAsync();
@@ -169,7 +195,6 @@ namespace minutechart.Controllers
                 return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
             }
 
-            // ---- if validation passed, then continue with save ----
             var ipAddress = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
             if (string.IsNullOrEmpty(ipAddress))
                 ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -179,7 +204,6 @@ namespace minutechart.Controllers
 
             if (req.UserQueryId == null || req.UserQueryId == 0)
             {
-                // new query
                 var newQuery = new UserQuery
                 {
                     AppUserId = user.Id,
@@ -197,7 +221,6 @@ namespace minutechart.Controllers
             }
             else
             {
-                // existing query
                 var existing = await _mainDb.UserQueries
                     .FirstOrDefaultAsync(q => q.UserQueryId == req.UserQueryId && q.AppUserId == user.Id);
 
@@ -220,18 +243,15 @@ namespace minutechart.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Unauthorized();
 
-            // Get the saved query from your main DB
             var query = await _mainDb.UserQueries
                 .FirstOrDefaultAsync(q => q.UserQueryId == id && q.AppUserId == user.Id);
 
             if (query == null) return NotFound();
 
-            // Get the client database
             var clientDb = await GetClientDbAsync();
             if (clientDb == null)
                 return BadRequest(new { success = false, message = "Failed to connect to user's database." });
 
-            // Execute the query on the client DB
             try
             {
                 var db = clientDb.Database.GetDbConnection();
@@ -281,7 +301,6 @@ namespace minutechart.Controllers
 
             try
             {
-                // Get client-specific DB instead of _mainDb
                 var clientDb = await GetClientDbAsync();
                 if (clientDb == null)
                     return BadRequest(new { success = false, message = "Failed to connect to user's database." });

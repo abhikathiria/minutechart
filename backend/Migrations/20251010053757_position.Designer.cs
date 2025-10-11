@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using minutechart.Data;
 
@@ -11,9 +12,11 @@ using minutechart.Data;
 namespace Backend.Migrations
 {
     [DbContext(typeof(MinutechartDbContext))]
-    partial class MinutechartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251010053757_position")]
+    partial class position
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

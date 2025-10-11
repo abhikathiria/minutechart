@@ -48,7 +48,6 @@ namespace minutechart.Controllers.Api
             {
                 if (!existingUser.EmailConfirmed)
                 {
-                    // User exists but didn't confirm — resend confirmation
                     await _userManager.UpdateSecurityStampAsync(existingUser);
 
                     var token = await _userManager.GenerateEmailConfirmationTokenAsync(existingUser);
@@ -79,7 +78,6 @@ namespace minutechart.Controllers.Api
                 }
             }
 
-            // -------------------- CREATE NEW USER --------------------
             var user = new AppUser
             {
                 CompanyName = model.CompanyName ?? "",

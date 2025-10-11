@@ -421,7 +421,7 @@ export default function UserModules() {
                                             : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                                             }`}
                                     >
-                                        {m.hideQuery ? "👁 Unhide" : "🙈 Hide"}
+                                        {m.hideQuery ? "👁 Show" : "🙈 Hide"}
                                     </button>
                                     <button
                                         onClick={() => {

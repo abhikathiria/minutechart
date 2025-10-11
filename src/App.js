@@ -244,6 +244,7 @@ function AppContent() {
               {user.roles?.includes("Admin") ? (
                 <div className="relative" ref={profileRef}>
                   <button
+                    type='button'
                     onClick={() => setProfileOpen(!profileOpen)}
                     className="flex items-center gap-2 hover:text-cyan-400"
                   >
@@ -262,6 +263,7 @@ function AppContent() {
                         )}
                       </div>
                       <button
+                        type='button'
                         onClick={() => {
                           setProfileOpen(false);
                           handleLogout();
@@ -276,6 +278,7 @@ function AppContent() {
               ) : (
                 <div className="relative" ref={profileRef}>
                   <button
+                    type='button'
                     onClick={() => setProfileOpen(!profileOpen)}
                     className="flex items-center gap-3 hover:text-cyan-400"
                   >

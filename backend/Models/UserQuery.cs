@@ -11,5 +11,7 @@ namespace minutechart.Models
         public DateTime UserQueryLastUpdated { get; set; }
         public string UserIpAddress { get; set; }
         public bool HideQuery { get; set; }
+        public int Position { get; set; }
+
     }
 }

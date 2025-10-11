@@ -5,7 +5,8 @@ import ModuleChart from "../components/modules/ModuleChart";
 import PlanPage from "./PlanPage";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { FaCrown, FaFileExcel } from "react-icons/fa";
+import { FaGripVertical, FaFileExcel } from "react-icons/fa";
+import { Reorder, motion, AnimatePresence } from "framer-motion";
 
 export default function Dashboard() {
   const [queries, setQueries] = useState([]);
@@ -167,8 +168,8 @@ export default function Dashboard() {
       {/* Sidebar */}
       <aside
         className={`relative flex flex-col bg-[#152342FF] border-b md:border-b-0 md:border-r
-    transition-[width] duration-500 ease-in-out overflow-hidden
-    ${isSidebarOpen ? "w-full md:w-72" : "w-16 md:w-16"}`}
+        transition-[width] duration-500 ease-in-out overflow-hidden
+        ${isSidebarOpen ? "w-full md:w-72" : "w-16 md:w-16"}`}
       >
         {/* Header with toggle button */}
         <div className="flex items-center justify-between mb-4 relative px-2 mt-2">
@@ -211,17 +212,41 @@ export default function Dashboard() {
                 No modules available.
               </li>
             )}
-            {queries.map((q) => (
-              <li
-                key={q.userQueryId}
-                className="p-3 bg-gray-100 rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md transition cursor-default"
-              >
-                <div className="font-semibold">{q.userTitle || "Untitled Module"}</div>
-                <div className="text-sm text-gray-800 capitalize">
-                  {q.visualizationType} Chart
-                </div>
-              </li>
-            ))}
+            <Reorder.Group
+              axis="y"
+              values={queries}
+              onReorder={(newOrder) => {
+                setQueries(newOrder);
+                api.post("/dashboard/reorder-modules", {
+                  order: newOrder.map((q, idx) => ({ id: q.userQueryId, position: idx }))
+                });
+              }}
+              className="space-y-2 max-h-[70vh] overflow-auto pr-2"
+            >
+              <AnimatePresence>
+                {queries.map((q) => (
+                  <Reorder.Item
+                    key={q.userQueryId}
+                    value={q}
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="flex items-center gap-3 p-3 bg-gray-100 rounded-lg shadow-sm hover:bg-blue-50 hover:shadow-md transition cursor-grab"
+                  >
+                    {/* Drag handle */}
+                    <FaGripVertical className="text-gray-400 cursor-grab" />
+
+                    {/* Module info */}
+                    <div className="flex flex-col">
+                      <div className="font-semibold">{q.userTitle || "Untitled Module"}</div>
+                      <div className="text-sm text-gray-800 capitalize">
+                        {q.visualizationType} Chart
+                      </div>
+                    </div>
+                  </Reorder.Item>
+                ))}
+              </AnimatePresence>
+            </Reorder.Group>
           </ul>
 
           {queries.length > 0 && (
