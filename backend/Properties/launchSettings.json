@@ -5,7 +5,7 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
-      "applicationUrl": "http://172.20.10.2:5027",
+      "applicationUrl": "https://minutechart-pfnn.onrender.com",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
