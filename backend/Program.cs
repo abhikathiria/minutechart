@@ -6,6 +6,9 @@ using minutechart.Services;
 using minutechart.Middleware;
 using Microsoft.Extensions.FileProviders;
 using QuestPDF.Infrastructure;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace minutechart
 {
@@ -14,6 +17,8 @@ namespace minutechart
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            var jwtKey = builder.Configuration["Jwt:Key"] ?? "ThisIsASuperSecretKeyForDevOnly!";
+            var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "minutechart";
 
             builder.Services.AddControllersWithViews();
 
@@ -32,19 +37,7 @@ namespace minutechart
                 options.LoginPath = "/account/login";
                 options.SlidingExpiration = true;
             });
-            // Database setup (this will be updated for multi-tenant later)
-            // builder.Services.AddDbContext<DashboardContext>(options =>
-            //     options.UseSqlServer(
-            //         builder.Configuration.GetConnectionString("DefaultConnection"),
-            //         sqlOptions => sqlOptions.CommandTimeout(60)
-            //     )
-            // );
-            // builder.Services.AddDbContext<SecondDbContext>(options =>
-            //     options.UseSqlServer(
-            //         builder.Configuration.GetConnectionString("SecondDbConnection"),
-            //         sqlOptions => sqlOptions.CommandTimeout(60)
-            //     )
-            // );
+
             builder.Services.AddDbContext<MinutechartDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("MinutechartDbConnection"),
@@ -78,12 +71,31 @@ namespace minutechart
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             });
 
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtIssuer,
+                    ValidAudience = jwtIssuer,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                    ClockSkew = TimeSpan.Zero
+                };
+            });
 
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("http://192.168.1.104:3000", "https://minutechart.vercel.app")
+                    policy.WithOrigins("https://minutechart.vercel.app")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
