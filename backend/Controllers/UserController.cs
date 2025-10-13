@@ -27,7 +27,7 @@ namespace minutechart.Controllers
         [HttpGet("subscription-status")]
         public async Task<IActionResult> GetSubscriptionStatus()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = User.FindFirstValue("id"); // match JWT claim
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
             var user = await _userManager.FindByIdAsync(userId);

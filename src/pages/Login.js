@@ -35,7 +35,8 @@ export default function Login({ onLogin }) {
     try {
       const res = await api.post("/account/login", formData);
       if (res.status === 200) {
-        localStorage.setItem("jwtToken", res.data.token); // store token
+        localStorage.setItem("jwtToken", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
         onLogin(res.data.user);
         setMessage("✅ Login successful!");
         setTimeout(() => navigate("/"), 1000);
