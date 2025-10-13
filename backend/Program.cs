@@ -6,6 +6,7 @@ using minutechart.Services;
 using minutechart.Middleware;
 using Microsoft.Extensions.FileProviders;
 using QuestPDF.Infrastructure;
+using System.Net.Sockets;
 
 namespace minutechart
 {
@@ -109,6 +110,20 @@ namespace minutechart
             builder.Services.AddHttpContextAccessor();
 
             var app = builder.Build();
+
+            try
+            {
+                using (var tcpClient = new TcpClient())
+                {
+                    Console.WriteLine("🔍 Testing connection to SQL Server (43.228.126.198:1433)...");
+                    await tcpClient.ConnectAsync("43.228.126.198", 1433);
+                    Console.WriteLine("✅ Port 1433 reachable from Render backend");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("❌ Port 1433 unreachable from Render backend: " + ex.Message);
+            }
 
             using (var scope = app.Services.CreateScope())
             {
