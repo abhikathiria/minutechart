@@ -72,11 +72,18 @@ namespace minutechart
             .AddEntityFrameworkStores<MinutechartDbContext>()
             .AddDefaultTokenProviders();
 
+            builder.Services.ConfigureApplicationCookie(options =>
+            {
+                options.Cookie.SameSite = SameSiteMode.None;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            });
+
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("http://172.20.10.2:3000", "https://minutechart.vercel.app", "https://minutechart-pfnn.onrender.com")
+                    policy.WithOrigins("http://192.168.1.104:3000", "https://minutechart.vercel.app", "http://192.168.1.104:5027")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
