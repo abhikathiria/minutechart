@@ -6,8 +6,6 @@ using minutechart.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using minutechart.Services;
 using System.Net;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 namespace minutechart.Controllers.Api
 {
     [ApiController]
@@ -316,41 +314,15 @@ namespace minutechart.Controllers.Api
             if (user.AccountStatus == "Blocked")
                 return BadRequest(new { message = "Your account is blocked by admin." });
 
-            var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
+            var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, true, false);
             if (!result.Succeeded)
                 return BadRequest(new { message = "Invalid login attempt" });
 
             var roles = await _userManager.GetRolesAsync(user);
 
-            // Generate JWT
-            var jwtKey = _configuration["Jwt:Key"];
-            var jwtIssuer = _configuration["Jwt:Issuer"];
-
-            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(jwtKey);
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new System.Security.Claims.ClaimsIdentity(new[]
-                {
-            new System.Security.Claims.Claim("id", user.Id),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, user.Email),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, user.UserName),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, string.Join(",", roles))
-        }),
-                Expires = DateTime.UtcNow.AddDays(7),
-                Issuer = jwtIssuer,
-                Audience = jwtIssuer,
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var jwt = tokenHandler.WriteToken(token);
-
             return Ok(new
             {
                 message = "Login successful",
-                token = jwt,
                 user = new
                 {
                     user.Email,
