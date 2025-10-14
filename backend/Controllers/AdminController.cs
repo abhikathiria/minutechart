@@ -22,19 +22,33 @@ namespace minutechart.Controllers
     public class AdminController : ControllerBase
     {
         private readonly MinutechartDbContext _db;
+        private readonly ILogger<DatabaseService> _logger;
         private readonly UserManager<AppUser> _userManager;
         private readonly IConfiguration _configuration;
         private readonly DatabaseService _dbService;
         private readonly IEmailSender _emailSender;
 
 
-        public AdminController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, IConfiguration configuration, IEmailSender emailSender)
+        public AdminController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, IConfiguration configuration, IEmailSender emailSender, ILogger<DatabaseService> logger)
         {
             _db = db;
             _userManager = userManager;
             _dbService = dbService;
             _configuration = configuration;
             _emailSender = emailSender;
+            _logger = logger;
+        }
+
+
+        [HttpGet("test-connection")]
+        public IActionResult TestDatabaseConnection([FromQuery] string server, string database, string username, string password)
+        {
+            var dbService = new DatabaseService(_logger);  // Inject or instantiate
+            if (dbService.TestConnection(server, database, username, password, out string error))
+            {
+                return Ok("Connection successful");
+            }
+            return BadRequest(new { message = "Connection failed", details = error });
         }
 
         [HttpGet("user/{id}/queries")]

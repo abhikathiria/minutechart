@@ -7,23 +7,31 @@ namespace minutechart.Services
 {
     public class DatabaseService
     {
+        private readonly ILogger<DatabaseService> _logger;
+    
+        public DatabaseService(ILogger<DatabaseService> logger)
+        {
+            _logger = logger;
+        }
+
         public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
         {
             errorMessage = string.Empty;
             try
             {
                 var connectionString = BuildConnectionString(server, database, username, password);
+                _logger.LogInformation($"Attempting connection with string: {connectionString}");  // Log the string for debugging
                 using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
+                    _logger.LogInformation("Connection successful!");
+                    return true;
                 }
-                return true;
             }
             catch (Exception ex)
             {
-                errorMessage = ex.Message + (ex.InnerException != null ? " - Inner: " + ex.InnerException.Message : "");
-                // Enhanced logging for better debugging
-                Console.WriteLine($"Connection Error: {ex.Message}");  // Use a proper logger in production
+                errorMessage = $"Error: {ex.Message} - Inner: {ex.InnerException?.Message} - StackTrace: {ex.StackTrace}";
+                _logger.LogError(ex, "Connection Error: {ErrorMessage}", errorMessage);  // Detailed logging
                 return false;
             }
         }
@@ -33,7 +41,6 @@ namespace minutechart.Services
             return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=True;TrustServerCertificate=True;";
         }
 
-        // ✅ This is what you were missing
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
         {
             var connectionString = BuildConnectionString(
