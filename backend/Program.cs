@@ -9,6 +9,8 @@ using QuestPDF.Infrastructure;
 using System.Net.Sockets;
 using System.Net;
 
+AppContext.SetSwitch("System.Data.SqlClient.UseManagedNetworkingOnLinux", false);
+
 namespace minutechart
 {
     public class Program
@@ -75,7 +77,7 @@ namespace minutechart
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("http://192.168.1.104:3000", "https://minutechart.vercel.app")
+                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.104:3000")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
