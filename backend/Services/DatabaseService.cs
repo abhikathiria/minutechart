@@ -21,14 +21,16 @@ namespace minutechart.Services
             }
             catch (Exception ex)
             {
-                errorMessage = ex.Message;
+                errorMessage = ex.Message + (ex.InnerException != null ? " - Inner: " + ex.InnerException.Message : "");
+                // Enhanced logging for better debugging
+                Console.WriteLine($"Connection Error: {ex.Message}");  // Use a proper logger in production
                 return false;
             }
         }
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            return $"Server={server};Database={database};User Id={username};Password={password};TrustServerCertificate=True;";
+            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=True;TrustServerCertificate=True;";
         }
 
         // ✅ This is what you were missing

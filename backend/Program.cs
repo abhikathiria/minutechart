@@ -7,6 +7,7 @@ using minutechart.Middleware;
 using Microsoft.Extensions.FileProviders;
 using QuestPDF.Infrastructure;
 using System.Net.Sockets;
+using System.Net;
 
 namespace minutechart
 {
@@ -14,6 +15,7 @@ namespace minutechart
     {
         public static async Task Main(string[] args)
         {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllersWithViews();
