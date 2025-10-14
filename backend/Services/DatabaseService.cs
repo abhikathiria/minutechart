@@ -38,7 +38,7 @@ namespace minutechart.Services
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=True;TrustServerCertificate=True;";
+            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;";
         }
 
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
