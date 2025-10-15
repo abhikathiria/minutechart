@@ -9,7 +9,7 @@ using QuestPDF.Infrastructure;
 using System.Net.Sockets;
 using System.Net;
 
-AppContext.SetSwitch("System.Data.SqlClient.UseManagedNetworkingOnLinux", false);
+AppContext.SetSwitch("System.Data.SqlClient.UseManagedNetworkingOnLinux", true);
 
 namespace minutechart
 {
@@ -17,7 +17,10 @@ namespace minutechart
     {
         public static async Task Main(string[] args)
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol =
+                SecurityProtocolType.Tls12 |
+                SecurityProtocolType.Tls11 |
+                SecurityProtocolType.Tls;
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllersWithViews();
