@@ -17,8 +17,16 @@ namespace minutechart
     {
         public static async Task Main(string[] args)
         {
-        
+
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+            builder.Logging.SetMinimumLevel(LogLevel.Debug);
+
+            Console.WriteLine("🚀 Application starting...");
+            Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
+            Console.WriteLine($".NET Version: {Environment.Version}");
 
             builder.Services.AddControllersWithViews();
 
