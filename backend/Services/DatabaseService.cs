@@ -21,17 +21,31 @@ namespace minutechart.Services
             {
                 var connectionString = BuildConnectionString(server, database, username, password);
                 _logger.LogInformation($"Attempting connection to Server: {server}, Database: {database}");
+                _logger.LogInformation($"Connection string: {connectionString}");
 
                 using (var connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
                     _logger.LogInformation("✅ Connection successful!");
 
-                    // Test query execution
-                    using (var command = new SqlCommand("SELECT @@VERSION", connection))
+                    // Detect SQL Server version and encryption status
+                    using (var command = new SqlCommand(@"
+                SELECT 
+                    @@VERSION as Version,
+                    CASE WHEN ENCRYPT_OPTION = 'TRUE' THEN 'Encrypted' ELSE 'Not Encrypted' END as ConnectionEncryption
+                FROM sys.dm_exec_connections 
+                WHERE session_id = @@SPID", connection))
                     {
-                        var version = command.ExecuteScalar()?.ToString();
-                        _logger.LogInformation($"SQL Server Version: {version}");
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var version = reader["Version"]?.ToString();
+                                var encryption = reader["ConnectionEncryption"]?.ToString();
+                                _logger.LogInformation($"SQL Server Version: {version}");
+                                _logger.LogInformation($"Connection Encryption: {encryption}");
+                            }
+                        }
                     }
 
                     return true;
@@ -54,7 +68,21 @@ namespace minutechart.Services
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Connect Timeout=30;";
+            // Use SqlConnectionStringBuilder for proper parameter handling
+            var builder = new SqlConnectionStringBuilder
+            {
+                DataSource = server,
+                InitialCatalog = database,
+                UserID = username,
+                Password = password,
+                Encrypt = SqlConnectionEncryptOption.Optional, // This is the key setting
+                TrustServerCertificate = true,
+                ConnectTimeout = 30,
+                Pooling = false,
+                MultipleActiveResultSets = false
+            };
+
+            return builder.ConnectionString;
         }
 
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using minutechart.Models;
 using System.Threading.Tasks;
 
@@ -22,8 +23,21 @@ namespace minutechart.Services
                 return Task.FromResult<ClientDbContext?>(null);
             }
 
-            var connectionString =
-                $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;Connect Timeout=30;";
+            // Use SqlConnectionStringBuilder
+            var builder = new SqlConnectionStringBuilder
+            {
+                DataSource = profile.ServerName,
+                InitialCatalog = profile.DatabaseName,
+                UserID = profile.DbUsername,
+                Password = profile.DbPassword,
+                Encrypt = SqlConnectionEncryptOption.Optional, // Key setting
+                TrustServerCertificate = true,
+                MultipleActiveResultSets = true,
+                ConnectTimeout = 30,
+                Pooling = false
+            };
+
+            var connectionString = builder.ConnectionString;
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
