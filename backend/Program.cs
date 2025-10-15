@@ -9,24 +9,14 @@ using QuestPDF.Infrastructure;
 using System.Net.Sockets;
 using System.Net;
 
-AppContext.SetSwitch("System.Data.SqlClient.UseManagedNetworkingOnLinux", true);
-
 namespace minutechart
 {
     public class Program
     {
         public static async Task Main(string[] args)
         {
-
+            // ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             var builder = WebApplication.CreateBuilder(args);
-
-            builder.Logging.ClearProviders();
-            builder.Logging.AddConsole();
-            builder.Logging.SetMinimumLevel(LogLevel.Debug);
-
-            Console.WriteLine("🚀 Application starting...");
-            Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-            Console.WriteLine($".NET Version: {Environment.Version}");
 
             builder.Services.AddControllersWithViews();
 
