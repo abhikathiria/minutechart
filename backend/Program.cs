@@ -17,10 +17,7 @@ namespace minutechart
     {
         public static async Task Main(string[] args)
         {
-            ServicePointManager.SecurityProtocol =
-                SecurityProtocolType.Tls12 |
-                SecurityProtocolType.Tls11 |
-                SecurityProtocolType.Tls;
+        
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllersWithViews();
