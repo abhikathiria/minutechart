@@ -38,13 +38,13 @@ function Footer() {
     <footer className="bg-[#0F172A] text-gray-300 py-10 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-10">
         <div className="flex flex-col max-w-sm text-center md:text-left">
-          <img src="/Nchartlogo.png" alt="Nchart Logo" className="h-20 w-64 mx-auto md:mx-0 mb-4" />
+          <img src="/Ngraphlogo.png" alt="Ngraph Logo" className="h-20 w-64 mx-auto md:mx-0 mb-4" />
           <p className="text-sm leading-relaxed">
-            Nchart is a premium dashboard solution offering real-time insights with elegant visualizations.
+            Ngraph is a premium dashboard solution offering real-time insights with elegant visualizations.
             Designed for clarity, speed, and scalability.
           </p>
           <p className="mt-4 text-xs text-gray-500">
-            &copy; {new Date().getFullYear()} Nchart. All rights reserved.
+            &copy; {new Date().getFullYear()} Ngraph. All rights reserved.
           </p>
         </div>
 
@@ -84,7 +84,7 @@ function Footer() {
             <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="LinkedIn">
               <FaLinkedin className="h-6 w-6" />
             </a>
-            <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Nchart" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="WhatsApp">
+            <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Ngraph" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="WhatsApp">
               <FaWhatsapp className="h-6 w-6" />
             </a>
           </div>
@@ -182,7 +182,7 @@ function AppContent() {
       <header className="bg-[#0F172A] text-white shadow-md">
         <div className="w-full px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between h-auto md:h-20 py-4 md:py-0 gap-4 md:gap-0">
           <Link to="/" className="flex items-center">
-            <img src="/Nchartlogo.png" alt="Project Logo" className="h-12 w-auto object-contain" />
+            <img src="/Ngraphlogo.png" alt="Project Logo" className="h-12 w-auto object-contain" />
           </Link>
 
           <nav className="flex flex-col md:flex-row items-center gap-4 md:gap-8 text-lg font-medium">

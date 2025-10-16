@@ -58,7 +58,7 @@ namespace minutechart.Controllers.Api
                     var confirmationLink = Url.Action("ConfirmEmail", "Account",
                         new { userId = existingUser.Id, token = encodedToken }, Request.Scheme);
 
-                    var subject = "Nchart Registration Confirmation";
+                    var subject = "Ngraph Registration Confirmation";
                     var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
                     var htmlContent = $@"
                 <p>Hello {existingUser.CustomerName},</p>
@@ -107,7 +107,7 @@ namespace minutechart.Controllers.Api
             var confirmationLinkNew = Url.Action("ConfirmEmail", "Account",
                 new { userId = user.Id, token = encodedTokenNew }, Request.Scheme);
 
-            var subjectNew = "Nchart - Email Confirmation";
+            var subjectNew = "Ngraph - Email Confirmation";
             var plainTextNew = $"Please confirm your email by clicking this link: {confirmationLinkNew}";
 
             var htmlContentNew = $@"
@@ -120,12 +120,12 @@ namespace minutechart.Controllers.Api
                 </head>
                 <body style='font-family: Arial, sans-serif; background-color: #ffffff; color: #000000;'>
                     <p>Hello,</p>
-                    <p>Thank you for registering with Nchart.</p>
+                    <p>Thank you for registering with Ngraph.</p>
                     <p>Please confirm your email by clicking the link below:</p>
                     <p><a href='{confirmationLinkNew}' style='color: #1a73e8;'>Confirm Email</a></p>
                     <p>If you did not create an account, you can safely ignore this email.</p>
                     <br/>
-                    <p>— The Nchart Team</p>
+                    <p>— The Ngraph Team</p>
                 </body>
                 </html>";
 
@@ -202,7 +202,7 @@ namespace minutechart.Controllers.Api
             var confirmationLink = Url.Action("ConfirmEmail", "Account",
                 new { userId = user.Id, token = encodedToken }, Request.Scheme);
 
-            var subject = "Nchart Registration Confirmation";
+            var subject = "Ngraph Registration Confirmation";
             var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
             var htmlContent = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
 
@@ -226,7 +226,7 @@ namespace minutechart.Controllers.Api
             var frontendUrl = _configuration["Frontend:ResetPasswordUrl"];
             var resetLink = $"{frontendUrl}?userId={user.Id}&token={Uri.EscapeDataString(token)}";
 
-            var subject = "Reset Your Password - Nchart";
+            var subject = "Reset Your Password - Ngraph";
             var plainText = $"You requested a password reset. Click this link to reset your password: {resetLink}";
 
             var htmlContent = $@"
@@ -235,7 +235,7 @@ namespace minutechart.Controllers.Api
                 <head>
                     <meta charset='UTF-8'>
                     <meta name='viewport' content='width=device-width, initial-scale=1'>
-                    <title>Reset Your Password - Nchart</title>
+                    <title>Reset Your Password - Ngraph</title>
                 </head>
                 <body>
                 <div style='max-width:600px;margin:40px auto;background:#0f172a;padding:30px;border-radius:12px;text-align:center;'>

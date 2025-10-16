@@ -424,26 +424,26 @@ namespace minutechart.Controllers
 
         private async Task SendAccountActivationEmailAsync(string toEmail, string customerName, string companyName)
         {
-            var subject = "Your Nchart Account Has Been Activated";
+            var subject = "Your Ngraph Account Has Been Activated";
 
             var htmlContent = $@"
                 <p>Hi {customerName},</p>
-                <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>activated</strong> and is now ready to use!</p>
+                <p>Your <strong>Ngraph</strong> account for {companyName} has been <strong>activated</strong> and is now ready to use!</p>
                 <p>You can now log in and start exploring our services.</p>
                 <p>If you need help, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
-                <p>Warm regards,<br/>Nchart Team</p>";
+                <p>Warm regards,<br/>Ngraph Team</p>";
 
             var plainTextContent = $@"
 Hi {customerName},
 
-Your Nchart account for {companyName} has been activated and is ready to use!
+Your Ngraph account for {companyName} has been activated and is ready to use!
 
 You can now log in and start exploring our services.
 
 For help, contact support@minutechart.com.
 
 Warm regards,
-Nchart Team";
+Ngraph Team";
 
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
@@ -469,19 +469,19 @@ Nchart Team";
 
         private async Task SendAccountDeactivationEmailAsync(string toEmail, string customerName, string companyName)
         {
-            var subject = "Your Nchart Account Has Been Blocked";
+            var subject = "Your Ngraph Account Has Been Blocked";
 
             var htmlContent = $@"
                 <p>Hi {customerName},</p>
-                <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>blocked</strong>.</p>
+                <p>Your <strong>Ngraph</strong> account for {companyName} has been <strong>blocked</strong>.</p>
                 <p>Possible reasons include overdue payments, terms violations, or compliance checks.</p>
                 <p>If you think this is a mistake, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
-                <p>Warm regards,<br/>Nchart Team</p>";
+                <p>Warm regards,<br/>Ngraph Team</p>";
 
             var plainTextContent = $@"
 Hi {customerName},
 
-Your Nchart account for {companyName} has been blocked.
+Your Ngraph account for {companyName} has been blocked.
 
 Possible reasons:
 - Overdue payments
@@ -491,7 +491,7 @@ Possible reasons:
 If this is a mistake, please contact support@minutechart.com.
 
 Warm regards,
-Nchart Team";
+Ngraph Team";
 
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
@@ -517,26 +517,26 @@ Nchart Team";
 
         private async Task SendAccountReactivationEmailAsync(string toEmail, string customerName, string companyName)
         {
-            var subject = "Your Nchart Account Has Been Reactivated";
+            var subject = "Your Ngraph Account Has Been Reactivated";
 
             var htmlContent = $@"
                 <p>Hi {customerName},</p>
-                <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>reactivated</strong> and is accessible again.</p>
+                <p>Your <strong>Ngraph</strong> account for {companyName} has been <strong>reactivated</strong> and is accessible again.</p>
                 <p>You can log in and continue using our services.</p>
                 <p>For help, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
-                <p>Warm regards,<br/>Nchart Team</p>";
+                <p>Warm regards,<br/>Ngraph Team</p>";
 
             var plainTextContent = $@"
 Hi {customerName},
 
-Your Nchart account for {companyName} has been reactivated and is accessible again.
+Your Ngraph account for {companyName} has been reactivated and is accessible again.
 
 You can log in and continue using our services.
 
 For help, contact support@minutechart.com.
 
 Warm regards,
-Nchart Team";
+Ngraph Team";
 
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
