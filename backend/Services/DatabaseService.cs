@@ -100,7 +100,7 @@ namespace minutechart.Services
             // CRITICAL: Encrypt=False with NO TrustServerCertificate
             // This is the ONLY combination that works with SQL Server 2012
             var connectionString =
-                $"Server=tcp:{server};Database={database};User Id={username};Password={password};Encrypt=false;TrustServerCertificate=true;Persist Security Info=false;Pooling=false;Connect Timeout=30;MultipleActiveResultSets=true;";
+                $"Server=tcp:{server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=False;Persist Security Info=False;Pooling=False;Connect Timeout=30;MultipleActiveResultSets=True;";
 
             var safeConnectionString = connectionString.Replace(password, "****");
             _logger.LogInformation("Connection string built: {ConnectionString}", safeConnectionString);
