@@ -25,7 +25,7 @@ namespace minutechart.Services
 
             // CRITICAL: Encrypt=False with NO TrustServerCertificate
             var connectionString =
-                $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;Persist Security Info=False;Pooling=False;Connect Timeout=30;MultipleActiveResultSets=True;Network Library=dbmssocn;";
+                $"Server=tcp:{profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;Persist Security Info=False;Pooling=False;Connect Timeout=30;MultipleActiveResultSets=True;Network Library=dbmssocn;";
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
