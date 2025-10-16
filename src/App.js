@@ -38,7 +38,7 @@ function Footer() {
     <footer className="bg-[#0F172A] text-gray-300 py-10 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-10">
         <div className="flex flex-col max-w-sm text-center md:text-left">
-          <img src="/Ngraphlogo.png" alt="Ngraph Logo" className="h-20 w-64 mx-auto md:mx-0 mb-4" />
+          <img src="/Ngraphlogo.png" alt="Ngraph Logo" className="h-20 w-68 mx-auto md:mx-0 mb-4" />
           <p className="text-sm leading-relaxed">
             Ngraph is a premium dashboard solution offering real-time insights with elegant visualizations.
             Designed for clarity, speed, and scalability.
