@@ -14,48 +14,48 @@ namespace minutechart.Services
             _logger = logger;
         }
 
-public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
-{
-    errorMessage = string.Empty;
-    try
-    {
-        _logger.LogInformation($"🔍 Starting connection test to {server}...");
-        
-        // Test TCP connectivity first
-        try
+        public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
         {
-            var parts = server.Split(',');
-            var host = parts[0];
-            var port = parts.Length > 1 ? int.Parse(parts[1]) : 1433;
-            
-            using (var tcpClient = new System.Net.Sockets.TcpClient())
+            errorMessage = string.Empty;
+            try
             {
-                _logger.LogInformation($"Testing TCP connection to {host}:{port}...");
-                var connectTask = tcpClient.ConnectAsync(host, port);
-                if (connectTask.Wait(TimeSpan.FromSeconds(10)))
-                {
-                    _logger.LogInformation($"✅ TCP port {port} is reachable");
-                }
-                else
-                {
-                    _logger.LogWarning($"⚠️ TCP connection timed out after 10 seconds");
-                }
-            }
-        }
-        catch (Exception tcpEx)
-        {
-            _logger.LogWarning($"⚠️ TCP connection test failed: {tcpEx.Message}");
-        }
-        
-        var connectionString = BuildConnectionString(server, database, username, password);
-        _logger.LogInformation($"Attempting SQL connection to Server: {server}, Database: {database}");
-        _logger.LogInformation($"Connection string: {connectionString}");
+                _logger.LogInformation($"🔍 Starting connection test to {server}...");
 
-        using (var connection = new SqlConnection(connectionString))
-        {
-            _logger.LogInformation("Opening SQL connection...");
-            connection.Open();
-            _logger.LogInformation("✅ Connection successful!");
+                // Test TCP connectivity first
+                try
+                {
+                    var parts = server.Split(',');
+                    var host = parts[0];
+                    var port = parts.Length > 1 ? int.Parse(parts[1]) : 1433;
+
+                    using (var tcpClient = new System.Net.Sockets.TcpClient())
+                    {
+                        _logger.LogInformation($"Testing TCP connection to {host}:{port}...");
+                        var connectTask = tcpClient.ConnectAsync(host, port);
+                        if (connectTask.Wait(TimeSpan.FromSeconds(10)))
+                        {
+                            _logger.LogInformation($"✅ TCP port {port} is reachable");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"⚠️ TCP connection timed out after 10 seconds");
+                        }
+                    }
+                }
+                catch (Exception tcpEx)
+                {
+                    _logger.LogWarning($"⚠️ TCP connection test failed: {tcpEx.Message}");
+                }
+
+                var connectionString = BuildConnectionString(server, database, username, password);
+                _logger.LogInformation($"Attempting SQL connection to Server: {server}, Database: {database}");
+                _logger.LogInformation($"Connection string: {connectionString}");
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    _logger.LogInformation("Opening SQL connection...");
+                    connection.Open();
+                    _logger.LogInformation("✅ Connection successful!");
 
                     // Detect SQL Server version and encryption status
                     using (var command = new SqlCommand(@"
@@ -99,11 +99,12 @@ public bool TestConnection(string server, string database, string username, stri
         {
             // CRITICAL: Encrypt=False with NO TrustServerCertificate
             // This is the ONLY combination that works with SQL Server 2012
-            var connectionString = $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;Connect Timeout=30;Pooling=False;";
-            
+            var connectionString =
+                $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Persist Security Info=False;Pooling=False;Connect Timeout=30;MultipleActiveResultSets=True;Network Library=dbmssocn;";
+
             var safeConnectionString = connectionString.Replace(password, "****");
             _logger.LogInformation("Connection string built: {ConnectionString}", safeConnectionString);
-            
+
             return connectionString;
         }
 
