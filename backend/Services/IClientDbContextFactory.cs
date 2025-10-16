@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.SqlClient;
 using minutechart.Models;
 using System.Threading.Tasks;
 
@@ -19,19 +18,16 @@ namespace minutechart.Services
                 string.IsNullOrWhiteSpace(profile.DatabaseName) ||
                 string.IsNullOrWhiteSpace(profile.DbUsername) ||
                 string.IsNullOrWhiteSpace(profile.DbPassword))
-            {
                 return Task.FromResult<ClientDbContext?>(null);
-            }
 
-            // CRITICAL: Encrypt=False with NO TrustServerCertificate
             var connectionString =
-                $"Server=tcp:{profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=False;Persist Security Info=False;Pooling=False;Connect Timeout=30;MultipleActiveResultSets=True;";
+                $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;Connect Timeout=30;MultipleActiveResultSets=True;";
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
 
             var context = new ClientDbContext(optionsBuilder.Options);
-            return Task.FromResult<ClientDbContext?>(context);
+            return Task.FromResult(context);
         }
     }
 }

@@ -381,9 +381,7 @@ namespace minutechart.Controllers
                 return NotFound(new { message = "User not found" });
 
             if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
-            {
                 return BadRequest(new { message = "Database connection failed", details = error });
-            }
 
             var profile = user.UserProfile;
             if (profile == null)

@@ -19,9 +19,9 @@ namespace minutechart.Services
             errorMessage = string.Empty;
             try
             {
-                _logger.LogInformation($"🔍 Starting connection test to {server}...");
+                _logger.LogInformation($"🔍 Starting connection test to {server}:{database}...");
 
-                // Test TCP connectivity first
+                // Test TCP connectivity
                 try
                 {
                     var parts = server.Split(',');
@@ -30,82 +30,47 @@ namespace minutechart.Services
 
                     using (var tcpClient = new System.Net.Sockets.TcpClient())
                     {
-                        _logger.LogInformation($"Testing TCP connection to {host}:{port}...");
                         var connectTask = tcpClient.ConnectAsync(host, port);
-                        if (connectTask.Wait(TimeSpan.FromSeconds(10)))
+                        if (!connectTask.Wait(TimeSpan.FromSeconds(10)))
                         {
-                            _logger.LogInformation($"✅ TCP port {port} is reachable");
+                            errorMessage = $"⚠️ TCP connection to {host}:{port} timed out";
+                            return false;
                         }
-                        else
-                        {
-                            _logger.LogWarning($"⚠️ TCP connection timed out after 10 seconds");
-                        }
+                        _logger.LogInformation($"✅ TCP port {port} reachable");
                     }
                 }
                 catch (Exception tcpEx)
                 {
-                    _logger.LogWarning($"⚠️ TCP connection test failed: {tcpEx.Message}");
+                    _logger.LogWarning($"⚠️ TCP test failed: {tcpEx.Message}");
                 }
 
                 var connectionString = BuildConnectionString(server, database, username, password);
-                _logger.LogInformation($"Attempting SQL connection to Server: {server}, Database: {database}");
-                _logger.LogInformation($"Connection string: {connectionString}");
-
                 using (var connection = new SqlConnection(connectionString))
                 {
-                    _logger.LogInformation("Opening SQL connection...");
                     connection.Open();
-                    _logger.LogInformation("✅ Connection successful!");
-
-                    // Detect SQL Server version and encryption status
-                    using (var command = new SqlCommand(@"
-                SELECT 
-                    @@VERSION as Version,
-                    CASE WHEN ENCRYPT_OPTION = 'TRUE' THEN 'Encrypted' ELSE 'Not Encrypted' END as ConnectionEncryption
-                FROM sys.dm_exec_connections 
-                WHERE session_id = @@SPID", connection))
-                    {
-                        using (var reader = command.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                var version = reader["Version"]?.ToString();
-                                var encryption = reader["ConnectionEncryption"]?.ToString();
-                                _logger.LogInformation($"SQL Server Version: {version}");
-                                _logger.LogInformation($"Connection Encryption: {encryption}");
-                            }
-                        }
-                    }
-
-                    return true;
+                    _logger.LogInformation("✅ SQL connection successful!");
                 }
+
+                return true;
             }
             catch (SqlException sqlEx)
             {
                 errorMessage = $"SQL Error {sqlEx.Number}: {sqlEx.Message}";
-                _logger.LogError(sqlEx, "SQL Connection Error - Number: {ErrorNumber}, Class: {Class}, State: {State}",
-                    sqlEx.Number, sqlEx.Class, sqlEx.State);
+                _logger.LogError(sqlEx, "SQL Connection Error");
                 return false;
             }
             catch (Exception ex)
             {
                 errorMessage = $"Error: {ex.Message}";
-                _logger.LogError(ex, "General Connection Error: {ErrorMessage}", ex.Message);
+                _logger.LogError(ex, "General Connection Error");
                 return false;
             }
         }
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            // CRITICAL: Encrypt=False with NO TrustServerCertificate
-            // This is the ONLY combination that works with SQL Server 2012
-            var connectionString =
-                $"Server=tcp:{server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=False;Persist Security Info=False;Pooling=False;Connect Timeout=30;MultipleActiveResultSets=True;";
-
-            var safeConnectionString = connectionString.Replace(password, "****");
-            _logger.LogInformation("Connection string built: {ConnectionString}", safeConnectionString);
-
-            return connectionString;
+            // For SQL Server 2012+ compatibility
+            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Connect Timeout=30;MultipleActiveResultSets=True;";
         }
 
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
