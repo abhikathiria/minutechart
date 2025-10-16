@@ -14,19 +14,48 @@ namespace minutechart.Services
             _logger = logger;
         }
 
-        public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
+public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
+{
+    errorMessage = string.Empty;
+    try
+    {
+        _logger.LogInformation($"🔍 Starting connection test to {server}...");
+        
+        // Test TCP connectivity first
+        try
         {
-            errorMessage = string.Empty;
-            try
+            var parts = server.Split(',');
+            var host = parts[0];
+            var port = parts.Length > 1 ? int.Parse(parts[1]) : 1433;
+            
+            using (var tcpClient = new System.Net.Sockets.TcpClient())
             {
-                var connectionString = BuildConnectionString(server, database, username, password);
-                _logger.LogInformation($"Attempting connection to Server: {server}, Database: {database}");
-                _logger.LogInformation($"Connection string: {connectionString}");
-
-                using (var connection = new SqlConnection(connectionString))
+                _logger.LogInformation($"Testing TCP connection to {host}:{port}...");
+                var connectTask = tcpClient.ConnectAsync(host, port);
+                if (connectTask.Wait(TimeSpan.FromSeconds(10)))
                 {
-                    connection.Open();
-                    _logger.LogInformation("✅ Connection successful!");
+                    _logger.LogInformation($"✅ TCP port {port} is reachable");
+                }
+                else
+                {
+                    _logger.LogWarning($"⚠️ TCP connection timed out after 10 seconds");
+                }
+            }
+        }
+        catch (Exception tcpEx)
+        {
+            _logger.LogWarning($"⚠️ TCP connection test failed: {tcpEx.Message}");
+        }
+        
+        var connectionString = BuildConnectionString(server, database, username, password);
+        _logger.LogInformation($"Attempting SQL connection to Server: {server}, Database: {database}");
+        _logger.LogInformation($"Connection string: {connectionString}");
+
+        using (var connection = new SqlConnection(connectionString))
+        {
+            _logger.LogInformation("Opening SQL connection...");
+            connection.Open();
+            _logger.LogInformation("✅ Connection successful!");
 
                     // Detect SQL Server version and encryption status
                     using (var command = new SqlCommand(@"
