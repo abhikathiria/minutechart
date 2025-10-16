@@ -30,20 +30,21 @@ namespace minutechart.Services
                 InitialCatalog = profile.DatabaseName,
                 UserID = profile.DbUsername,
                 Password = profile.DbPassword,
-                Encrypt = SqlConnectionEncryptOption.Optional, // Key setting
                 TrustServerCertificate = true,
                 MultipleActiveResultSets = true,
                 ConnectTimeout = 30,
                 Pooling = false
             };
 
-            var connectionString = builder.ConnectionString;
+            // Manually append Encrypt=Optional
+            var connectionString = builder.ConnectionString + ";Encrypt=Optional";
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
 
             var context = new ClientDbContext(optionsBuilder.Options);
             return Task.FromResult<ClientDbContext?>(context);
+            
         }
     }
 }

@@ -68,21 +68,25 @@ namespace minutechart.Services
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            // Use SqlConnectionStringBuilder for proper parameter handling
+            // Build base connection string without Encrypt parameter
             var builder = new SqlConnectionStringBuilder
             {
                 DataSource = server,
                 InitialCatalog = database,
                 UserID = username,
                 Password = password,
-                Encrypt = SqlConnectionEncryptOption.Optional, // This is the key setting
                 TrustServerCertificate = true,
                 ConnectTimeout = 30,
                 Pooling = false,
                 MultipleActiveResultSets = false
             };
 
-            return builder.ConnectionString;
+            // Manually append Encrypt=Optional as it's not properly serialized
+            var connectionString = builder.ConnectionString + ";Encrypt=Optional";
+
+            _logger.LogInformation($"Final connection string: {connectionString}");
+
+            return connectionString;
         }
 
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
