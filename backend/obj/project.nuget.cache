@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "dgSpecHash": "mOIh+avp5eI=",
-  "success": false,
+  "dgSpecHash": "ZMGIzzMzShk=",
+  "success": true,
   "projectFilePath": "C:\\Users\\ABHI\\Dropbox\\PC\\Downloads\\minutechart\\backend\\Backend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ABHI\\.nuget\\packages\\azure.core\\1.6.0\\azure.core.1.6.0.nupkg.sha512",
@@ -190,17 +190,6 @@
       "warningLevel": 1,
       "filePath": "C:\\Users\\ABHI\\Dropbox\\PC\\Downloads\\minutechart\\backend\\Backend.csproj",
       "libraryId": "iTextSharp",
-      "targetGraphs": [
-        "net9.0"
-      ]
-    },
-    {
-      "code": "NU1605",
-      "level": "Error",
-      "message": "Warning As Error: Detected package downgrade: Microsoft.Data.SqlClient from 5.1.6 to 4.1.1. Reference the package directly from the project to select a different version. \r\n Backend -> Microsoft.EntityFrameworkCore.SqlServer 9.0.8 -> Microsoft.Data.SqlClient (>= 5.1.6) \r\n Backend -> Microsoft.Data.SqlClient (>= 4.1.1)",
-      "projectPath": "C:\\Users\\ABHI\\Dropbox\\PC\\Downloads\\minutechart\\backend\\Backend.csproj",
-      "filePath": "C:\\Users\\ABHI\\Dropbox\\PC\\Downloads\\minutechart\\backend\\Backend.csproj",
-      "libraryId": "Microsoft.Data.SqlClient",
       "targetGraphs": [
         "net9.0"
       ]
