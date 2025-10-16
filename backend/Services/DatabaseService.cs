@@ -97,24 +97,13 @@ public bool TestConnection(string server, string database, string username, stri
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            // Build base connection string without Encrypt parameter
-            var builder = new SqlConnectionStringBuilder
-            {
-                DataSource = server,
-                InitialCatalog = database,
-                UserID = username,
-                Password = password,
-                TrustServerCertificate = true,
-                ConnectTimeout = 30,
-                Pooling = false,
-                MultipleActiveResultSets = false
-            };
-
-            // Manually append Encrypt=Optional as it's not properly serialized
-            var connectionString = builder.ConnectionString + ";Encrypt=Optional";
-
-            _logger.LogInformation($"Final connection string: {connectionString}");
-
+            // CRITICAL: Encrypt=False with NO TrustServerCertificate
+            // This is the ONLY combination that works with SQL Server 2012
+            var connectionString = $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;Connect Timeout=30;Pooling=False;";
+            
+            var safeConnectionString = connectionString.Replace(password, "****");
+            _logger.LogInformation("Connection string built: {ConnectionString}", safeConnectionString);
+            
             return connectionString;
         }
 

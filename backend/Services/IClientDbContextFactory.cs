@@ -23,28 +23,14 @@ namespace minutechart.Services
                 return Task.FromResult<ClientDbContext?>(null);
             }
 
-            // Use SqlConnectionStringBuilder
-            var builder = new SqlConnectionStringBuilder
-            {
-                DataSource = profile.ServerName,
-                InitialCatalog = profile.DatabaseName,
-                UserID = profile.DbUsername,
-                Password = profile.DbPassword,
-                TrustServerCertificate = true,
-                MultipleActiveResultSets = true,
-                ConnectTimeout = 30,
-                Pooling = false
-            };
-
-            // Manually append Encrypt=Optional
-            var connectionString = builder.ConnectionString + ";Encrypt=Optional";
+            // CRITICAL: Encrypt=False with NO TrustServerCertificate
+            var connectionString = $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;Connect Timeout=30;Pooling=False;MultipleActiveResultSets=True;";
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
 
             var context = new ClientDbContext(optionsBuilder.Options);
             return Task.FromResult<ClientDbContext?>(context);
-            
         }
     }
 }
