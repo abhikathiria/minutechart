@@ -14,109 +14,95 @@ namespace minutechart.Services
             _logger = logger;
         }
 
-public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
-{
-    errorMessage = string.Empty;
-    try
-    {
-        _logger.LogInformation($"🔍 Starting connection test to {server}...");
-        
-        // Test TCP connectivity first
-        try
+        // Retry connection with fallback encrypt options
+        public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
         {
-            var parts = server.Split(',');
-            var host = parts[0];
-            var port = parts.Length > 1 ? int.Parse(parts[1]) : 1433;
-            
-            using (var tcpClient = new System.Net.Sockets.TcpClient())
+            errorMessage = string.Empty;
+
+            // Try both Encrypt=True and Encrypt=False with TrustServerCertificate=True
+            var connectionStringsToTry = new[] {
+                BuildConnectionString(server, database, username, password, true),
+                BuildConnectionString(server, database, username, password, false),
+            };
+
+            foreach (var connStr in connectionStringsToTry)
             {
-                _logger.LogInformation($"Testing TCP connection to {host}:{port}...");
-                var connectTask = tcpClient.ConnectAsync(host, port);
-                if (connectTask.Wait(TimeSpan.FromSeconds(10)))
+                try
                 {
-                    _logger.LogInformation($"✅ TCP port {port} is reachable");
-                }
-                else
-                {
-                    _logger.LogWarning($"⚠️ TCP connection timed out after 10 seconds");
-                }
-            }
-        }
-        catch (Exception tcpEx)
-        {
-            _logger.LogWarning($"⚠️ TCP connection test failed: {tcpEx.Message}");
-        }
-        
-        var connectionString = BuildConnectionString(server, database, username, password);
-        _logger.LogInformation($"Attempting SQL connection to Server: {server}, Database: {database}");
-        _logger.LogInformation($"Connection string: {connectionString}");
-
-        using (var connection = new SqlConnection(connectionString))
-        {
-            _logger.LogInformation("Opening SQL connection...");
-            connection.Open();
-            _logger.LogInformation("✅ Connection successful!");
-
-                    // Detect SQL Server version and encryption status
-                    using (var command = new SqlCommand(@"
-                SELECT 
-                    @@VERSION as Version,
-                    CASE WHEN ENCRYPT_OPTION = 'TRUE' THEN 'Encrypted' ELSE 'Not Encrypted' END as ConnectionEncryption
-                FROM sys.dm_exec_connections 
-                WHERE session_id = @@SPID", connection))
+                    _logger.LogInformation($"Attempting SQL connection with connection string: {connStr.Replace(password, "****")}");
+                    using (var connection = new SqlConnection(connStr))
                     {
-                        using (var reader = command.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                var version = reader["Version"]?.ToString();
-                                var encryption = reader["ConnectionEncryption"]?.ToString();
-                                _logger.LogInformation($"SQL Server Version: {version}");
-                                _logger.LogInformation($"Connection Encryption: {encryption}");
-                            }
-                        }
-                    }
+                        connection.Open();
 
-                    return true;
+                        // Log SQL Server version and encryption status
+                        using var cmd = new SqlCommand(@"
+                            SELECT @@VERSION as Version,
+                                   CASE WHEN ENCRYPT_OPTION = 'TRUE' THEN 'Encrypted' ELSE 'Not Encrypted' END as ConnectionEncryption
+                            FROM sys.dm_exec_connections WHERE session_id = @@SPID", connection);
+                        using var reader = cmd.ExecuteReader();
+                        if (reader.Read())
+                        {
+                            _logger.LogInformation("SQL Server Version: {0}", reader["Version"]?.ToString());
+                            _logger.LogInformation("Connection Encryption: {0}", reader["ConnectionEncryption"]?.ToString());
+                        }
+                        return true;
+                    }
+                }
+                catch (SqlException ex)
+                {
+                    _logger.LogWarning($"Connection attempt failed with error: {ex.Message}");
+                    errorMessage = ex.Message;
+                    // Continue to next attempt
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Unexpected error during connection test: {ex.Message}");
+                    errorMessage = ex.Message;
+                    // Continue to next attempt
                 }
             }
-            catch (SqlException sqlEx)
-            {
-                errorMessage = $"SQL Error {sqlEx.Number}: {sqlEx.Message}";
-                _logger.LogError(sqlEx, "SQL Connection Error - Number: {ErrorNumber}, Class: {Class}, State: {State}",
-                    sqlEx.Number, sqlEx.Class, sqlEx.State);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"Error: {ex.Message}";
-                _logger.LogError(ex, "General Connection Error: {ErrorMessage}", ex.Message);
-                return false;
-            }
+
+            return false;
         }
 
-        public string BuildConnectionString(string server, string database, string username, string password)
+        // Build connection string with dynamic Encrypt flag
+        public string BuildConnectionString(string server, string database, string username, string password, bool encrypt)
         {
-            var connectionString = $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Connect Timeout=30;Pooling=False;";
-            
+            var connectionString = $"Server={server};Database={database};User Id={username};Password={password};Encrypt={encrypt};TrustServerCertificate=True;Connect Timeout=30;Pooling=False;";
             var safeConnectionString = connectionString.Replace(password, "****");
             _logger.LogInformation("Connection string built: {ConnectionString}", safeConnectionString);
-            
             return connectionString;
         }
 
-        public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
+        // Create client connection with retry logic
+        public async Task<SqlConnection> CreateClientConnectionAsync(string server, string database, string username, string password)
         {
-            var connectionString = BuildConnectionString(
-                profile.ServerName,
-                profile.DatabaseName,
-                profile.DbUsername,
-                profile.DbPassword
-            );
+            var connectionStringsToTry = new[] {
+                BuildConnectionString(server, database, username, password, true),
+                BuildConnectionString(server, database, username, password, false),
+            };
 
-            var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-            return connection;
+            foreach (var connStr in connectionStringsToTry)
+            {
+                try
+                {
+                    var connection = new SqlConnection(connStr);
+                    await connection.OpenAsync();
+                    return connection;
+                }
+                catch (SqlException ex)
+                {
+                    _logger.LogWarning($"Async connection attempt failed: {ex.Message}");
+                    // try next
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Unexpected exception during async connection: {ex.Message}");
+                }
+            }
+
+            throw new Exception("Unable to connect to database with both encryption modes.");
         }
     }
 }
+

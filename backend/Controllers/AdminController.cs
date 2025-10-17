@@ -195,7 +195,7 @@ namespace minutechart.Controllers
 
             try
             {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile.ServerName, profile.DatabaseName, profile.DbUsername, profile.DbPassword))
                 {
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = req.SqlQuery;
@@ -247,7 +247,7 @@ namespace minutechart.Controllers
             try
             {
                 // Optional: validate query
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile.ServerName, profile.DatabaseName, profile.DbUsername, profile.DbPassword))
                 {
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = req.UserQueryText;
@@ -312,7 +312,7 @@ namespace minutechart.Controllers
 
             try
             {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile.ServerName, profile.DatabaseName, profile.DbUsername, profile.DbPassword))
                 {
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = query.UserQueryText;
