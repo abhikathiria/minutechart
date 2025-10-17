@@ -71,15 +71,15 @@ namespace minutechart
 
 
             builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
-
+            {
+                options.AddPolicy("AllowReactApp", policy =>
+                {
+                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.104:3000")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials();
+                });
+            });
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
@@ -183,7 +183,7 @@ namespace minutechart
             QuestPDF.Settings.License = LicenseType.Community;
             app.UseHttpsRedirection();
             app.UseRouting();
-            app.UseCors("AllowAll");
+            app.UseCors("AllowReactApp");
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseSession();
