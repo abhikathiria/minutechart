@@ -7,7 +7,6 @@ using minutechart.Middleware;
 using Microsoft.Extensions.FileProviders;
 using QuestPDF.Infrastructure;
 using System.Net.Sockets;
-using System.Net;
 
 namespace minutechart
 {
@@ -15,8 +14,6 @@ namespace minutechart
     {
         public static async Task Main(string[] args)
         {
-
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
             var builder = WebApplication.CreateBuilder(args);
 
@@ -74,15 +71,15 @@ namespace minutechart
 
 
             builder.Services.AddCors(options =>
-            {
-                options.AddPolicy("AllowReactApp", policy =>
-                {
-                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.104:3000")
-                          .AllowAnyHeader()
-                          .AllowAnyMethod()
-                          .AllowCredentials();
-                });
-            });
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
@@ -186,7 +183,7 @@ namespace minutechart
             QuestPDF.Settings.License = LicenseType.Community;
             app.UseHttpsRedirection();
             app.UseRouting();
-            app.UseCors("AllowReactApp");
+            app.UseCors("AllowAll");
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseSession();

@@ -18,7 +18,6 @@ namespace minutechart.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    // [Authorize(Roles = "Admin")]
     public class AdminController : ControllerBase
     {
         private readonly MinutechartDbContext _db;

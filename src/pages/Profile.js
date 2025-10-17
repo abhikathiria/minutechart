@@ -83,7 +83,7 @@ export default function Profile() {
         refreshTime: Number(form.refreshTime) || 60000,
       };
 
-      const res = await api.post(`/admin/user/${id}/profile`, payload);
+      const res = await api.post(`/admin/user/${id}/profile`, payload, { withCredentials: true });
       const body = res.data;
 
       setMessage(body?.message ?? "Profile saved successfully.");
