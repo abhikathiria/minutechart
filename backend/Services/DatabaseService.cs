@@ -14,63 +14,95 @@ namespace minutechart.Services
             _logger = logger;
         }
 
-        public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
+public bool TestConnection(string server, string database, string username, string password, out string errorMessage)
+{
+    errorMessage = string.Empty;
+    try
+    {
+        _logger.LogInformation($"🔍 Starting connection test to {server}...");
+        
+        // Test TCP connectivity first
+        try
         {
-            errorMessage = string.Empty;
-            try
+            var parts = server.Split(',');
+            var host = parts[0];
+            var port = parts.Length > 1 ? int.Parse(parts[1]) : 1433;
+            
+            using (var tcpClient = new System.Net.Sockets.TcpClient())
             {
-                _logger.LogInformation($"🔍 Starting connection test to {server}:{database}...");
-
-                // Test TCP connectivity
-                try
+                _logger.LogInformation($"Testing TCP connection to {host}:{port}...");
+                var connectTask = tcpClient.ConnectAsync(host, port);
+                if (connectTask.Wait(TimeSpan.FromSeconds(10)))
                 {
-                    var parts = server.Split(',');
-                    var host = parts[0];
-                    var port = parts.Length > 1 ? int.Parse(parts[1]) : 1433;
+                    _logger.LogInformation($"✅ TCP port {port} is reachable");
+                }
+                else
+                {
+                    _logger.LogWarning($"⚠️ TCP connection timed out after 10 seconds");
+                }
+            }
+        }
+        catch (Exception tcpEx)
+        {
+            _logger.LogWarning($"⚠️ TCP connection test failed: {tcpEx.Message}");
+        }
+        
+        var connectionString = BuildConnectionString(server, database, username, password);
+        _logger.LogInformation($"Attempting SQL connection to Server: {server}, Database: {database}");
+        _logger.LogInformation($"Connection string: {connectionString}");
 
-                    using (var tcpClient = new System.Net.Sockets.TcpClient())
+        using (var connection = new SqlConnection(connectionString))
+        {
+            _logger.LogInformation("Opening SQL connection...");
+            connection.Open();
+            _logger.LogInformation("✅ Connection successful!");
+
+                    // Detect SQL Server version and encryption status
+                    using (var command = new SqlCommand(@"
+                SELECT 
+                    @@VERSION as Version,
+                    CASE WHEN ENCRYPT_OPTION = 'TRUE' THEN 'Encrypted' ELSE 'Not Encrypted' END as ConnectionEncryption
+                FROM sys.dm_exec_connections 
+                WHERE session_id = @@SPID", connection))
                     {
-                        var connectTask = tcpClient.ConnectAsync(host, port);
-                        if (!connectTask.Wait(TimeSpan.FromSeconds(10)))
+                        using (var reader = command.ExecuteReader())
                         {
-                            errorMessage = $"⚠️ TCP connection to {host}:{port} timed out";
-                            return false;
+                            if (reader.Read())
+                            {
+                                var version = reader["Version"]?.ToString();
+                                var encryption = reader["ConnectionEncryption"]?.ToString();
+                                _logger.LogInformation($"SQL Server Version: {version}");
+                                _logger.LogInformation($"Connection Encryption: {encryption}");
+                            }
                         }
-                        _logger.LogInformation($"✅ TCP port {port} reachable");
                     }
-                }
-                catch (Exception tcpEx)
-                {
-                    _logger.LogWarning($"⚠️ TCP test failed: {tcpEx.Message}");
-                }
 
-                var connectionString = BuildConnectionString(server, database, username, password);
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    connection.Open();
-                    _logger.LogInformation("✅ SQL connection successful!");
+                    return true;
                 }
-
-                return true;
             }
             catch (SqlException sqlEx)
             {
                 errorMessage = $"SQL Error {sqlEx.Number}: {sqlEx.Message}";
-                _logger.LogError(sqlEx, "SQL Connection Error");
+                _logger.LogError(sqlEx, "SQL Connection Error - Number: {ErrorNumber}, Class: {Class}, State: {State}",
+                    sqlEx.Number, sqlEx.Class, sqlEx.State);
                 return false;
             }
             catch (Exception ex)
             {
                 errorMessage = $"Error: {ex.Message}";
-                _logger.LogError(ex, "General Connection Error");
+                _logger.LogError(ex, "General Connection Error: {ErrorMessage}", ex.Message);
                 return false;
             }
         }
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            // For SQL Server 2012+ compatibility
-            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Connect Timeout=30;MultipleActiveResultSets=True;";
+            var connectionString = $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Connect Timeout=30;Pooling=False;";
+            
+            var safeConnectionString = connectionString.Replace(password, "****");
+            _logger.LogInformation("Connection string built: {ConnectionString}", safeConnectionString);
+            
+            return connectionString;
         }
 
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
