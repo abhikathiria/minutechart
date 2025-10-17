@@ -82,7 +82,7 @@ namespace minutechart.Data
 
             builder.Entity<RazorpayOrder>()
                 .HasOne(o => o.Plan)
-                .WithMany()  // if SubscriptionPlan doesn't track orders, or WithMany(o => o.Orders) if you add a collection
+                .WithMany()
                 .HasForeignKey(o => o.PlanId);
 
             builder.Entity<Invoice>()

@@ -39,16 +39,16 @@ namespace minutechart.Controllers
         }
 
 
-        [HttpGet("test-connection")]
-        public IActionResult TestDatabaseConnection([FromQuery] string server, string database, string username, string password)
-        {
-            var dbService = new DatabaseService(_logger);  // Inject or instantiate
-            if (dbService.TestConnection(server, database, username, password, out string error))
-            {
-                return Ok("Connection successful");
-            }
-            return BadRequest(new { message = "Connection failed", details = error });
-        }
+        // [HttpGet("test-connection")]
+        // public IActionResult TestDatabaseConnection([FromQuery] string server, string database, string username, string password)
+        // {
+        //     var dbService = new DatabaseService(_logger);  // Inject or instantiate
+        //     if (dbService.TestConnection(server, database, username, password, out string error))
+        //     {
+        //         return Ok("Connection successful");
+        //     }
+        //     return BadRequest(new { message = "Connection failed", details = error });
+        // }
 
         [HttpGet("user/{id}/queries")]
         public async Task<IActionResult> GetUserQueries(string id)
@@ -195,7 +195,7 @@ namespace minutechart.Controllers
 
             try
             {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile.ServerName, profile.DatabaseName, profile.DbUsername, profile.DbPassword))
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
                 {
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = req.SqlQuery;
@@ -247,7 +247,7 @@ namespace minutechart.Controllers
             try
             {
                 // Optional: validate query
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile.ServerName, profile.DatabaseName, profile.DbUsername, profile.DbPassword))
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
                 {
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = req.UserQueryText;
@@ -312,7 +312,7 @@ namespace minutechart.Controllers
 
             try
             {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile.ServerName, profile.DatabaseName, profile.DbUsername, profile.DbPassword))
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
                 {
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = query.UserQueryText;

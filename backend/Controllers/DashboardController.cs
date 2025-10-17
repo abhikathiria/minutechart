@@ -18,7 +18,7 @@ namespace minutechart.Controllers
         private readonly IClientDbContextFactory _factory;
         private readonly MinutechartDbContext _mainDb;
         private readonly AggregateQueryService _queryService;
-        private readonly TopTotalPurchasesEntityQueryService _purchasequeryService;
+        
 
 
         public DashboardController(
@@ -30,8 +30,6 @@ namespace minutechart.Controllers
             _factory = factory;
             _mainDb = mainDb;
             _queryService = new AggregateQueryService();
-            _purchasequeryService = new TopTotalPurchasesEntityQueryService();
-
         }
 
         [HttpGet("test-connection")]
