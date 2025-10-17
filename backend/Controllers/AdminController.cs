@@ -415,7 +415,7 @@ namespace minutechart.Controllers
             user.TrialStartDate = DateTimeHelper.GetIndianTime();
             user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
             _db.Users.Update(user);
-            await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
+            // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "Profile saved and user activated" });
