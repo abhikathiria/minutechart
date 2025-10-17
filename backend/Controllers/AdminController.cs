@@ -460,7 +460,7 @@ Nchart Team";
 
             user.AccountStatus = "Blocked";
             _db.Users.Update(user);
-            await SendAccountDeactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
+            // await SendAccountDeactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "User account has been blocked" });
@@ -508,7 +508,7 @@ Nchart Team";
 
             user.AccountStatus = "Active";
             _db.Users.Update(user);
-            await SendAccountReactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
+            // await SendAccountReactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "User account has been reactivated" });

@@ -287,7 +287,7 @@ namespace minutechart.Controllers.Api
 
             // Generate PDF and send email
             var invoiceService = new InvoiceService(_db, HttpContext.RequestServices.GetRequiredService<IEmailSender>(), HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>());
-            invoice = await invoiceService.GenerateAndSendInvoiceAsync(invoice, fileName);
+            // invoice = await invoiceService.GenerateAndSendInvoiceAsync(invoice, fileName);
 
             await _db.SaveChangesAsync();
 

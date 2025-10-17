@@ -22,7 +22,7 @@ namespace minutechart.Services
                 throw new Exception("Email settings not configured in the database.");
 
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress("Minutechart Support", settings.FromEmail));
+            message.From.Add(new MailboxAddress("Ngraph Support", settings.FromEmail));
             message.To.Add(new MailboxAddress("", toEmail));
             message.Subject = subject;
 

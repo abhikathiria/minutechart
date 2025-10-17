@@ -65,7 +65,7 @@ namespace minutechart.Controllers.Api
                 <p>You already registered but didn't confirm your email. Please click the link below to verify your account:</p>
                 <a href='{confirmationLink}'>Confirm Email</a>";
 
-                    await _emailSender.SendEmailAsync(existingUser.Email, subject, plainText, htmlContent);
+                    // await _emailSender.SendEmailAsync(existingUser.Email, subject, plainText, htmlContent);
 
                     return Ok(new
                     {
@@ -129,7 +129,7 @@ namespace minutechart.Controllers.Api
                 </body>
                 </html>";
 
-            await _emailSender.SendEmailAsync(user.Email, subjectNew, plainTextNew, htmlContentNew);
+            // await _emailSender.SendEmailAsync(user.Email, subjectNew, plainTextNew, htmlContentNew);
 
             return Ok(new
             {
@@ -206,7 +206,7 @@ namespace minutechart.Controllers.Api
             var plainText = $"Please confirm your email by clicking this link: {confirmationLink}";
             var htmlContent = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
 
-            await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+            // await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
 
             return Ok(new { message = "A new confirmation email has been sent." });
         }
@@ -248,7 +248,7 @@ namespace minutechart.Controllers.Api
                 </body>
                 </html>";
 
-            await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+            // await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
 
             return Ok(new { message = "Password reset link has been sent to your email." });
         }
