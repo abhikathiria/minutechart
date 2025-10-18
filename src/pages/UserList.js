@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie } from "react-icons/fa";
+import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt } from "react-icons/fa";
 import { useLocation } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -288,7 +288,7 @@ function UserList() {
                                                     className="flex items-center gap-1 bg-yellow-500 text-white px-3 py-1 rounded-full hover:bg-yellow-600 text-md"
                                                     title="View Purchases"
                                                 >
-                                                    🧾
+                                                    <FaReceipt className="text-md" />
                                                 </button>
                                             )}
                                         </div>
