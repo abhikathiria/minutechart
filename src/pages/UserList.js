@@ -34,17 +34,18 @@ function UserList() {
 
 const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
         if (location.state?.keepFilters) {
+            // If coming back from modules/profile, load from localStorage
             return localStorage.getItem("accountStatusFilter") || "Pending";
         } else {
+            // Fresh visit (e.g., from home), reset to Pending and clear localStorage
             localStorage.removeItem("accountStatusFilter");
             return "Pending";
         }
     });
     useEffect(() => {
-        if (location.state?.keepFilters) {
-            localStorage.setItem("accountStatusFilter", accountStatusFilter);
-        }
-    }, [accountStatusFilter, location.state]);
+        // Always save to localStorage whenever the filter changes (for persistence on back navigation)
+        localStorage.setItem("accountStatusFilter", accountStatusFilter);
+    }, [accountStatusFilter]);
 
     const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState("All");
     const [selectedUser, setSelectedUser] = useState(null);
