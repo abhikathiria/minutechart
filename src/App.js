@@ -193,16 +193,18 @@ function AppContent() {
                 <div
                   ref={adminSettingsButtonRef}
                   onClick={(event) => {
+                    event.preventDefault();  // Added to prevent any default behavior
                     event.stopPropagation();  // Prevent bubbling
                     setAdminSettingsOpen(!adminSettingsOpen);
                   }}
-                  className="flex items-center gap-1 hover:text-cyan-400 cursor-pointer"  // Changed to div with cursor-pointer
+                  className="flex items-center gap-1 hover:text-cyan-400 cursor-pointer"
                 >
                   Admin Settings <FaChevronDown className="text-sm" />
                 </div>
                 {adminSettingsOpen && (
                   <div
                     ref={adminSettingsRef}
+                    onClick={(e) => e.stopPropagation()}  // Added to prevent bubbling from inside the dropdown
                     className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
                   >
                     <Link
@@ -248,17 +250,21 @@ function AppContent() {
                 <div className="relative" ref={profileRef}>
                   <div
                     onClick={(event) => {
+                      event.preventDefault();  // Added to prevent any default behavior
                       event.stopPropagation();  // Prevent bubbling
                       setProfileOpen(!profileOpen);
                     }}
-                    className="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"  // Changed to div with cursor-pointer
+                    className="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"
                   >
                     <FaUserShield className="text-3xl" />
                     <FaChevronDown className="text-sm" />
                   </div>
 
                   {profileOpen && (
-                    <div className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50">
+                    <div
+                      onClick={(e) => e.stopPropagation()}  // Added to prevent bubbling from inside the dropdown
+                      className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
+                    >
                       <div className="block w-full text-left px-4 py-2">
                         <span className="block text-base font-bold">
                           {user.adminName || "Admin Name"}
@@ -269,7 +275,8 @@ function AppContent() {
                       </div>
                       <button
                         onClick={(event) => {
-                          event.stopPropagation();  // Prevent bubbling (though not strictly necessary here)
+                          event.preventDefault();  // Added to prevent any default behavior
+                          event.stopPropagation();  // Prevent bubbling
                           setProfileOpen(false);
                           handleLogout();
                         }}
@@ -284,10 +291,11 @@ function AppContent() {
                 <div className="relative" ref={profileRef}>
                   <div
                     onClick={(event) => {
+                      event.preventDefault();  // Added to prevent any default behavior
                       event.stopPropagation();  // Prevent bubbling
                       setProfileOpen(!profileOpen);
                     }}
-                    className="flex items-center gap-3 hover:text-cyan-400 cursor-pointer"  // Changed to div with cursor-pointer
+                    className="flex items-center gap-3 hover:text-cyan-400 cursor-pointer"
                   >
                     {/* Identity Text */}
                     <div className="flex flex-col items-end text-right leading-tight">
@@ -304,7 +312,10 @@ function AppContent() {
                   </div>
 
                   {profileOpen && (
-                    <div className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-56 z-50">
+                    <div
+                      onClick={(e) => e.stopPropagation()}  // Added to prevent bubbling from inside the dropdown
+                      className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-56 z-50"
+                    >
                       <Link
                         to="/my-profile"
                         className="block px-4 py-2 hover:bg-gray-100"
@@ -328,7 +339,8 @@ function AppContent() {
                       </Link>
                       <button
                         onClick={(event) => {
-                          event.stopPropagation();  // Prevent bubbling (though not strictly necessary here)
+                          event.preventDefault();  // Added to prevent any default behavior
+                          event.stopPropagation();  // Prevent bubbling
                           setProfileOpen(false);
                           handleLogout();
                         }}
