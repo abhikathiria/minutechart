@@ -148,9 +148,9 @@ function AppContent() {
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, []);
 
@@ -190,13 +190,16 @@ function AppContent() {
 
             {user?.roles?.includes("Admin") ? (
               <div className="relative">
-                <button
+                <div
                   ref={adminSettingsButtonRef}
-                  onClick={() => setAdminSettingsOpen(!adminSettingsOpen)}
-                  className="flex items-center gap-1 hover:text-cyan-400"
+                  onClick={(event) => {
+                    event.stopPropagation();  // Prevent bubbling
+                    setAdminSettingsOpen(!adminSettingsOpen);
+                  }}
+                  className="flex items-center gap-1 hover:text-cyan-400 cursor-pointer"  // Changed to div with cursor-pointer
                 >
                   Admin Settings <FaChevronDown className="text-sm" />
-                </button>
+                </div>
                 {adminSettingsOpen && (
                   <div
                     ref={adminSettingsRef}
@@ -243,14 +246,16 @@ function AppContent() {
             <div className="flex items-center gap-4 relative">
               {user.roles?.includes("Admin") ? (
                 <div className="relative" ref={profileRef}>
-                  <button
-                    type='button'
-                    onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center gap-2 hover:text-cyan-400"
+                  <div
+                    onClick={(event) => {
+                      event.stopPropagation();  // Prevent bubbling
+                      setProfileOpen(!profileOpen);
+                    }}
+                    className="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"  // Changed to div with cursor-pointer
                   >
                     <FaUserShield className="text-3xl" />
                     <FaChevronDown className="text-sm" />
-                  </button>
+                  </div>
 
                   {profileOpen && (
                     <div className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50">
@@ -263,8 +268,8 @@ function AppContent() {
                         )}
                       </div>
                       <button
-                        type='button'
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();  // Prevent bubbling (though not strictly necessary here)
                           setProfileOpen(false);
                           handleLogout();
                         }}
@@ -277,10 +282,12 @@ function AppContent() {
                 </div>
               ) : (
                 <div className="relative" ref={profileRef}>
-                  <button
-                    type='button'
-                    onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center gap-3 hover:text-cyan-400"
+                  <div
+                    onClick={(event) => {
+                      event.stopPropagation();  // Prevent bubbling
+                      setProfileOpen(!profileOpen);
+                    }}
+                    className="flex items-center gap-3 hover:text-cyan-400 cursor-pointer"  // Changed to div with cursor-pointer
                   >
                     {/* Identity Text */}
                     <div className="flex flex-col items-end text-right leading-tight">
@@ -294,21 +301,10 @@ function AppContent() {
 
                     {/* Optional icon (keeps UI neat) */}
                     <FaChevronDown className="text-sm" />
-                  </button>
+                  </div>
 
                   {profileOpen && (
                     <div className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-56 z-50">
-                      {/* <div className="block w-full text-left px-4 py-2 border-b">
-                        <span className="block text-base font-bold">
-                          {user.companyName || user.customerName || "User"}
-                        </span>
-                        {user.email && (
-                          <span className="block text-sm text-gray-500 truncate">
-                            {user.email}
-                          </span>
-                        )}
-                      </div> */}
-
                       <Link
                         to="/my-profile"
                         className="block px-4 py-2 hover:bg-gray-100"
@@ -331,7 +327,8 @@ function AppContent() {
                         Change Password
                       </Link>
                       <button
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();  // Prevent bubbling (though not strictly necessary here)
                           setProfileOpen(false);
                           handleLogout();
                         }}
