@@ -12,7 +12,7 @@ function UserList() {
     const location = useLocation();
 
     const handleExportTable = () => {
-        const table = document.querySelector("table"); // grabs the first table on the page
+        const table = document.querySelector("table");
         if (!table) return;
 
         const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.innerText.trim());
@@ -33,19 +33,12 @@ function UserList() {
     };
 
     const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
-        return location.state?.keepFilters ?
-            (localStorage.getItem("accountStatusFilter") || "Pending")
-            : "Pending";
+        return localStorage.getItem("accountStatusFilter") || "Pending";
     });
 
     useEffect(() => {
-        if (location.state?.keepFilters) {
-            localStorage.setItem("accountStatusFilter", accountStatusFilter);
-        } else {
-            localStorage.removeItem("accountStatusFilter");
-        }
-    }, [accountStatusFilter, location.state]);
-
+        localStorage.setItem("accountStatusFilter", accountStatusFilter);
+    }, [accountStatusFilter]);
 
     const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState("All");
     const [selectedUser, setSelectedUser] = useState(null);
