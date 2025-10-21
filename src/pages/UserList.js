@@ -32,13 +32,19 @@ function UserList() {
         saveAs(blob, "users.xlsx");
     };
 
-    const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
-        return localStorage.getItem("accountStatusFilter") || "Pending";
+const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
+        if (location.state?.keepFilters) {
+            return localStorage.getItem("accountStatusFilter") || "Pending";
+        } else {
+            localStorage.removeItem("accountStatusFilter");
+            return "Pending";
+        }
     });
-
     useEffect(() => {
-        localStorage.setItem("accountStatusFilter", accountStatusFilter);
-    }, [accountStatusFilter]);
+        if (location.state?.keepFilters) {
+            localStorage.setItem("accountStatusFilter", accountStatusFilter);
+        }
+    }, [accountStatusFilter, location.state]);
 
     const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState("All");
     const [selectedUser, setSelectedUser] = useState(null);
@@ -251,6 +257,7 @@ function UserList() {
                                             {user.accountStatus !== "Blocked" && (
                                                 <Link
                                                     to={`/profile/${user.id}`}
+                                                    state={{ keepFilters: true }}
                                                     className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1 rounded-full hover:bg-indigo-700 text-md"
                                                     title="Set Database"
                                                 >
@@ -265,6 +272,7 @@ function UserList() {
                                             {user.accountStatus === "Active" && (
                                                 <Link
                                                     to={`/user/${user.id}/modules`}
+                                                    state={{ keepFilters: true }}
                                                     className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-full hover:bg-purple-600 text-md"
                                                     title="Set Queries"
                                                 >
