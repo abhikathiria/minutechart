@@ -179,7 +179,7 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
-      <header className="bg-[#0F172A] text-white shadow-md">
+<header className="bg-[#0F172A] text-white shadow-md">
         <div className="w-full px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between h-auto md:h-20 py-4 md:py-0 gap-4 md:gap-0">
           <Link to="/" className="flex items-center">
             <img src="/Ngraphlogo.png" alt="Project Logo" className="h-12 w-auto object-contain" />
@@ -189,12 +189,12 @@ function AppContent() {
             <Link to="/" className="hover:text-cyan-400">Home</Link>
 
             {user?.roles?.includes("Admin") ? (
-              <div className="relative">
+              <div className="relative" onClick={(e) => e.stopPropagation()}>  {/* Added to stop bubbling from the entire dropdown area */}
                 <div
                   ref={adminSettingsButtonRef}
                   onClick={(event) => {
-                    event.preventDefault();  // Added to prevent any default behavior
-                    event.stopPropagation();  // Prevent bubbling
+                    event.preventDefault();
+                    event.stopPropagation();
                     setAdminSettingsOpen(!adminSettingsOpen);
                   }}
                   className="flex items-center gap-1 hover:text-cyan-400 cursor-pointer"
@@ -204,7 +204,7 @@ function AppContent() {
                 {adminSettingsOpen && (
                   <div
                     ref={adminSettingsRef}
-                    onClick={(e) => e.stopPropagation()}  // Added to prevent bubbling from inside the dropdown
+                    onClick={(e) => e.stopPropagation()}
                     className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
                   >
                     <Link
@@ -247,11 +247,11 @@ function AppContent() {
           {user ? (
             <div className="flex items-center gap-4 relative">
               {user.roles?.includes("Admin") ? (
-                <div className="relative" ref={profileRef}>
+                <div className="relative" ref={profileRef} onClick={(e) => e.stopPropagation()}>  {/* Added to stop bubbling from the entire dropdown area */}
                   <div
                     onClick={(event) => {
-                      event.preventDefault();  // Added to prevent any default behavior
-                      event.stopPropagation();  // Prevent bubbling
+                      event.preventDefault();
+                      event.stopPropagation();
                       setProfileOpen(!profileOpen);
                     }}
                     className="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"
@@ -262,7 +262,7 @@ function AppContent() {
 
                   {profileOpen && (
                     <div
-                      onClick={(e) => e.stopPropagation()}  // Added to prevent bubbling from inside the dropdown
+                      onClick={(e) => e.stopPropagation()}
                       className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
                     >
                       <div className="block w-full text-left px-4 py-2">
@@ -275,8 +275,8 @@ function AppContent() {
                       </div>
                       <button
                         onClick={(event) => {
-                          event.preventDefault();  // Added to prevent any default behavior
-                          event.stopPropagation();  // Prevent bubbling
+                          event.preventDefault();
+                          event.stopPropagation();
                           setProfileOpen(false);
                           handleLogout();
                         }}
@@ -288,11 +288,11 @@ function AppContent() {
                   )}
                 </div>
               ) : (
-                <div className="relative" ref={profileRef}>
+                <div className="relative" ref={profileRef} onClick={(e) => e.stopPropagation()}>  {/* Added to stop bubbling from the entire dropdown area */}
                   <div
                     onClick={(event) => {
-                      event.preventDefault();  // Added to prevent any default behavior
-                      event.stopPropagation();  // Prevent bubbling
+                      event.preventDefault();
+                      event.stopPropagation();
                       setProfileOpen(!profileOpen);
                     }}
                     className="flex items-center gap-3 hover:text-cyan-400 cursor-pointer"
@@ -313,7 +313,7 @@ function AppContent() {
 
                   {profileOpen && (
                     <div
-                      onClick={(e) => e.stopPropagation()}  // Added to prevent bubbling from inside the dropdown
+                      onClick={(e) => e.stopPropagation()}
                       className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-56 z-50"
                     >
                       <Link
@@ -339,8 +339,8 @@ function AppContent() {
                       </Link>
                       <button
                         onClick={(event) => {
-                          event.preventDefault();  // Added to prevent any default behavior
-                          event.stopPropagation();  // Prevent bubbling
+                          event.preventDefault();
+                          event.stopPropagation();
                           setProfileOpen(false);
                           handleLogout();
                         }}
@@ -366,7 +366,7 @@ function AppContent() {
 
         </div>
       </header>
-
+      
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<PublicRoute><HomeContent /></PublicRoute>} />
