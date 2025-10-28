@@ -10,6 +10,7 @@ namespace minutechart.ViewModels
 
         [Required(ErrorMessage = "Customer name is required.")]
         public string CustomerName { get; set; } = null!;
+        public string? GST { get; set; }
 
         [Required(ErrorMessage = "Phone number is required.")]
         [Phone(ErrorMessage = "Invalid phone number.")]

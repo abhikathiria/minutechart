@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { FaDatabase, FaServer, FaUser, FaKey, FaClock, FaBuilding } from "react-icons/fa";
+import { FaDatabase, FaServer, FaUser, FaKey, FaClock, FaBuilding, FaFileInvoiceDollar, FaIdBadge } from "react-icons/fa";
 
 export default function MyProfile() {
     const [profile, setProfile] = useState(null);
@@ -69,6 +69,8 @@ export default function MyProfile() {
                     {/* Reusable info row */}
                     {[
                         { label: "Company Name", value: profile.companyName, icon: <FaBuilding /> },
+                        { label: "Customer Code", value: profile.customerCode, icon: <FaIdBadge /> },
+                        { label: "GST", value: profile.customerGST, icon: <FaFileInvoiceDollar /> },
                         { label: "Server Name", value: profile.serverName, icon: <FaServer /> },
                         { label: "Database Name", value: profile.databaseName, icon: <FaDatabase /> },
                         { label: "DB Username", value: profile.dbUsername, icon: <FaUser /> },

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using minutechart.Helpers;
 
 namespace minutechart.Models
 {
@@ -47,6 +48,6 @@ namespace minutechart.Models
         // ---------------- Invoice Columns ----------------
         public List<InvoiceColumnSetting> Columns { get; set; } = new List<InvoiceColumnSetting>();
 
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTimeHelper.GetIndianTime();
     }
 }

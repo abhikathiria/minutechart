@@ -1,3 +1,5 @@
+using minutechart.Helpers;
+
 namespace minutechart.Models
 {
     public class EmailSetting
@@ -9,6 +11,6 @@ namespace minutechart.Models
         public string SmtpPassword { get; set; } = string.Empty;
         public string FromEmail { get; set; } = string.Empty;
         public bool EnableSsl { get; set; }
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTimeHelper.GetIndianTime();
     }
 }

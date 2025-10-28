@@ -28,8 +28,7 @@ namespace minutechart.Data
         public DbSet<EmailSetting> EmailSettings { get; set; }
         public DbSet<CompanyInvoiceSetting> CompanyInvoiceSettings { get; set; }
         public DbSet<InvoiceColumnSetting> InvoiceColumnSettings { get; set; }
-
-
+        public DbSet<Complaint> Complaints { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -39,7 +38,13 @@ namespace minutechart.Data
                 .HasOne(u => u.UserProfile)
                 .WithOne(p => p.AppUser)
                 .HasForeignKey<UserProfile>(p => p.AppUserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Complaint>()
+                .HasOne(c => c.AppUser)
+                .WithMany()
+                .HasForeignKey(c => c.AppUserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Item>()
                 .HasOne(i => i.ItemGroup)

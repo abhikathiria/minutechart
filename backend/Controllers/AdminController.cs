@@ -99,9 +99,9 @@ namespace minutechart.Controllers
 
             // ✅ Toggle the hidden flag
             query.HideQuery = request.HideQuery;
-            var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
+            // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
 
-            query.UserQueryLastUpdated = istTime;
+            query.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
 
             await _db.SaveChangesAsync();
 
@@ -255,7 +255,7 @@ namespace minutechart.Controllers
                     await reader.CloseAsync();
                 }
 
-                var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
+                // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
 
                 UserQuery userQuery;
 
@@ -268,7 +268,7 @@ namespace minutechart.Controllers
                     userQuery.UserTitle = req.UserTitle;
                     userQuery.UserQueryText = req.UserQueryText;
                     userQuery.VisualizationType = req.VisualizationType;
-                    userQuery.UserQueryLastUpdated = istTime;
+                    userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
 
                     _db.UserQueries.Update(userQuery);
                 }
@@ -281,8 +281,8 @@ namespace minutechart.Controllers
                         UserTitle = req.UserTitle,
                         UserQueryText = req.UserQueryText,
                         VisualizationType = req.VisualizationType,
-                        UserQueryCreatedAtTime = istTime,
-                        UserQueryLastUpdated = istTime
+                        UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime()
                     };
                     _db.UserQueries.Add(userQuery);
                 }
@@ -353,12 +353,17 @@ namespace minutechart.Controllers
 
             if (user.UserProfile == null)
             {
-                return Ok(new UserProfileDto());
+                return Ok(new UserProfileDto
+                {
+                    CustomerGST = user.GST ?? ""
+                });
             }
 
             var dto = new UserProfileDto
             {
                 CompanyName = user.CompanyName,
+                CustomerGST = user.UserProfile.CustomerGST ?? user.GST ?? "",  // Default to AppUser.GST if profile GST is null
+                CustomerCode = user.UserProfile.CustomerCode ?? "",
                 ServerName = user.UserProfile.ServerName,
                 DatabaseName = user.UserProfile.DatabaseName,
                 DbUsername = user.UserProfile.DbUsername,
@@ -387,6 +392,15 @@ namespace minutechart.Controllers
             var profile = user.UserProfile;
             if (profile == null)
             {
+                // Generate CustomerCode
+                var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
+                var companyWords = user.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+                var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
+                var customerWords = user.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+                var customerInitials = string.Join("", customerWords.Select(w => w[0])).ToUpper();
+                var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
+                var customerCode = $"C-{regYear}-{companyInitials}{customerInitials}-{userIdPart}";
+
                 profile = new UserProfile
                 {
                     AppUserId = user.Id,
@@ -395,30 +409,38 @@ namespace minutechart.Controllers
                     DatabaseName = model.DatabaseName,
                     DbUsername = model.DbUsername,
                     DbPassword = model.DbPassword,
-                    RefreshTime = model.RefreshTime
+                    RefreshTime = model.RefreshTime,
+                    CustomerGST = model.CustomerGST ?? user.GST ?? "",
+                    CustomerCode = customerCode
                 };
                 _db.UserProfiles.Add(profile);
+                await _db.SaveChangesAsync();
+
+                // Activate user and set trial dates only on first creation
+                user.AccountStatus = "Active";
+                user.TrialStartDate = DateTimeHelper.GetIndianTime();
+                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
+                _db.Users.Update(user);
+                // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
                 await _db.SaveChangesAsync();
             }
             else
             {
+                // Profile update: Just update the existing profile fields (no activation or email)
                 profile.CompanyName = user.CompanyName;
                 profile.ServerName = model.ServerName;
                 profile.DatabaseName = model.DatabaseName;
                 profile.DbUsername = model.DbUsername;
                 profile.DbPassword = model.DbPassword;
                 profile.RefreshTime = model.RefreshTime;
+                profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
                 _db.UserProfiles.Update(profile);
+                user.GST = model.CustomerGST ?? user.GST ?? "";
+                _db.Users.Update(user);
+                await _db.SaveChangesAsync();
             }
 
-            user.AccountStatus = "Active";
-            user.TrialStartDate = DateTimeHelper.GetIndianTime();
-            user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
-            _db.Users.Update(user);
-            // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
-            await _db.SaveChangesAsync();
-
-            return Ok(new { message = "Profile saved and user activated" });
+            return Ok(new { message = "Profile saved successfully" });
         }
 
         private async Task SendAccountActivationEmailAsync(string toEmail, string customerName, string companyName)
@@ -580,7 +602,7 @@ Nchart Team";
                 settings.SmtpPassword = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(model.SmtpPassword));
             }
 
-            settings.UpdatedAt = DateTime.UtcNow;
+            settings.UpdatedAt = DateTimeHelper.GetIndianTime();
 
             await _db.SaveChangesAsync();
 
@@ -728,7 +750,7 @@ Nchart Team";
             settings.ShowWebsite = dto.ShowWebsite;
             settings.ShowSignature = dto.ShowSignature;
             settings.ShowTermsAndConditions = dto.ShowTermsAndConditions;
-            settings.UpdatedAt = DateTime.UtcNow;
+            settings.UpdatedAt = DateTimeHelper.GetIndianTime();
 
             if (settings.Columns == null) settings.Columns = new List<InvoiceColumnSetting>();
 
@@ -863,8 +885,8 @@ Nchart Team";
                         UserTitle = sm.UserTitle,
                         UserQueryText = sm.UserQueryText,
                         VisualizationType = sm.VisualizationType,
-                        UserQueryCreatedAtTime = DateTime.UtcNow,
-                        UserQueryLastUpdated = DateTime.UtcNow,
+                        UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
                         UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
                     };
 
@@ -900,8 +922,8 @@ Nchart Team";
                             UserTitle = sm.UserTitle,
                             UserQueryText = sm.UserQueryText,
                             VisualizationType = sm.VisualizationType,
-                            UserQueryCreatedAtTime = DateTime.UtcNow,
-                            UserQueryLastUpdated = DateTime.UtcNow,
+                            UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                            UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
                             UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
                         };
                         _db.UserQueries.Add(newQuery);
@@ -948,10 +970,12 @@ Nchart Team";
     public class UserProfileDto
     {
         public string CompanyName { get; set; }
+        public string CustomerGST { get; set; } = "";
+        public string CustomerCode { get; set; } = "";
         public string ServerName { get; set; }
         public string DatabaseName { get; set; }
         public string DbUsername { get; set; }
         public string DbPassword { get; set; }
-        public int RefreshTime { get; set; }
+        public int RefreshTime { get; set; } = 60000;
     }
 }

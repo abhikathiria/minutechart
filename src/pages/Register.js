@@ -10,6 +10,7 @@ export default function Register() {
     CustomerName: "",
     PhoneNumber: "",
     Email: "",
+    GST: "",
     Password: "",
     ConfirmPassword: "",
   });
@@ -19,7 +20,7 @@ export default function Register() {
   const [message, setMessage] = useState("");
   const [resendMessage, setResendMessage] = useState("");
   const [registrationComplete, setRegistrationComplete] = useState(false);
-  const[isUnconfirmed, setIsUnConfirmed] = useState(false);
+  const [isUnconfirmed, setIsUnConfirmed] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
   // ⏳ cooldown countdown
@@ -149,6 +150,16 @@ export default function Register() {
               value={formData.CustomerName}
               onChange={handleChange}
               required
+              className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none"
+            />
+          </div>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-3 text-gray-400" />
+            <input
+              name="GST"
+              placeholder="GST (Optional)"
+              value={formData.GST}
+              onChange={handleChange}
               className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none"
             />
           </div>

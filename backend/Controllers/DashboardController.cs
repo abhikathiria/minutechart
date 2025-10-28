@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using minutechart.Data;
 using minutechart.Models;
 using minutechart.Services;
-using minutechart.DTOs;
+using minutechart.Helpers;
 
 namespace minutechart.Controllers
 {
@@ -198,7 +198,7 @@ namespace minutechart.Controllers
                 ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
             if (ipAddress == "::1") ipAddress = "127.0.0.1";
 
-            var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
+            // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
 
             if (req.UserQueryId == null || req.UserQueryId == 0)
             {
@@ -209,8 +209,8 @@ namespace minutechart.Controllers
                     UserQueryText = req.UserQueryText,
                     VisualizationType = req.VisualizationType,
                     UserIpAddress = ipAddress ?? "unknown",
-                    UserQueryCreatedAtTime = istTime,
-                    UserQueryLastUpdated = istTime
+                    UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                    UserQueryLastUpdated = DateTimeHelper.GetIndianTime()
                 };
 
                 _mainDb.UserQueries.Add(newQuery);
@@ -227,7 +227,7 @@ namespace minutechart.Controllers
                 existing.UserTitle = req.UserTitle;
                 existing.UserQueryText = req.UserQueryText;
                 existing.VisualizationType = req.VisualizationType;
-                existing.UserQueryLastUpdated = istTime;
+                existing.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
 
                 await _mainDb.SaveChangesAsync();
                 return Ok(new { success = true, message = "Module updated successfully", query = existing });

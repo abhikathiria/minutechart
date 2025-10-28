@@ -13,6 +13,8 @@ export default function Profile() {
     dbUsername: "",
     dbPassword: "",
     refreshTime: 60000,
+    customerGST: "",
+    customerCode: "",
   });
 
   const [companyName, setCompanyName] = useState("");
@@ -45,6 +47,8 @@ export default function Profile() {
 
         setForm({
           companyName: data.companyName || targetUser.companyName || "",
+          customerGST: data.customerGST || "",
+          customerCode: data.customerCode || "",
           serverName: data.serverName || "",
           databaseName: data.databaseName || "",
           dbUsername: data.dbUsername || "",
@@ -76,6 +80,7 @@ export default function Profile() {
     try {
       const payload = {
         companyName: form.companyName,
+        customerGST: form.customerGST,
         serverName: form.serverName,
         databaseName: form.databaseName,
         dbUsername: form.dbUsername,
@@ -93,7 +98,7 @@ export default function Profile() {
       setForm((prev) => ({ ...prev, dbPassword: "" }));
 
       setTimeout(() => {
-        navigate("/admin/users");
+        navigate("/admin/users", { state: { keepFilters: true } });
       }, 1500);
     } catch (err) {
       const body = err.response?.data;
@@ -152,6 +157,30 @@ export default function Profile() {
           )}
 
           <form onSubmit={onSubmit} className="space-y-5">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                <FaKey /> Customer GST
+              </label>
+              <input
+                name="customerGST"
+                value={form.customerGST}
+                onChange={onChange}
+                placeholder="Customer GST"
+                className="w-full border rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            {/* Customer Code */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                <FaUser /> Customer Code
+              </label>
+              <input
+                name="customerCode"
+                value={form.customerCode}
+                readOnly
+                className="w-full border rounded-xl px-4 py-2 bg-gray-100 focus:outline-none"
+              />
+            </div>
             {/* Server */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">

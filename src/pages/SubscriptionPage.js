@@ -109,15 +109,31 @@ export default function SubscriptionPage() {
     );
   };
 
-  const handleChoose = async (plan) => {
-    if (!user) {
+const handleChoose = async (plan) => {
+  let user = null;
+  try {
+    const storedUser = localStorage.getItem("user");
+    user = storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error("Error parsing user from localStorage:", error);
+    user = null;
+  }
+
+  if (!user) {
+    // Fallback: Quick API check to verify auth (optional but recommended)
+    try {
+      await api.get("/user/subscription-status"); // Or any protected endpoint
+      // If this succeeds, user is authenticated—proceed
+    } catch (err) {
       toast.error("⚠️ Please log in to subscribe to a plan.");
       navigate("/login", { state: { from: "/subscription/buy" } });
       return;
     }
+  }
 
-    try {
-      const createResp = await api.post("/subscription/create-order", { planId: plan.id });
+  // Proceed with payment logic...
+  try {
+    const createResp = await api.post("/subscription/create-order", { planId: plan.id });
       const { orderId, amount, currency, key } = createResp.data;
 
       const loaded = await loadRazorpayScript();

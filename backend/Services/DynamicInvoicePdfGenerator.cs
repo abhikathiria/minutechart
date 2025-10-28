@@ -101,6 +101,8 @@ public static class DynamicInvoicePdfGenerator
             billTo.Add(new Chunk(user.CompanyName + "\n", regular));
             billTo.Add(new Chunk(user.Email + "\n", regular));
             billTo.Add(new Chunk(user.PhoneNumber + "\n", regular));
+            if (!string.IsNullOrEmpty(user.GST))
+                billTo.Add(new Chunk("GSTN:: " + user.GST + "\n", regular));
             billTable.AddCell(new PdfPCell(billTo)
             {
                 Border = Rectangle.NO_BORDER,

@@ -5,6 +5,7 @@ using minutechart.Data;
 using minutechart.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using minutechart.Services;
+using minutechart.Helpers;
 using System.Net;
 namespace minutechart.Controllers.Api
 {
@@ -51,7 +52,7 @@ namespace minutechart.Controllers.Api
                     await _userManager.UpdateSecurityStampAsync(existingUser);
 
                     var token = await _userManager.GenerateEmailConfirmationTokenAsync(existingUser);
-                    existingUser.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
+                    existingUser.EmailConfirmationTokenGeneratedAt = DateTimeHelper.GetIndianTime();
                     await _userManager.UpdateAsync(existingUser);
 
                     var encodedToken = WebUtility.UrlEncode(token);
@@ -85,6 +86,8 @@ namespace minutechart.Controllers.Api
                 PhoneNumber = model.PhoneNumber,
                 UserName = model.Email,
                 Email = model.Email,
+                GST = model.GST,
+                RegistrationDate = DateTimeHelper.GetIndianTime(),
                 EmailConfirmed = false,
                 AccountStatus = "Pending"
             };
@@ -100,7 +103,7 @@ namespace minutechart.Controllers.Api
             await _userManager.UpdateSecurityStampAsync(user);
 
             var tokenNew = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            user.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
+            user.EmailConfirmationTokenGeneratedAt = DateTimeHelper.GetIndianTime();
             await _userManager.UpdateAsync(user);
 
             var encodedTokenNew = WebUtility.UrlEncode(tokenNew);
@@ -153,7 +156,7 @@ namespace minutechart.Controllers.Api
                 var tokenIssuedAt = user.EmailConfirmationTokenGeneratedAt.Value;
                 var tokenLifetime = TimeSpan.FromHours(1);
 
-                if ((DateTime.UtcNow - tokenIssuedAt) > tokenLifetime)
+                if ((DateTimeHelper.GetIndianTime() - tokenIssuedAt) > tokenLifetime)
                 {
                     return BadRequest(new { message = "This confirmation link has expired. Please request a new one." });
                 }
@@ -187,7 +190,7 @@ namespace minutechart.Controllers.Api
 
             var minInterval = TimeSpan.FromMinutes(2);
             if (user.EmailConfirmationTokenGeneratedAt.HasValue &&
-                (DateTime.UtcNow - user.EmailConfirmationTokenGeneratedAt.Value) < minInterval)
+                (DateTimeHelper.GetIndianTime() - user.EmailConfirmationTokenGeneratedAt.Value) < minInterval)
             {
                 return BadRequest(new { message = "Please wait a bit before requesting another confirmation email." });
             }
@@ -195,7 +198,7 @@ namespace minutechart.Controllers.Api
             await _userManager.UpdateSecurityStampAsync(user);
 
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            user.EmailConfirmationTokenGeneratedAt = DateTime.UtcNow;
+            user.EmailConfirmationTokenGeneratedAt = DateTimeHelper.GetIndianTime();
             await _userManager.UpdateAsync(user);
 
             var encodedToken = WebUtility.UrlEncode(token);
@@ -354,6 +357,7 @@ namespace minutechart.Controllers.Api
             {
                 user.UserName,
                 user.CompanyName,
+                user.GST,
                 user.AdminName,
                 user.Email,
                 user.AccountStatus,
@@ -378,7 +382,9 @@ namespace minutechart.Controllers.Api
                 DatabaseName = profile?.DatabaseName ?? "",
                 DbUsername = profile?.DbUsername ?? "",
                 DbPassword = profile?.DbPassword ?? "",
-                RefreshTime = profile?.RefreshTime ?? 60000
+                RefreshTime = profile?.RefreshTime ?? 60000,
+                CustomerGST = profile?.CustomerGST ?? user.GST ?? "",
+                CustomerCode = profile?.CustomerCode ?? ""
             };
 
             return Ok(dto);

@@ -1,3 +1,14 @@
+// // local code
+// import axios from "axios";
+
+// const api = axios.create({
+//   baseURL: "http://192.168.1.105:5027/api",
+//   withCredentials: true,
+// });
+
+// export default api;
+
+// render code
 import axios from "axios";
 
 const api = axios.create({
@@ -5,4 +16,4 @@ const api = axios.create({
   withCredentials: true,
 });
 
-export default api; 
+export default api;

@@ -24,6 +24,9 @@ import InvoicePrintable from "./pages/InvoicePrintable";
 import EmailSettings from "./pages/EmailSettings";
 import InvoiceSettingsPage from "./pages/InvoiceSettingsPage";
 import Information from "./pages/Information";
+import Header from "./components/Header";
+import Complaints from "./pages/Complaints";
+import ComplaintsManagement from "./pages/ComplaintsManagement";
 import { Toaster } from "react-hot-toast";
 
 function Footer() {
@@ -96,15 +99,9 @@ function Footer() {
 
 function AppContent() {
   const [dashboardOpen, setDashboardOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [companies, setCompanies] = useState([]);
   const navigate = useNavigate();
-  const dropdownRef = useRef(null);
-  const profileRef = useRef(null);
-  const adminSettingsRef = useRef(null);
-  const adminSettingsButtonRef = useRef(null);
   const dashboardButtonRef = useRef(null);
 
   const PublicRoute = ({ children }) => children;
@@ -119,40 +116,6 @@ function AppContent() {
     if (!user.roles?.includes("Admin")) return <Navigate to="/" replace />;
     return children;
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        adminSettingsRef.current &&
-        !adminSettingsRef.current.contains(event.target) &&
-        adminSettingsButtonRef.current &&
-        !adminSettingsButtonRef.current.contains(event.target)
-      ) {
-        setAdminSettingsOpen(false);
-      }
-
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target) &&
-        dashboardButtonRef.current &&
-        !dashboardButtonRef.current.contains(event.target)
-      ) {
-        setDashboardOpen(false);
-      }
-
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(event.target)
-      ) {
-        setProfileOpen(false);
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
 
   useEffect(() => {
     api.get("/account/me")
@@ -179,194 +142,8 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
-<header className="bg-[#0F172A] text-white shadow-md">
-        <div className="w-full px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between h-auto md:h-20 py-4 md:py-0 gap-4 md:gap-0">
-          <Link to="/" className="flex items-center">
-            <img src="/Ngraphlogo.png" alt="Project Logo" className="h-12 w-auto object-contain" />
-          </Link>
+      <Header user={user} onLogout={handleLogout} />
 
-          <nav className="flex flex-col md:flex-row items-center gap-4 md:gap-8 text-lg font-medium">
-            <Link to="/" className="hover:text-cyan-400">Home</Link>
-
-            {user?.roles?.includes("Admin") ? (
-              <div className="relative" onClick={(e) => e.stopPropagation()}>  {/* Added to stop bubbling from the entire dropdown area */}
-                <div
-                  ref={adminSettingsButtonRef}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setAdminSettingsOpen(!adminSettingsOpen);
-                  }}
-                  className="flex items-center gap-1 hover:text-cyan-400 cursor-pointer"
-                >
-                  Admin Settings <FaChevronDown className="text-sm" />
-                </div>
-                {adminSettingsOpen && (
-                  <div
-                    ref={adminSettingsRef}
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
-                  >
-                    <Link
-                      to="/admin/users"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setAdminSettingsOpen(false)}
-                    >
-                      User Settings
-                    </Link>
-                    <Link
-                      to="/admin/emailsettings"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setAdminSettingsOpen(false)}
-                    >
-                      Email Settings
-                    </Link>
-                    <Link
-                      to="/admin/invoicesettings"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                      onClick={() => setAdminSettingsOpen(false)}
-                    >
-                      Invoice Settings
-                    </Link>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link to="/dashboard" className="hover:text-cyan-400">
-                Dashboard
-              </Link>
-            )}
-            <Link
-              to="/subscription/buy"
-              className="hover:text-cyan-400"
-            >
-              Subscriptions
-            </Link>
-          </nav>
-
-          {user ? (
-            <div className="flex items-center gap-4 relative">
-              {user.roles?.includes("Admin") ? (
-                <div className="relative" ref={profileRef} onClick={(e) => e.stopPropagation()}>  {/* Added to stop bubbling from the entire dropdown area */}
-                  <div
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setProfileOpen(!profileOpen);
-                    }}
-                    className="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"
-                  >
-                    <FaUserShield className="text-3xl" />
-                    <FaChevronDown className="text-sm" />
-                  </div>
-
-                  {profileOpen && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-48 z-50"
-                    >
-                      <div className="block w-full text-left px-4 py-2">
-                        <span className="block text-base font-bold">
-                          {user.adminName || "Admin Name"}
-                        </span>
-                        {user.email && (
-                          <span className="block text-sm text-gray-500">{user.email}</span>
-                        )}
-                      </div>
-                      <button
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setProfileOpen(false);
-                          handleLogout();
-                        }}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="relative" ref={profileRef} onClick={(e) => e.stopPropagation()}>  {/* Added to stop bubbling from the entire dropdown area */}
-                  <div
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setProfileOpen(!profileOpen);
-                    }}
-                    className="flex items-center gap-3 hover:text-cyan-400 cursor-pointer"
-                  >
-                    {/* Identity Text */}
-                    <div className="flex flex-col items-end text-right leading-tight">
-                      <span className="font-semibold text-sm">
-                        {user.companyName || user.customerName || "User"}
-                      </span>
-                      <span className="text-xs text-gray-400 truncate max-w-[140px]">
-                        {user.email}
-                      </span>
-                    </div>
-
-                    {/* Optional icon (keeps UI neat) */}
-                    <FaChevronDown className="text-sm" />
-                  </div>
-
-                  {profileOpen && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-56 z-50"
-                    >
-                      <Link
-                        to="/my-profile"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        My Profile
-                      </Link>
-                      <Link
-                        to="/purchase-history"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        Purchase History
-                      </Link>
-                      <Link
-                        to="/change-password"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        Change Password
-                      </Link>
-                      <button
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setProfileOpen(false);
-                          handleLogout();
-                        }}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-100"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <Link to="/login" className="hover:text-cyan-400 flex items-center gap-2 text-lg">
-                <FaSignInAlt className="text-xl" /> Login
-              </Link>
-              <Link to="/register" className="hover:text-cyan-400 flex items-center gap-2 text-lg">
-                <FaUserPlus className="text-xl" /> Register
-              </Link>
-            </div>
-          )}
-
-        </div>
-      </header>
-      
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<PublicRoute><HomeContent /></PublicRoute>} />
@@ -384,12 +161,14 @@ function AppContent() {
         <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
         <Route path="/admin/emailsettings" element={<AdminRoute><EmailSettings /></AdminRoute>} />
         <Route path="/admin/invoicesettings" element={<AdminRoute><InvoiceSettingsPage /></AdminRoute>} />
+        <Route path="/admin/complaintsmanagement" element={<AdminRoute><ComplaintsManagement /></AdminRoute>} />
 
         {/* Private routes (logged-in users) */}
         <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
         <Route path="/purchase-history" element={<PrivateRoute><PurchaseHistory /></PrivateRoute>} />
         <Route path="/reset-password" element={<PrivateRoute><ResetPassword /></PrivateRoute>} />
         <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
+        <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -306,6 +306,9 @@ namespace Backend.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("GST")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 
@@ -328,6 +331,9 @@ namespace Backend.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("RegistrationDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
@@ -513,6 +519,55 @@ namespace Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CompanyInvoiceSettings");
+                });
+
+            modelBuilder.Entity("minutechart.Models.Complaint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminAttachmentUrls")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AdminResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Category")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserAttachmentUrls")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.ToTable("Complaints");
                 });
 
             modelBuilder.Entity("minutechart.Models.Customer", b =>
@@ -949,6 +1004,12 @@ namespace Backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CustomerCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerGST")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("DatabaseName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1072,6 +1133,17 @@ namespace Backend.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("minutechart.Models.Complaint", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+                });
+
             modelBuilder.Entity("minutechart.Models.Invoice", b =>
                 {
                     b.HasOne("minutechart.Models.SubscriptionPlan", "Plan")
@@ -1167,7 +1239,7 @@ namespace Backend.Migrations
                     b.HasOne("minutechart.Models.AppUser", "AppUser")
                         .WithOne("UserProfile")
                         .HasForeignKey("minutechart.Models.UserProfile", "AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("AppUser");

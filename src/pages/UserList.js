@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt } from "react-icons/fa";
+import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSort } from "react-icons/fa";
 import { useLocation } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -10,6 +10,8 @@ function UserList() {
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const location = useLocation();
+    const [sortBy, setSortBy] = useState("createdAt");
+    const [sortOrder, setSortOrder] = useState("desc");
 
     const handleExportTable = () => {
         const table = document.querySelector("table");
@@ -32,7 +34,7 @@ function UserList() {
         saveAs(blob, "users.xlsx");
     };
 
-const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
+    const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
         if (location.state?.keepFilters) {
             // If coming back from modules/profile, load from localStorage
             return localStorage.getItem("accountStatusFilter") || "Pending";
@@ -47,7 +49,21 @@ const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
         localStorage.setItem("accountStatusFilter", accountStatusFilter);
     }, [accountStatusFilter]);
 
-    const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState("All");
+    const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState(() => {
+        if (location.state?.keepFilters) {
+            // If coming back from modules/profile, load from localStorage
+            return localStorage.getItem("subscriptionStatusFilter") || "All";
+        } else {
+            // Fresh visit (e.g., from home), reset to All and clear localStorage
+            localStorage.removeItem("subscriptionStatusFilter");
+            return "All";
+        }
+    });
+    useEffect(() => {
+        // Always save to localStorage whenever the filter changes (for persistence on back navigation)
+        localStorage.setItem("subscriptionStatusFilter", subscriptionStatusFilter);
+    }, [subscriptionStatusFilter]);
+
     const [selectedUser, setSelectedUser] = useState(null);
     const [modules, setModules] = useState([]);
     const [showModules, setShowModules] = useState(false);
@@ -133,11 +149,10 @@ const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
             return matchesSearch && matchesAccountStatus && matchesSubscriptionStatus;
         })
         .sort((a, b) => {
-            if (a.accountStatus === "Pending" && b.accountStatus !== "Pending")
-                return -1;
-            if (b.accountStatus === "Pending" && a.accountStatus !== "Pending")
-                return 1;
-            return a.id - b.id;
+            const aVal = a[sortBy];
+            const bVal = b[sortBy];
+            if (sortOrder === "asc") return aVal > bVal ? 1 : -1;
+            return aVal < bVal ? 1 : -1;
         });
 
     const indexOfLastUser = currentPage * usersPerPage;
@@ -224,10 +239,22 @@ const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
                         <thead>
                             <tr className="bg-gray-100 text-left text-lg font-semibold">
                                 <th className="p-3 border-r border-gray-500 text-center">#</th>
-                                <th className="p-3 border-r border-gray-500 text-center">Company</th>
-                                <th className="p-3 border-r border-gray-500 text-center">Customer</th>
-                                <th className="p-3 border-r border-gray-500 text-center">Phone</th>
-                                <th className="p-3 border-r border-gray-500 text-center">Email</th>
+                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("companyName"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                                    Company
+                                    <FaSort className={`inline ml-1 ${sortBy === "companyName" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
+                                </th>
+                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("customerName"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                                    Customer
+                                    <FaSort className={`inline ml-1 ${sortBy === "customerName" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
+                                </th>
+                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("phoneNumber"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                                    Phone
+                                    <FaSort className={`inline ml-1 ${sortBy === "phoneNumber" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
+                                </th>
+                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("email"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                                    Email
+                                    <FaSort className={`inline ml-1 ${sortBy === "email" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
+                                </th>
                                 <th className="p-3 border-r border-gray-500 text-center">Account</th>
                                 <th className="p-3 border-r border-gray-500 text-center">D</th>
                                 <th className="p-3 border-r border-gray-500 text-center">Q</th>

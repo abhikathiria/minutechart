@@ -8,6 +8,8 @@ namespace minutechart.Models
         public string? CompanyName { get; set; } = null!;
         public string? CustomerName { get; set; } = null!;
         public string? AdminName { get; set; }
+        public string? GST { get; set; }
+        public DateTime? RegistrationDate { get; set; }
         public string AccountStatus { get; set; } = "Pending";
         public DateTime? EmailConfirmationTokenGeneratedAt { get; set; }
         public virtual UserProfile UserProfile { get; set; }

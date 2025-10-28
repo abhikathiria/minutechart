@@ -123,6 +123,123 @@ namespace minutechart.Controllers.Api
             });
         }
 
+        // [HttpPost("verify")]
+        // public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentDto dto)
+        // {
+        //     var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        //     if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        //     var orderRecord = await _db.RazorpayOrders
+        //         .Include(o => o.Plan)
+        //         .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId && o.AppUserId == userId);
+
+        //     if (orderRecord == null) return NotFound("Order record not found");
+
+        //     var keySecret = _config["Razorpay:KeySecret"];
+        //     if (!VerifySignature(dto.OrderId, dto.PaymentId, dto.Signature, keySecret))
+        //         return BadRequest("Invalid signature");
+
+        //     // Mark order as paid
+        //     orderRecord.PaymentId = dto.PaymentId;
+        //     orderRecord.Status = "paid";
+        //     orderRecord.PaidAt = DateTimeHelper.GetIndianTime();
+        //     await _db.SaveChangesAsync();
+
+        //     // Fetch plan details
+        //     var plan = await _db.SubscriptionPlans.FindAsync(orderRecord.PlanId);
+        //     if (plan == null) return NotFound("Plan not found");
+
+        //     var now = DateTimeHelper.GetIndianTime();
+        //     var user = await _userManager.FindByIdAsync(userId);
+
+        //     DateTime plannedStartDate;
+        //     DateTime plannedEndDate;
+
+        //     // CASE 1: Trial active
+        //     if (user.TrialEndDate.HasValue && user.TrialEndDate.Value > now)
+        //     {
+        //         plannedStartDate = user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate > now
+        //                             ? user.SubscriptionEndDate.Value.AddSeconds(1)
+        //                             : user.TrialEndDate.Value.AddSeconds(1);
+
+        //         plannedEndDate = plannedStartDate.AddDays(plan.DurationDays);
+
+        //         // Update user subscription if no active plan
+        //         if (!user.SubscriptionStartDate.HasValue || user.SubscriptionEndDate <= now)
+        //         {
+        //             user.SubscriptionStartDate = plannedStartDate;
+        //             user.SubscriptionEndDate = plannedEndDate;
+        //         }
+        //         else
+        //         {
+        //             user.SubscriptionEndDate = plannedEndDate;
+        //         }
+        //     }
+        //     // CASE 2: Active subscription exists
+        //     else if (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now)
+        //     {
+        //         plannedStartDate = user.SubscriptionEndDate.Value.AddSeconds(1);
+        //         plannedEndDate = plannedStartDate.AddDays(plan.DurationDays);
+
+        //         // extend user's end date
+        //         user.SubscriptionEndDate = plannedEndDate;
+        //     }
+        //     // CASE 3: No trial & no subscription
+        //     else
+        //     {
+        //         plannedStartDate = now;
+        //         plannedEndDate = now.AddDays(plan.DurationDays);
+        //         user.SubscriptionStartDate = plannedStartDate;
+        //         user.SubscriptionEndDate = plannedEndDate;
+        //     }
+
+        //     // Save user subscription dates
+        //     await _userManager.UpdateAsync(user);
+
+        //     // Create invoice with the correct scheduled dates
+        //     var invoice = new Invoice
+        //     {
+        //         AppUserId = userId,
+        //         PlanId = plan.Id,
+        //         Plan = plan,
+        //         RazorpayOrderId = orderRecord.OrderId,
+        //         RazorpayPaymentId = dto.PaymentId,
+        //         PaymentDate = now,
+        //         Amount = orderRecord.Amount,
+        //         Currency = "INR",
+        //         InvoiceNumber = "TEMP",
+        //         PlanStartDate = plannedStartDate,
+        //         PlanEndDate = plannedEndDate
+        //     };
+
+        //     _db.Invoices.Add(invoice);
+        //     await _db.SaveChangesAsync();
+
+
+        //     invoice.InvoiceNumber = $"INV-{invoice.Id}";
+
+        //     var datePart = now.ToString("ddMMMyyyy"); // e.g. 19Sep2025
+        //     var timePart = now.ToString("hhmmtt");    // e.g. 0309PM
+        //     var fileName = $"INVOICE_{invoice.Id}_{datePart}_{timePart}.pdf";
+
+        //     invoice.PdfPath = Path.Combine("invoices", fileName);
+
+        //     // Generate PDF and send email
+        //     var invoiceService = new InvoiceService(_db, HttpContext.RequestServices.GetRequiredService<IEmailSender>(), HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>());
+        //     invoice = await invoiceService.GenerateAndSendInvoiceAsync(invoice, fileName);
+
+        //     await _db.SaveChangesAsync();
+
+        //     return Ok(new
+        //     {
+        //         success = true,
+        //         subscriptionStart = plannedStartDate,
+        //         subscriptionEnd = plannedEndDate,
+        //         invoiceNumber = invoice.InvoiceNumber,
+        //         invoicePdf = invoice.PdfPath
+        //     });
+        // }
+
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentDto dto)
         {
@@ -152,67 +269,6 @@ namespace minutechart.Controllers.Api
             var now = DateTimeHelper.GetIndianTime();
             var user = await _userManager.FindByIdAsync(userId);
 
-            // DateTime startDate;
-            // DateTime endDate;
-
-            // // ✅ CASE 1: Trial is active → schedule after trial ends
-            // if (user.TrialEndDate.HasValue && user.TrialEndDate.Value > now)
-            // {
-            //     startDate = user.TrialEndDate.Value.AddSeconds(1);
-            //     endDate = startDate.AddDays(plan.DurationDays);
-
-            //     // Only set if no active subscription yet
-            //     if (!user.SubscriptionStartDate.HasValue || user.SubscriptionEndDate <= now)
-            //     {
-            //         user.SubscriptionStartDate = startDate;
-            //         user.SubscriptionEndDate = endDate;
-            //     }
-            //     else
-            //     {
-            //         // If there’s already an upcoming plan, extend its end date
-            //         user.SubscriptionEndDate = user.SubscriptionEndDate.Value.AddDays(plan.DurationDays);
-            //         endDate = user.SubscriptionEndDate.Value;
-            //         startDate = user.SubscriptionStartDate.Value;
-            //     }
-            // }
-            // // ✅ CASE 2: Already has active subscription → extend
-            // else if (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now)
-            // {
-            //     startDate = user.SubscriptionStartDate.Value;
-            //     user.SubscriptionEndDate = user.SubscriptionEndDate.Value.AddDays(plan.DurationDays);
-            //     endDate = user.SubscriptionEndDate.Value;
-            // }
-            // // ✅ CASE 3: No trial or subscription → start now
-            // else
-            // {
-            //     startDate = now;
-            //     endDate = now.AddDays(plan.DurationDays);
-            //     user.SubscriptionStartDate = startDate;
-            //     user.SubscriptionEndDate = endDate;
-            // }
-
-            // await _userManager.UpdateAsync(user);
-
-            // var invoice = new Invoice
-            // {
-            //     UserId = userId,
-            //     PlanId = plan.Id,
-            //     Plan = plan,
-            //     RazorpayOrderId = orderRecord.OrderId,
-            //     RazorpayPaymentId = dto.PaymentId,
-            //     PaymentDate = now,
-            //     Amount = orderRecord.Amount,
-            //     Currency = "INR",
-            //     InvoiceNumber = "TEMP",
-            //     PlanStartDate = startDate,
-            //     PlanEndDate = endDate
-            // };
-
-            // // Save to DB
-            // _db.Invoices.Add(invoice);
-            // await _db.SaveChangesAsync();
-
-            // Determine start/end for the invoice based on trial & existing subscription
             DateTime plannedStartDate;
             DateTime plannedEndDate;
 
@@ -276,18 +332,17 @@ namespace minutechart.Controllers.Api
             _db.Invoices.Add(invoice);
             await _db.SaveChangesAsync();
 
-
             invoice.InvoiceNumber = $"INV-{invoice.Id}";
 
             var datePart = now.ToString("ddMMMyyyy"); // e.g. 19Sep2025
             var timePart = now.ToString("hhmmtt");    // e.g. 0309PM
             var fileName = $"INVOICE_{invoice.Id}_{datePart}_{timePart}.pdf";
 
-            invoice.PdfPath = Path.Combine("invoices", fileName);
-
-            // Generate PDF and send email
+            // Generate PDF and save path (no email yet)
             var invoiceService = new InvoiceService(_db, HttpContext.RequestServices.GetRequiredService<IEmailSender>(), HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>());
-            // invoice = await invoiceService.GenerateAndSendInvoiceAsync(invoice, fileName);
+            invoice = await invoiceService.GenerateInvoiceAsync(invoice, fileName);
+
+            // await invoiceService.SendInvoiceEmailAsync(invoice);
 
             await _db.SaveChangesAsync();
 

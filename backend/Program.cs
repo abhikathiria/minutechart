@@ -63,13 +63,24 @@ namespace minutechart
             .AddEntityFrameworkStores<MinutechartDbContext>()
             .AddDefaultTokenProviders();
 
+            // // local code
+            // builder.Services.AddCors(options =>
+            // {
+            //     options.AddPolicy("AllowReactApp", policy =>
+            //     {
+            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.105:3000", "http://192.168.1.105:5027")
+            //               .AllowAnyHeader()
+            //               .AllowAnyMethod()
+            //               .AllowCredentials();
+            //     });
+            // });
+
+            // render code
             builder.Services.ConfigureApplicationCookie(options =>
-            {
-                options.Cookie.SameSite = SameSiteMode.None;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            });
-
-
+             {
+                 options.Cookie.SameSite = SameSiteMode.None;
+                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+             });
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
@@ -80,6 +91,7 @@ namespace minutechart
                           .AllowCredentials();
                 });
             });
+
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
