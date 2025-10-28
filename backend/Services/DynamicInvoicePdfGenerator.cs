@@ -17,7 +17,7 @@ public static class DynamicInvoicePdfGenerator
             PdfWriter.GetInstance(document, ms);
             document.Open();
 
-            var fontPath = Path.Combine(Directory.GetCurrentDirectory(), "public", "NotoSans-Regular.ttf");
+            var fontPath = Path.Combine(Directory.GetCurrentDirectory(), "minutechart", "public", "NotoSans-Regular.ttf");
             var bf = BaseFont.CreateFont(fontPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
             // Fonts
