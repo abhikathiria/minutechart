@@ -17,7 +17,7 @@ public static class DynamicInvoicePdfGenerator
             PdfWriter.GetInstance(document, ms);
             document.Open();
 
-            string fontPath = "C:\\Users\\ABHI\\Dropbox\\PC\\Downloads\\minutechart\\public\\NotoSans-Regular.ttf"; // Make sure this TTF exists on your server
+            var fontPath = Path.Combine(Directory.GetCurrentDirectory(), "public", "NotoSans-Regular.ttf");
             var bf = BaseFont.CreateFont(fontPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
             // Fonts
