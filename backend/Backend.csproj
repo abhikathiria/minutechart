@@ -34,8 +34,4 @@
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.7" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
 </Project>
