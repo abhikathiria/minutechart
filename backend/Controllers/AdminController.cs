@@ -198,7 +198,14 @@ namespace minutechart.Controllers
                 using (var connection = await _dbService.CreateClientConnectionAsync(profile))
                 {
                     var cmd = connection.CreateCommand();
-                    cmd.CommandText = req.SqlQuery;
+
+                    // Fix: Prepend semicolon if query starts with WITH (handles CTE syntax issues)
+                    string sql = req.SqlQuery.Trim();
+                    if (sql.ToUpper().StartsWith("WITH"))
+                    {
+                        sql = ";" + sql;
+                    }
+                    cmd.CommandText = sql;
 
                     var reader = await cmd.ExecuteReaderAsync();
                     var table = new List<Dictionary<string, object>>();
@@ -832,6 +839,7 @@ Nchart Team";
         [HttpPost("transfer-modules")]
         public IActionResult TransferModules([FromBody] TransferModulesRequest request)
         {
+            // Input validation (unchanged)
             if (string.IsNullOrEmpty(request.SourceUserId) ||
                 string.IsNullOrEmpty(request.TargetUserId) ||
                 request.ModuleIds == null || request.ModuleIds.Count == 0)
@@ -839,82 +847,47 @@ Nchart Team";
                 return BadRequest(new { success = false, message = "Invalid input" });
             }
 
-            // Fetch modules from source user and target user
-            var sourceModules = _db.UserQueries
-                .Where(q => q.AppUserId == request.SourceUserId && request.ModuleIds.Contains(q.UserQueryId))
-                .ToList();
-
-            var targetModules = _db.UserQueries
-                .Where(q => q.AppUserId == request.TargetUserId)
-                .ToList();
-
-            var duplicates = new List<UserQuery>();
-            var copied = new List<UserQuery>();
-
-            // Detect duplicates and prepare for action
-            foreach (var sm in sourceModules)
+            try
             {
-                var existing = targetModules.FirstOrDefault(tm =>
-                    tm.UserTitle == sm.UserTitle && tm.UserQueryText == sm.UserQueryText);
+                // Fetch modules from source user and target user (unchanged)
+                var sourceModules = _db.UserQueries
+                    .Where(q => q.AppUserId == request.SourceUserId && request.ModuleIds.Contains(q.UserQueryId))
+                    .ToList();
 
-                if (existing != null)
+                var targetModules = _db.UserQueries
+                    .Where(q => q.AppUserId == request.TargetUserId)
+                    .ToList();
+
+                var duplicates = new List<UserQuery>();
+                var copied = new List<UserQuery>();
+
+                // Detect duplicates and prepare for action (unchanged)
+                foreach (var sm in sourceModules)
                 {
-                    duplicates.Add(existing);
+                    var existing = targetModules.FirstOrDefault(tm =>
+                        tm.UserTitle == sm.UserTitle && tm.UserQueryText == sm.UserQueryText);
 
-                    // Handle based on requested action
-                    if (request.Action == "replace")
+                    if (existing != null)
                     {
-                        _db.UserQueries.Remove(existing);
-                    }
-                    else if (request.Action == "ignore")
-                    {
-                        continue; // skip this one
-                    }
-                    else if (request.Action == "cancel" || request.Action == "check")
-                    {
-                        continue;
-                    }
-                }
+                        duplicates.Add(existing);
 
-                // Only add new module if not cancelling/checking
-                if (request.Action != "cancel" && request.Action != "check")
-                {
-                    var newQuery = new UserQuery
-                    {
-                        AppUserId = request.TargetUserId,
-                        UserTitle = sm.UserTitle,
-                        UserQueryText = sm.UserQueryText,
-                        VisualizationType = sm.VisualizationType,
-                        UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
-                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
-                        UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
-                    };
-
-                    _db.UserQueries.Add(newQuery);
-                    copied.Add(newQuery);
-                }
-            }
-
-            // ✅ Handle check mode separately
-            if (request.Action == "check")
-            {
-                if (duplicates.Any())
-                {
-                    // duplicates found → send back to frontend
-                    return Ok(new
-                    {
-                        success = false,
-                        duplicates = duplicates.Select(d => new
+                        // Handle based on requested action
+                        if (request.Action == "replace")
                         {
-                            d.UserQueryId,
-                            d.UserTitle
-                        })
-                    });
-                }
-                else
-                {
-                    // no duplicates → directly transfer all modules
-                    foreach (var sm in sourceModules)
+                            _db.UserQueries.Remove(existing);
+                        }
+                        else if (request.Action == "ignore")
+                        {
+                            continue; // skip this one
+                        }
+                        else if (request.Action == "cancel" || request.Action == "check")
+                        {
+                            continue;
+                        }
+                    }
+
+                    // Only add new module if not cancelling/checking
+                    if (request.Action != "cancel" && request.Action != "check")
                     {
                         var newQuery = new UserQuery
                         {
@@ -926,34 +899,80 @@ Nchart Team";
                             UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
                             UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
                         };
+
                         _db.UserQueries.Add(newQuery);
                         copied.Add(newQuery);
                     }
-
-                    _db.SaveChanges();
-
-                    return Ok(new
-                    {
-                        success = true,
-                        message = $"{copied.Count} modules transferred successfully (no duplicates found)."
-                    });
                 }
-            }
 
-            // Save changes for replace / ignore actions
-            _db.SaveChanges();
-
-            return Ok(new
-            {
-                success = true,
-                message = request.Action switch
+                // ✅ Handle check mode separately (unchanged)
+                if (request.Action == "check")
                 {
-                    "replace" => $"{copied.Count} modules transferred and duplicates replaced.",
-                    "ignore" => $"{copied.Count} modules transferred, duplicates ignored.",
-                    "cancel" => "Transfer cancelled.",
-                    _ => $"{copied.Count} modules transferred successfully."
+                    if (duplicates.Any())
+                    {
+                        // duplicates found → send back to frontend
+                        return Ok(new
+                        {
+                            success = false,
+                            duplicates = duplicates.Select(d => new
+                            {
+                                d.UserQueryId,
+                                d.UserTitle
+                            })
+                        });
+                    }
+                    else
+                    {
+                        // no duplicates → directly transfer all modules
+                        foreach (var sm in sourceModules)
+                        {
+                            var newQuery = new UserQuery
+                            {
+                                AppUserId = request.TargetUserId,
+                                UserTitle = sm.UserTitle,
+                                UserQueryText = sm.UserQueryText,
+                                VisualizationType = sm.VisualizationType,
+                                UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                                UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+                                UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+                            };
+                            _db.UserQueries.Add(newQuery);
+                            copied.Add(newQuery);
+                        }
+
+                        _db.SaveChanges();
+
+                        return Ok(new
+                        {
+                            success = true,
+                            message = $"{copied.Count} modules transferred successfully (no duplicates found)."
+                        });
+                    }
                 }
-            });
+
+                // Save changes for replace / ignore actions
+                _db.SaveChanges();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = request.Action switch
+                    {
+                        "replace" => $"{copied.Count} modules transferred and duplicates replaced.",
+                        "ignore" => $"{copied.Count} modules transferred, duplicates ignored.",
+                        "cancel" => "Transfer cancelled.",
+                        _ => $"{copied.Count} modules transferred successfully."
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log the error for debugging (use your logger)
+                _logger.LogError(ex, "Error in TransferModules: {Message}", ex.Message);
+
+                // Return a user-friendly error
+                return StatusCode(500, new { success = false, message = "An error occurred while transferring modules. Please try again." });
+            }
         }
 
         public class TransferModulesRequest
