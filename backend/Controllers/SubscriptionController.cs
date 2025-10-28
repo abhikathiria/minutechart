@@ -26,12 +26,14 @@ using minutechart.Services;
 using minutechart.Helpers;
 using System.Net.Http.Headers;
 using PuppeteerSharp.Media;
+using Microsoft.AspNetCore.Cors;
 
 namespace minutechart.Controllers.Api
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableCors("AllowReactApp")]
     public class SubscriptionController : ControllerBase
     {
         private readonly MinutechartDbContext _db;

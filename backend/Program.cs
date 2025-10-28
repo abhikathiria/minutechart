@@ -193,6 +193,12 @@ namespace minutechart
             }
 
             QuestPDF.Settings.License = LicenseType.Community;
+            app.Use(async (context, next) =>
+{
+    Console.WriteLine($"Request Origin: {context.Request.Headers["Origin"]}");
+    await next();
+});
+
             app.UseHttpsRedirection();
             app.UseRouting();
             app.UseCors("AllowReactApp");
