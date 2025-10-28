@@ -837,7 +837,7 @@ Nchart Team";
         }
 
         [HttpPost("transfer-modules")]
-        public IActionResult TransferModules([FromBody] TransferModulesRequest request)
+        public async Task<IActionResult> TransferModules([FromBody] TransferModulesRequest request)  // Made async for await
         {
             // Input validation (unchanged)
             if (string.IsNullOrEmpty(request.SourceUserId) ||
@@ -849,11 +849,15 @@ Nchart Team";
 
             try
             {
-                // Fetch modules from source user and target user (unchanged)
-                var sourceModules = _db.UserQueries
-                    .Where(q => q.AppUserId == request.SourceUserId && request.ModuleIds.Contains(q.UserQueryId))
-                    .ToList();
+                // Fetch source modules: Use loop to avoid OPENJSON and WITH syntax issues
+                var sourceModules = new List<UserQuery>();
+                foreach (var id in request.ModuleIds)
+                {
+                    var module = await _db.UserQueries.FirstOrDefaultAsync(q => q.AppUserId == request.SourceUserId && q.UserQueryId == id);
+                    if (module != null) sourceModules.Add(module);
+                }
 
+                // Fetch target modules (unchanged)
                 var targetModules = _db.UserQueries
                     .Where(q => q.AppUserId == request.TargetUserId)
                     .ToList();
@@ -940,7 +944,7 @@ Nchart Team";
                             copied.Add(newQuery);
                         }
 
-                        _db.SaveChanges();
+                        await _db.SaveChangesAsync();  // Added await
 
                         return Ok(new
                         {
@@ -951,7 +955,7 @@ Nchart Team";
                 }
 
                 // Save changes for replace / ignore actions
-                _db.SaveChanges();
+                await _db.SaveChangesAsync();  // Added await
 
                 return Ok(new
                 {
