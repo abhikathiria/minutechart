@@ -75,10 +75,7 @@ function Footer() {
         <div className="flex flex-col space-y-3 text-center md:text-left max-w-xs mx-auto md:mx-0">
           <h4 className="text-white font-semibold mb-2">Contact & Social</h4>
           <p>
-            Email: <a href="mailto:info@newtechinfosol.in" className="hover:text-cyan-400">info@newtechinfosol.in</a>
-          </p>
-          <p>
-            Phone: <a href="tel:+1234567890" className="hover:text-cyan-400">+91-261-2979903</a>
+            Email: <a href="mailto:info@ntillp.com" className="hover:text-cyan-400">info@ntillp.com</a>
           </p>
           <div className="flex justify-center md:justify-start space-x-5 mt-4 text-gray-400">
             <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="Website">

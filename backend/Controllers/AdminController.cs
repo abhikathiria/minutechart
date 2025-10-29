@@ -6,9 +6,10 @@ using minutechart.Data;
 using minutechart.DTOs;
 using minutechart.Models;
 using minutechart.Services;
+using minutechart.Helpers;
+using System.Text.Json;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using minutechart.Helpers;
 using System;
 using System.IO;
 using System.Linq;
@@ -241,8 +242,73 @@ namespace minutechart.Controllers
             public string UserTitle { get; set; }
             public string UserQueryText { get; set; }
             public string VisualizationType { get; set; }
+
+
+            public bool IsApprovalModule { get; set; } = false;
+            public string ApprovalUpdateQuery { get; set; } = "";
+            public string ApprovalIdColumn { get; set; } = "";
         }
 
+
+        // [HttpPost("save-user-query/{userId}")]
+        // public async Task<IActionResult> SaveUserQuery(string userId, [FromBody] SaveUserQueryRequest req)
+        // {
+        //     var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+        //     if (profile == null)
+        //         return BadRequest(new { success = false, message = "User profile not found" });
+
+        //     try
+        //     {
+        //         // Optional: validate query
+        //         using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+        //         {
+        //             var cmd = connection.CreateCommand();
+        //             cmd.CommandText = req.UserQueryText;
+        //             var reader = await cmd.ExecuteReaderAsync();
+        //             await reader.CloseAsync();
+        //         }
+
+        //         // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
+
+        //         UserQuery userQuery;
+
+        //         if (req.UserQueryId != 0) // update existing
+        //         {
+        //             userQuery = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.UserQueryId && q.AppUserId == userId);
+        //             if (userQuery == null)
+        //                 return NotFound(new { success = false, message = "Module not found" });
+
+        //             userQuery.UserTitle = req.UserTitle;
+        //             userQuery.UserQueryText = req.UserQueryText;
+        //             userQuery.VisualizationType = req.VisualizationType;
+        //             userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
+
+        //             _db.UserQueries.Update(userQuery);
+        //         }
+        //         else // create new
+        //         {
+        //             userQuery = new UserQuery
+        //             {
+        //                 AppUserId = userId,
+        //                 UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        //                 UserTitle = req.UserTitle,
+        //                 UserQueryText = req.UserQueryText,
+        //                 VisualizationType = req.VisualizationType,
+        //                 UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+        //                 UserQueryLastUpdated = DateTimeHelper.GetIndianTime()
+        //             };
+        //             _db.UserQueries.Add(userQuery);
+        //         }
+
+        //         await _db.SaveChangesAsync();
+
+        //         return Ok(new { success = true, message = "Query saved successfully", query = userQuery });
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
+        //     }
+        // }
 
         [HttpPost("save-user-query/{userId}")]
         public async Task<IActionResult> SaveUserQuery(string userId, [FromBody] SaveUserQueryRequest req)
@@ -262,8 +328,6 @@ namespace minutechart.Controllers
                     await reader.CloseAsync();
                 }
 
-                // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
-
                 UserQuery userQuery;
 
                 if (req.UserQueryId != 0) // update existing
@@ -276,6 +340,9 @@ namespace minutechart.Controllers
                     userQuery.UserQueryText = req.UserQueryText;
                     userQuery.VisualizationType = req.VisualizationType;
                     userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
+                    userQuery.IsApprovalModule = req.IsApprovalModule;
+                    userQuery.ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "";
+                    userQuery.ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : "";
 
                     _db.UserQueries.Update(userQuery);
                 }
@@ -289,9 +356,20 @@ namespace minutechart.Controllers
                         UserQueryText = req.UserQueryText,
                         VisualizationType = req.VisualizationType,
                         UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
-                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime()
+                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+                        IsApprovalModule = req.IsApprovalModule,
+                        ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "",
+                        ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : ""
                     };
                     _db.UserQueries.Add(userQuery);
+                }
+                if (req.IsApprovalModule)
+                {
+                    if (string.IsNullOrEmpty(req.ApprovalUpdateQuery) || !req.ApprovalUpdateQuery.Contains("@id") ||
+                        string.IsNullOrEmpty(req.ApprovalIdColumn))
+                    {
+                        return BadRequest(new { success = false, message = "Approval module requires a valid update query with '?' placeholder and ID column." });
+                    }
                 }
 
                 await _db.SaveChangesAsync();
@@ -302,6 +380,57 @@ namespace minutechart.Controllers
             {
                 return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
             }
+        }
+
+        [HttpPost("approve-row/{userId}")]
+        public async Task<IActionResult> ApproveRow(string userId, [FromBody] ApproveRowRequest req)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.QueryId && q.AppUserId == userId);
+            if (query == null || !query.IsApprovalModule)
+                return NotFound(new { success = false, message = "Approval module not found" });
+            try
+            {
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                {
+                    var cmd = connection.CreateCommand();
+                    cmd.CommandText = query.ApprovalUpdateQuery;
+
+                    if (req.RowId is JsonElement jsonElement)
+                    {
+                        if (jsonElement.ValueKind == JsonValueKind.Number)
+                        {
+                            cmd.Parameters.AddWithValue("@id", jsonElement.GetInt32());  // For integer IDs
+                        }
+                        else if (jsonElement.ValueKind == JsonValueKind.String)
+                        {
+                            cmd.Parameters.AddWithValue("@id", jsonElement.GetString());  // For string IDs (e.g., GUIDs)
+                        }
+                        else
+                        {
+                            return BadRequest(new { success = false, message = "Invalid RowId type. Must be a number or string." });
+                        }
+                    }
+                    else
+                    {
+                        // Fallback if not JsonElement (unlikely in JSON requests)
+                        cmd.Parameters.AddWithValue("@id", req.RowId);
+                    }
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                return Ok(new { success = true, message = "Row approved successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+        public class ApproveRowRequest
+        {
+            public int QueryId { get; set; }
+            public object RowId { get; set; }  // ID value from the row
         }
 
 

@@ -355,6 +355,7 @@ namespace minutechart.Controllers.Api
 
             return Ok(new
             {
+                user.Id,
                 user.UserName,
                 user.CompanyName,
                 user.GST,
