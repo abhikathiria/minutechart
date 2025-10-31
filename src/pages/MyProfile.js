@@ -74,7 +74,7 @@ export default function MyProfile() {
                         { label: "Server Name", value: profile.serverName, icon: <FaServer /> },
                         { label: "Database Name", value: profile.databaseName, icon: <FaDatabase /> },
                         { label: "DB Username", value: profile.dbUsername, icon: <FaUser /> },
-                        { label: "DB Password", value: profile.dbPassword, icon: <FaKey /> },
+                        // { label: "DB Password", value: profile.dbPassword, icon: <FaKey /> },
                         { label: "Refresh Time", value: profile.refreshTime, icon: <FaClock /> },
                     ].map((item, i) => (
                         <div
