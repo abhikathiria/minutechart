@@ -38,54 +38,54 @@ function Footer() {
   }, []);
 
   return (
-    <footer className="bg-[#0F172A] text-gray-300 py-10 px-4 sm:px-6">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-10">
+    <footer className="bg-[#0F172A] text-gray-300 py-8 sm:py-10 px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-8 sm:gap-10">
         <div className="flex flex-col max-w-sm text-center md:text-left">
-          <img src="/Ngraphlogo.png" alt="Ngraph Logo" className="h-20 w-68 mx-auto md:mx-0 mb-4" />
-          <p className="text-sm leading-relaxed">
+          <img src="/Group 22.png" alt="NGraph Logo" className="h-16 sm:h-20 w-auto mx-auto md:mx-0 mb-4" />
+          <p className="text-sm sm:text-base leading-relaxed">
             Ngraph is a premium dashboard solution offering real-time insights with elegant visualizations.
             Designed for clarity, speed, and scalability.
           </p>
-          <p className="mt-4 text-xs text-gray-500">
+          <p className="mt-4 text-xs sm:text-sm text-gray-500">
             &copy; {new Date().getFullYear()} Ngraph. All rights reserved.
           </p>
         </div>
 
         <div className="flex flex-col space-y-3 text-center md:text-left">
-          <h4 className="text-white font-semibold mb-2">Quick Links</h4>
+          <h4 className="text-white font-semibold mb-2 text-base sm:text-lg">Quick Links</h4>
           {user?.roles?.includes("Admin") ? (
             <>
-              <Link to="/" className="hover:text-cyan-400">Home</Link>
-              <Link to="/admin/users" className="hover:text-cyan-400">User Settings</Link>
-              <Link to="/admin/emailsettings" className="hover:text-cyan-400">Email Settings</Link>
-              <Link to="/admin/invoicesettings" className="hover:text-cyan-400">Invoice Settings</Link>
-              <Link to="/information" className="hover:text-cyan-400">Information</Link>
-              <Link to="/subscription/buy" className="hover:text-cyan-400">Plans</Link>
+              <Link to="/" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Home</Link>
+              <Link to="/admin/users" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">User Settings</Link>
+              <Link to="/admin/emailsettings" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Email Settings</Link>
+              <Link to="/admin/invoicesettings" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Invoice Settings</Link>
+              <Link to="/information" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Information</Link>
+              <Link to="/subscription/buy" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Plans</Link>
             </>
           ) : (
             <>
-              <Link to="/" className="hover:text-cyan-400">Home</Link>
-              <Link to="/dashboard" className="hover:text-cyan-400">Dashboard</Link>
-              <Link to="/information" className="hover:text-cyan-400">Information</Link>
-              <Link to="/subscription/buy" className="hover:text-cyan-400">Plans</Link>
+              <Link to="/" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Home</Link>
+              <Link to="/dashboard" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Dashboard</Link>
+              <Link to="/information" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Information</Link>
+              <Link to="/subscription/buy" className="hover:text-cyan-400 text-sm sm:text-base min-h-[44px] flex items-center justify-center md:justify-start">Plans</Link>
             </>
           )}
         </div>
 
         <div className="flex flex-col space-y-3 text-center md:text-left max-w-xs mx-auto md:mx-0">
-          <h4 className="text-white font-semibold mb-2">Contact & Social</h4>
-          <p>
+          <h4 className="text-white font-semibold mb-2 text-base sm:text-lg">Contact & Social</h4>
+          <p className="text-sm sm:text-base">
             Email: <a href="mailto:info@ntillp.com" className="hover:text-cyan-400">info@ntillp.com</a>
           </p>
-          <div className="flex justify-center md:justify-start space-x-5 mt-4 text-gray-400">
-            <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="Website">
-              <FaGlobe className="h-6 w-6" />
+          <div className="flex justify-center md:justify-start space-x-4 sm:space-x-5 mt-4 text-gray-400">
+            <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Website">
+              <FaGlobe className="h-5 w-5 sm:h-6 sm:w-6" />
             </a>
-            <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="LinkedIn">
-              <FaLinkedin className="h-6 w-6" />
+            <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="LinkedIn">
+              <FaLinkedin className="h-5 w-5 sm:h-6 sm:w-6" />
             </a>
-            <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Ngraph" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400" aria-label="WhatsApp">
-              <FaWhatsapp className="h-6 w-6" />
+            <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Ngraph" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="WhatsApp">
+              <FaWhatsapp className="h-5 w-5 sm:h-6 sm:w-6" />
             </a>
           </div>
         </div>
@@ -175,7 +175,6 @@ function AppContent() {
     </>
   );
 }
-
 
 function App() {
   return (

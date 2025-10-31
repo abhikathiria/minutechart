@@ -8,6 +8,8 @@ using minutechart.Models;
 using minutechart.Services;
 using minutechart.Helpers;
 using System.Text.Json;
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System;
@@ -27,7 +29,7 @@ namespace minutechart.Controllers
         private readonly IConfiguration _configuration;
         private readonly DatabaseService _dbService;
         private readonly IEmailSender _emailSender;
-
+        private readonly string _uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "invoice");
 
         public AdminController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, IConfiguration configuration, IEmailSender emailSender, ILogger<DatabaseService> logger)
         {
@@ -37,6 +39,8 @@ namespace minutechart.Controllers
             _configuration = configuration;
             _emailSender = emailSender;
             _logger = logger;
+            Directory.CreateDirectory(_uploadsFolder);
+
         }
 
 
@@ -805,10 +809,10 @@ Nchart Team";
             var dto = new InvoiceSettingsDto
             {
                 CompanyLogoPath = !string.IsNullOrEmpty(settings.CompanyLogoPath)
-                    ? (settings.CompanyLogoPath.StartsWith("http") ? settings.CompanyLogoPath : $"{baseUrl}{settings.CompanyLogoPath}")
+                    ? $"{baseUrl}{settings.CompanyLogoPath}"
                     : "",
                 OwnerSignaturePath = !string.IsNullOrEmpty(settings.OwnerSignaturePath)
-                    ? (settings.OwnerSignaturePath.StartsWith("http") ? settings.OwnerSignaturePath : $"{baseUrl}{settings.OwnerSignaturePath}")
+                    ? $"{baseUrl}{settings.OwnerSignaturePath}"
                     : "",
                 CompanyName = settings.CompanyName,
                 CompanyAddress = settings.CompanyAddress,
@@ -870,7 +874,7 @@ Nchart Team";
             settings.CompanyWebsite = dto.CompanyWebsite;
             settings.GstNumber = dto.GstNumber;
             settings.OwnerName = dto.OwnerName;
-            settings.OwnerSignaturePath = dto.OwnerSignaturePath;
+            // settings.OwnerSignaturePath = dto.OwnerSignaturePath;
             settings.PayableTo = dto.PayableTo;
             settings.OtherDetails = dto.OtherDetails;
             settings.BankName = dto.BankName;
@@ -926,29 +930,47 @@ Nchart Team";
             return Ok(new { message = "Invoice settings saved successfully" });
         }
 
+        // Helper: Save files and return relative URLs
+        private async Task<List<string>> SaveFiles(IFormFileCollection files, HttpRequest request)
+        {
+            var urls = new List<string>();
+            foreach (var file in files ?? new FormFileCollection())
+            {
+                if (file.Length > 5 * 1024 * 1024) continue;  // Skip if > 5MB
+                var allowedTypes = new[] { "image/jpeg", "image/png", "image/svg+xml" };
+                if (!allowedTypes.Contains(file.ContentType)) continue;
+                var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+                var filePath = Path.Combine(_uploadsFolder, fileName);
+                Directory.CreateDirectory(_uploadsFolder);  // Ensure folder exists
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+                urls.Add($"/uploads/invoice/{fileName}");  // Relative path matches save location
+            }
+            return urls;
+        }
+
+
         [HttpPost("invoicesettings/upload-image")]
         public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery] string type)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
 
-            var uploadsFolder = Path.Combine("wwwroot", "uploads", "invoice");
-            if (!Directory.Exists(uploadsFolder))
-                Directory.CreateDirectory(uploadsFolder);
+            // Use SaveFiles to handle the upload
+            var files = new FormFileCollection { file };  // Wrap single file in collection
+            var relativePaths = await SaveFiles(files, Request);
 
-            var fileName = $"{Guid.NewGuid()}_{file.FileName}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
+            if (!relativePaths.Any())
+                return BadRequest("File upload failed (invalid type or size)");
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+            var relativePath = relativePaths.First();  // Get the relative path
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";  // Ensure HTTPS
+            var publicUrl = $"{baseUrl}{relativePath}";  // Full URL for response
 
-            var relativePath = $"/uploads/invoice/{fileName}";
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            var publicUrl = $"{baseUrl}{relativePath}";
+            // Save relative path to DB
             var settings = await _db.CompanyInvoiceSettings.FirstOrDefaultAsync();
-
             if (settings == null)
             {
                 settings = new CompanyInvoiceSetting();
@@ -956,14 +978,15 @@ Nchart Team";
             }
 
             if (type == "logo")
-                settings.CompanyLogoPath = publicUrl;
+                settings.CompanyLogoPath = relativePath;
             else if (type == "signature")
-                settings.OwnerSignaturePath = publicUrl;
+                settings.OwnerSignaturePath = relativePath;
 
             await _db.SaveChangesAsync();
 
             return Ok(new { path = publicUrl });
         }
+
 
         [HttpPost("transfer-modules")]
         public async Task<IActionResult> TransferModules([FromBody] TransferModulesRequest request)  // Made async for await
