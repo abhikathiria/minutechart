@@ -149,7 +149,7 @@ export default function SubscriptionPage() {
         }
         return null;
     };
-    
+
     const showSuccessToast = () => {
     toast.custom(
       (t) => (
@@ -424,8 +424,7 @@ const handleChoose = async (plan) => {
                             index={index}
                             prevPlan={prevPlan}
                             getDiscountNote={getDiscountNote}
-                            // Note: handleChoose logic must be defined externally or here for payment flow
-                            handleChoose={() => { /* Placeholder for handleChoose */ }}
+                            handleChoose={handleChoose}
                         />
                     );
                 })}
