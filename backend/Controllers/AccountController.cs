@@ -379,6 +379,7 @@ namespace minutechart.Controllers.Api
             var dto = new UserProfileDto
             {
                 CompanyName = user.CompanyName,
+                CustomerName = user.CustomerName ?? "",
                 ServerName = profile?.ServerName ?? "",
                 DatabaseName = profile?.DatabaseName ?? "",
                 DbUsername = profile?.DbUsername ?? "",

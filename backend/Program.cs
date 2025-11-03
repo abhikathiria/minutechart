@@ -69,7 +69,7 @@ namespace minutechart
             // {
             //     options.AddPolicy("AllowReactApp", policy =>
             //     {
-            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.105:3000", "http://192.168.1.105:5027")
+            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.104:3000", "http://192.168.1.104:5027")
             //               .AllowAnyHeader()
             //               .AllowAnyMethod()
             //               .AllowCredentials();
@@ -108,6 +108,9 @@ namespace minutechart
             builder.Services.AddScoped<IClientDbContextFactory, ClientDbContextFactory>();
             builder.Services.AddScoped<DatabaseService>();
             builder.Services.AddScoped<IEmailSender, MailKitEmailSender>();
+            // builder.Services.AddScoped<IEmailSender, SendGridEmailSender>();
+            // builder.Services.AddScoped<IEmailSender, MailjetEmailSender>();
+
 
             builder.Services.AddSignalR();
             builder.Services.AddHttpContextAccessor();

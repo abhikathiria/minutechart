@@ -1,10 +1,82 @@
+// src/pages/UserList.jsx
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import api from "../api";
-import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSort } from "react-icons/fa";
-import { useLocation } from "react-router-dom";
+import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSortUp, FaSortDown, FaBars, FaTimes, FaSort, FaFileExport } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+
+// --- Custom Components ---
+
+// Helper function to capitalize string (for table headers)
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/([A-Z])/g, ' $1');
+
+// Status Badge Helper
+const StatusBadge = ({ status, isSubscription = false }) => {
+    const colors = {
+        Active: "bg-green-100 text-green-700 border-green-200",
+        Blocked: "bg-red-100 text-red-700 border-red-200",
+        Pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
+        Trial: "bg-blue-100 text-blue-700 border-blue-200",
+        Expired: "bg-gray-200 text-gray-700 border-gray-300",
+        None: "bg-gray-100 text-gray-500 border-gray-200",
+    };
+    const defaultColor = isSubscription ? colors.None : "bg-gray-100 text-gray-700 border-gray-200";
+
+    return (
+        <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold border ${colors[status] || defaultColor}`}
+        >
+            {status}
+        </span>
+    );
+};
+
+// Subscription Tooltip/Badge Renderer
+const SubscriptionDetails = ({ user }) => {
+    const status = user.subscriptionStatus || "None";
+    const isTrial = status === "Trial" || user.trialDaysLeft > 0;
+
+    // Use the actual status string or default to 'None' if null/empty
+    const statusText = status === "None" ? "No Plan" : status;
+    const badgeClass = {
+        Active: "bg-green-100 text-green-700",
+        Trial: "bg-blue-100 text-blue-700",
+        Expired: "bg-red-100 text-red-700",
+        None: "bg-gray-100 text-gray-500",
+    }[status] || "bg-gray-100 text-gray-500";
+
+    const startDate = isTrial ? user.trialStartDate : user.subscriptionStartDate;
+    const endDate = isTrial ? user.trialEndDate : user.subscriptionEndDate;
+    const formattedStartDate = startDate ? new Date(startDate).toLocaleDateString("en-GB") : "—";
+    const formattedEndDate = endDate ? new Date(endDate).toLocaleDateString("en-GB") : "—";
+
+    return (
+        <div className="inline-block relative group text-center">
+            <span
+                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer ${badgeClass}`}
+            >
+                {statusText}
+                {user.subscriptionPlan ? ` (${user.subscriptionPlan})` : ''}
+            </span>
+
+            {/* Custom Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-4 py-2 shadow-lg whitespace-nowrap z-20 transition duration-300">
+                <div className="flex flex-col text-left">
+                    <span className="text-sm font-bold mb-1">{statusText} Status</span>
+                    <span><span className="font-semibold text-green-400">Start:</span> {formattedStartDate}</span>
+                    <span><span className="font-semibold text-red-400">End:</span> {formattedEndDate}</span>
+                    {isTrial && user.trialDaysLeft > 0 && (
+                        <span className="mt-1 text-yellow-300 font-bold">({user.trialDaysLeft} days left)</span>
+                    )}
+                </div>
+                {/* Tooltip arrow */}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+            </div>
+        </div>
+    );
+};
+
 
 function UserList() {
     const [users, setUsers] = useState([]);
@@ -12,104 +84,57 @@ function UserList() {
     const location = useLocation();
     const [sortBy, setSortBy] = useState("createdAt");
     const [sortOrder, setSortOrder] = useState("desc");
+    const [loading, setLoading] = useState(true);
 
-    const handleExportTable = () => {
-        const table = document.querySelector("table");
-        if (!table) return;
-
-        const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.innerText.trim());
-        const data = Array.from(table.querySelectorAll("tbody tr")).map(tr => {
-            const row = {};
-            Array.from(tr.querySelectorAll("td")).forEach((td, idx) => {
-                row[headers[idx] || idx] = td.innerText.trim();
-            });
-            return row;
-        });
-
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Users");
-        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const blob = new Blob([wbout], { type: "application/octet-stream" });
-        saveAs(blob, "users.xlsx");
-    };
+    // --- Filter State Logic (Kept Intact) ---
 
     const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
         if (location.state?.keepFilters) {
-            // If coming back from modules/profile, load from localStorage
             return localStorage.getItem("accountStatusFilter") || "Pending";
         } else {
-            // Fresh visit (e.g., from home), reset to Pending and clear localStorage
             localStorage.removeItem("accountStatusFilter");
             return "Pending";
         }
     });
     useEffect(() => {
-        // Always save to localStorage whenever the filter changes (for persistence on back navigation)
         localStorage.setItem("accountStatusFilter", accountStatusFilter);
     }, [accountStatusFilter]);
 
     const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState(() => {
         if (location.state?.keepFilters) {
-            // If coming back from modules/profile, load from localStorage
             return localStorage.getItem("subscriptionStatusFilter") || "All";
         } else {
-            // Fresh visit (e.g., from home), reset to All and clear localStorage
             localStorage.removeItem("subscriptionStatusFilter");
             return "All";
         }
     });
     useEffect(() => {
-        // Always save to localStorage whenever the filter changes (for persistence on back navigation)
         localStorage.setItem("subscriptionStatusFilter", subscriptionStatusFilter);
     }, [subscriptionStatusFilter]);
 
+    // --- Modal/View State ---
     const [selectedUser, setSelectedUser] = useState(null);
-    const [modules, setModules] = useState([]);
-    const [showModules, setShowModules] = useState(false);
     const [purchases, setPurchases] = useState([]);
     const [showPurchases, setShowPurchases] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const usersPerPage = 10;
+    const [expandedRows, setExpandedRows] = useState({}); // State for mobile card expansion
 
-    const handleShowPurchases = (id) => {
-        api.get(`/admin/user/${id}/purchases`)
-            .then((res) => {
-                setPurchases(res.data);
-                setSelectedUser(id);
-                setShowPurchases(true);
-            })
-            .catch((err) => {
-                console.error("Error fetching purchases:", err);
-                setPurchases([]);
-                setShowPurchases(true);
-            });
-    };
-
-
-    const handleShowModules = (id) => {
-        api.get(`/admin/user/${id}/queries`)
-            .then((res) => {
-                setModules(res.data);
-                setSelectedUser(id);
-                setShowModules(true);
-            })
-            .catch((err) => {
-                console.error("Error fetching modules:", err);
-                setModules([]);
-                setShowModules(true);
-            });
-    };
+    // --- Core Data Fetch ---
 
     useEffect(() => {
+        setLoading(true);
         api
             .get("/admin/users")
             .then((res) => setUsers(res.data))
             .catch((err) => {
                 console.error("Error fetching users:", err);
                 setUsers([]);
-            });
+            })
+            .finally(() => setLoading(false));
     }, []);
+
+    // --- Action Handlers (Kept Intact) ---
 
     const handleDeactivate = (id) => {
         api.post(`/admin/user/${id}/deactivate`).then(() => {
@@ -131,6 +156,51 @@ function UserList() {
         });
     };
 
+    const handleShowPurchases = (id) => {
+        // Set loading/purchases state before API call (omitted for brevity but recommended in production)
+        api.get(`/admin/user/${id}/purchases`)
+            .then((res) => {
+                setPurchases(res.data);
+                setSelectedUser(id);
+                setShowPurchases(true);
+            })
+            .catch((err) => {
+                console.error("Error fetching purchases:", err);
+                setPurchases([]);
+                setSelectedUser(id);
+                setShowPurchases(true); // Still show modal even on error
+            });
+    };
+
+    const handleExportTable = () => {
+        const table = document.querySelector("table");
+        if (!table) return;
+
+        // Simplified data extraction focusing on key fields for export, robustifying the export logic
+        const dataToExport = filteredUsers.map(user => ({
+            "Company Name": user.companyName,
+            "Customer Name": user.customerName,
+            "Email": user.email,
+            "Phone Number": user.phoneNumber,
+            "Account Status": user.accountStatus,
+            "Subscription Status": user.subscriptionStatus,
+            "Trial Days Left": user.trialDaysLeft,
+            "Subscription Plan": user.subscriptionPlan || "N/A",
+            "Subscription Start": user.subscriptionStartDate ? new Date(user.subscriptionStartDate).toLocaleDateString("en-GB") : "N/A",
+            "Subscription End": user.subscriptionEndDate ? new Date(user.subscriptionEndDate).toLocaleDateString("en-GB") : "N/A",
+        }));
+        
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Users");
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([wbout], { type: "application/octet-stream" });
+        saveAs(blob, "users.xlsx");
+    };
+
+
+    // --- Filtering, Sorting, and Pagination ---
+
     const filteredUsers = users
         .filter((user) => {
             const matchesSearch =
@@ -141,18 +211,22 @@ function UserList() {
             const matchesAccountStatus =
                 accountStatusFilter === "All" || user.accountStatus === accountStatusFilter;
 
-            // Subscription status filter
             const matchesSubscriptionStatus =
                 subscriptionStatusFilter === "All" || user.subscriptionStatus === subscriptionStatusFilter;
-
 
             return matchesSearch && matchesAccountStatus && matchesSubscriptionStatus;
         })
         .sort((a, b) => {
             const aVal = a[sortBy];
             const bVal = b[sortBy];
-            if (sortOrder === "asc") return aVal > bVal ? 1 : -1;
-            return aVal < bVal ? 1 : -1;
+            
+            // Handle nulls/undefined for robust sorting
+            const valA = aVal === undefined || aVal === null ? (sortOrder === "asc" ? "" : "zzz") : String(aVal).toLowerCase();
+            const valB = bVal === undefined || bVal === null ? (sortOrder === "asc" ? "" : "zzz") : String(bVal).toLowerCase();
+
+            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+            return 0;
         });
 
     const indexOfLastUser = currentPage * usersPerPage;
@@ -160,300 +234,328 @@ function UserList() {
     const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
     const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
-    const StatusBadge = ({ status }) => {
-        const colors = {
-            Active: "bg-green-100 text-green-700",
-            Blocked: "bg-red-100 text-red-700",
-            Pending: "bg-yellow-100 text-yellow-700",
-        };
-        return (
-            <span
-                className={`px-2 py-1 rounded-full text-sm font-semibold ${colors[status] || "bg-gray-100 text-gray-700"
-                    }`}
-            >
-                {status}
-            </span>
-        );
+    const toggleRow = (id) => {
+        setExpandedRows((prev) => ({
+            ...prev,
+            [id]: !prev[id],
+        }));
     };
 
+    // --- Render ---
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <p className="text-xl text-indigo-600 font-semibold">Loading Users...</p>
+            </div>
+        );
+    }
+    
     return (
-        <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-6">
-            <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-2xl overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <h2 className="text-2xl font-bold text-white">User Settings</h2>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:flex-initial">
-                            <FaSearch className="absolute left-3 top-3 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search company, customer, or email"
-                                className="pl-9 pr-3 py-2 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-400"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+        <div className="min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-7xl mx-auto bg-white shadow-2xl rounded-2xl border border-gray-200 overflow-hidden">
+                
+                {/* Header and Filters Section */}
+                <header className="bg-gradient-to-r from-indigo-700 to-blue-600 p-6 flex flex-col gap-4">
+                    <h2 className="text-3xl font-extrabold text-white">Admin User Management</h2>
+
+                    {/* Search Bar */}
+                    <div className="relative">
+                        <FaSearch className="absolute left-4 top-3 text-white/70 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search by company, customer, or email..."
+                            className="pl-11 pr-4 py-3 w-full rounded-xl border-0 bg-white/10 text-white placeholder-white/70 focus:ring-2 focus:ring-white focus:bg-white/20 transition"
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1); // Reset pagination on search
+                            }}
+                        />
+                    </div>
+
+                    {/* Filters and Actions */}
+                    <div className="flex flex-wrap gap-3 pt-2 items-center justify-between">
+                        <div className="flex flex-wrap gap-3">
+                            <select
+                                className="py-2 px-4 border border-white/50 rounded-lg bg-transparent text-white text-sm focus:ring-indigo-400 focus:border-indigo-400 transition"
+                                value={accountStatusFilter}
+                                onChange={(e) => {
+                                    setAccountStatusFilter(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <option value="All" className="text-gray-800">Account Status: All</option>
+                                <option value="Active" className="text-gray-800">Account Status: Active</option>
+                                <option value="Blocked" className="text-gray-800">Account Status: Blocked</option>
+                                <option value="Pending" className="text-gray-800">Account Status: Pending</option>
+                            </select>
+
+                            <select
+                                className="py-2 px-4 border border-white/50 rounded-lg bg-transparent text-white text-sm focus:ring-indigo-400 focus:border-indigo-400 transition"
+                                value={subscriptionStatusFilter}
+                                onChange={(e) => {
+                                    setSubscriptionStatusFilter(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <option value="All" className="text-gray-800">Subscription: All</option>
+                                <option value="Trial" className="text-gray-800">Subscription: Trial</option>
+                                <option value="Active" className="text-gray-800">Subscription: Active</option>
+                                <option value="Expired" className="text-gray-800">Subscription: Expired</option>
+                                <option value="None" className="text-gray-800">Subscription: None</option>
+                            </select>
                         </div>
-                        <select
-                            value={accountStatusFilter}
-                            onChange={(e) => setAccountStatusFilter(e.target.value)}
-                        >
-                            <option value="All">All Accounts</option>
-                            <option value="Active">Active</option>
-                            <option value="Blocked">Blocked</option>
-                            <option value="Pending">Pending</option>
-                        </select>
-
-                        <select
-                            value={subscriptionStatusFilter}
-                            onChange={(e) => setSubscriptionStatusFilter(e.target.value)}
-                        >
-                            <option value="All">All Subscriptions</option>
-                            <option value="Trial">Trial</option>
-                            <option value="Active">Active</option>
-                            <option value="Expired">Expired</option>
-                            <option value="None">None</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="p-6 overflow-x-auto">
-                    <div className="flex items-center justify-between mb-3 text-md text-gray-800">
-                        <p>
-                            Showing {filteredUsers.length}{" "}
-                            {filteredUsers.length === 1 ? "user" : "users"}
-                        </p>
-                        <p className="text-right">
-                            D = Database, Q = Queries, P = Purchases, A = Activate/Deactivate, S = Subscription Status, T = Trial Days Left
-                        </p>
-                    </div>
-                    <div className="flex justify-end mb-2">
+                        
                         <button
                             onClick={handleExportTable}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                            className="px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition shadow-lg flex items-center gap-2 text-sm"
+                            title="Export current table data to Excel"
                         >
-                            Export Users
+                            <FaFileExport /> Export ({filteredUsers.length})
                         </button>
                     </div>
-                    <table className="min-w-full text-md border border-gray-500 overflow-hidden">
-                        <thead>
-                            <tr className="bg-gray-100 text-left text-lg font-semibold">
-                                <th className="p-3 border-r border-gray-500 text-center">#</th>
-                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("companyName"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    Company
-                                    <FaSort className={`inline ml-1 ${sortBy === "companyName" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
-                                </th>
-                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("customerName"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    Customer
-                                    <FaSort className={`inline ml-1 ${sortBy === "customerName" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
-                                </th>
-                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("phoneNumber"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    Phone
-                                    <FaSort className={`inline ml-1 ${sortBy === "phoneNumber" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
-                                </th>
-                                <th className="p-3 border-r border-gray-500 text-center cursor-pointer" onClick={() => { setSortBy("email"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
-                                    Email
-                                    <FaSort className={`inline ml-1 ${sortBy === "email" ? (sortOrder === "asc" ? "text-blue-600 rotate-180" : "text-blue-600") : "text-gray-400"}`} />
-                                </th>
-                                <th className="p-3 border-r border-gray-500 text-center">Account</th>
-                                <th className="p-3 border-r border-gray-500 text-center">D</th>
-                                <th className="p-3 border-r border-gray-500 text-center">Q</th>
-                                <th className="p-3 border-r border-gray-500 text-center">P</th>
-                                <th className="p-3 border-r border-gray-500 text-center">A</th>
-                                <th className="p-3 border-r border-gray-500 text-center">S</th>
-                                <th className="p-3 border-r border-gray-500 text-center">T</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentUsers.map((user, index) => (
-                                <tr
-                                    key={user.id}
-                                    className="hover:bg-gray-50 border-t border-gray-500 transition"
-                                >
-                                    <td className="p-3 border-r border-gray-500 text-center">{indexOfFirstUser + index + 1}</td>
-                                    <td className="p-3 border-r border-gray-500 font-medium text-gray-900 text-center">
-                                        {user.companyName}
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500 whitespace-nowrap text-center">{user.customerName}</td>
-                                    <td className="p-3 border-r border-gray-500 whitespace-nowrap text-center">{user.phoneNumber}</td>
-                                    <td className="p-3 border-r border-gray-500 text-center">{user.email}</td>
-                                    <td className="p-3 border-r border-gray-500 text-center">
-                                        <StatusBadge status={user.accountStatus} />
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500">
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {user.accountStatus !== "Blocked" && (
+                </header>
+
+                {/* Data Display Content */}
+                <div className="p-4 sm:p-6">
+                    <p className="text-lg font-bold text-gray-800 mb-4">
+                        Showing {currentUsers.length} of {filteredUsers.length} total filtered users.
+                    </p>
+
+                    {/* Table View (Desktop/Tablet) */}
+                    <div className="hidden sm:block overflow-x-auto border rounded-xl shadow-inner">
+                        <table className="min-w-full text-sm divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr className="text-left text-xs text-gray-600 uppercase tracking-wider">
+                                    <th className="p-4 w-10">#</th>
+                                    {["companyName", "customerName", "phoneNumber", "email"].map((col) => (
+                                        <th
+                                            key={col}
+                                            className="p-4 cursor-pointer whitespace-nowrap"
+                                            onClick={() => {
+                                                setSortBy(col);
+                                                setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                {capitalize(col)}
+                                                {sortBy === col ? (
+                                                    sortOrder === "asc" ? <FaSortUp className="text-indigo-600" /> : <FaSortDown className="text-indigo-600" />
+                                                ) : (
+                                                    <FaSort className="text-gray-400 text-xs" />
+                                                )}
+                                            </div>
+                                        </th>
+                                    ))}
+                                    <th className="p-4 text-center">Account Status</th>
+                                    <th className="p-4 text-center">Subscription Status</th>
+                                    <th className="p-4 text-center w-32">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {currentUsers.map((user, index) => (
+                                    <tr key={user.id} className="hover:bg-indigo-50 transition">
+                                        <td className="p-4 font-medium text-center">{indexOfFirstUser + index + 1}</td>
+                                        <td className="p-4 font-semibold text-gray-900">{user.companyName}</td>
+                                        <td className="p-4 text-gray-700">{user.customerName}</td>
+                                        <td className="p-4 text-gray-700">{user.phoneNumber}</td>
+                                        <td className="p-4 text-gray-700 truncate max-w-xs">{user.email}</td>
+                                        <td className="p-4 text-center">
+                                            <StatusBadge status={user.accountStatus} />
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <SubscriptionDetails user={user} />
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-wrap gap-2 justify-center">
+                                                {/* DB Profile Link */}
                                                 <Link
                                                     to={`/profile/${user.id}`}
                                                     state={{ keepFilters: true }}
-                                                    className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1 rounded-full hover:bg-indigo-700 text-md"
-                                                    title="Set Database"
+                                                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                                                    title="Set Database Profile (D)"
                                                 >
-                                                    <FaDatabase className="text-md" />
+                                                    <FaDatabase className="w-4 h-4"/>
                                                 </Link>
+                                                
+                                                {/* Queries Link */}
+                                                {user.accountStatus === "Active" && (
+                                                    <Link
+                                                        to={`/user/${user.id}/modules`}
+                                                        state={{ keepFilters: true }}
+                                                        className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                                        title="Set Queries/Modules (Q)"
+                                                    >
+                                                        <FaChartPie className="w-4 h-4"/>
+                                                    </Link>
+                                                )}
+                                                
+                                                {/* Purchases Button */}
+                                                {user.accountStatus === "Active" && (
+                                                    <button
+                                                        onClick={() => handleShowPurchases(user.id)}
+                                                        className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
+                                                        title="View Purchases (P)"
+                                                    >
+                                                        <FaReceipt className="w-4 h-4"/>
+                                                    </button>
+                                                )}
 
-                                            )}
+                                                {/* De/Reactivate Button */}
+                                                {user.accountStatus === "Active" ? (
+                                                    <button
+                                                        onClick={() => handleDeactivate(user.id)}
+                                                        className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                                                        title="Deactivate Account (A)"
+                                                    >
+                                                        <FaLock className="w-4 h-4"/>
+                                                    </button>
+                                                ) : (user.accountStatus === "Blocked" && (
+                                                    <button
+                                                        onClick={() => handleReactivate(user.id)}
+                                                        className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                                        title="Reactivate Account (A)"
+                                                    >
+                                                        <FaUnlock className="w-4 h-4"/>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredUsers.length === 0 && (
+                                    <tr>
+                                        <td colSpan={10} className="text-center text-gray-500 py-6 italic text-lg">
+                                            No users match the current search or filters.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Card View (Mobile) */}
+                    <div className="block sm:hidden space-y-4">
+                        {currentUsers.map((user, index) => (
+                            <div
+                                key={user.id}
+                                className="border border-gray-300 rounded-xl p-4 shadow-md bg-white"
+                            >
+                                <div
+                                    className="flex justify-between items-center cursor-pointer"
+                                    onClick={() => toggleRow(user.id)}
+                                >
+                                    <div className="flex flex-col">
+                                        <p className="font-bold text-gray-900 text-lg">{user.companyName}</p>
+                                        <p className="text-sm text-gray-600">{user.customerName}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <StatusBadge status={user.accountStatus} />
+                                        {expandedRows[user.id] ? (
+                                            <FaTimes className="text-red-500 w-5 h-5" />
+                                        ) : (
+                                            <FaBars className="text-indigo-500 w-5 h-5" />
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Collapsible Details */}
+                                {expandedRows[user.id] && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-3 text-sm">
+                                        <div className="flex justify-between items-start">
+                                            <span className="font-semibold text-gray-700">Email:</span>
+                                            <span className="text-right text-indigo-600 truncate max-w-[60%]">{user.email}</span>
                                         </div>
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500">
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {user.accountStatus === "Active" && (
-                                                <Link
-                                                    to={`/user/${user.id}/modules`}
-                                                    state={{ keepFilters: true }}
-                                                    className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-full hover:bg-purple-600 text-md"
-                                                    title="Set Queries"
-                                                >
-                                                    <FaChartPie className="text-md" />
-                                                </Link>
-                                            )}
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold text-gray-700">Subscription:</span>
+                                            <div className="text-right">
+                                                <SubscriptionDetails user={user} />
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500 whitespace-nowrap">
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {user.accountStatus === "Active" && (
-                                                <button
-                                                    onClick={() => handleShowPurchases(user.id)}
-                                                    className="flex items-center gap-1 bg-yellow-500 text-white px-3 py-1 rounded-full hover:bg-yellow-600 text-md"
-                                                    title="View Purchases"
-                                                >
-                                                    <FaReceipt className="text-md" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500">
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {user.accountStatus === "Active" && (
+                                        {user.trialDaysLeft > 0 && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-semibold text-gray-700">Trial Left:</span>
+                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                                    {user.trialDaysLeft} days
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons Group */}
+                                        <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-2 justify-center">
+                                            {/* DB, Queries, Purchases */}
+                                            <Link
+                                                to={`/profile/${user.id}`}
+                                                state={{ keepFilters: true }}
+                                                className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded-full hover:bg-indigo-700 text-sm"
+                                                title="Set Database"
+                                            >
+                                                <FaDatabase /> DB Setup
+                                            </Link>
+                                            <Link
+                                                to={`/user/${user.id}/modules`}
+                                                state={{ keepFilters: true }}
+                                                className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-full hover:bg-purple-700 text-sm"
+                                                title="Set Queries"
+                                            >
+                                                <FaChartPie /> Queries
+                                            </Link>
+                                            <button
+                                                onClick={() => handleShowPurchases(user.id)}
+                                                className="flex items-center gap-1 bg-yellow-600 text-white px-3 py-1.5 rounded-full hover:bg-yellow-700 text-sm"
+                                                title="View Purchases"
+                                            >
+                                                <FaReceipt /> Purchases
+                                            </button>
+
+                                            {/* Activate/Deactivate */}
+                                            {user.accountStatus === "Active" ? (
                                                 <button
                                                     onClick={() => handleDeactivate(user.id)}
-                                                    className="flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full hover:bg-red-600 text-md"
+                                                    className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded-full hover:bg-red-700 text-sm"
                                                     title="Deactivate Account"
                                                 >
-                                                    <FaLock className="text-md" />
+                                                    <FaLock /> Deactivate
                                                 </button>
-                                            )}
-                                            {user.accountStatus === "Blocked" && (
+                                            ) : (user.accountStatus === "Blocked" && (
                                                 <button
                                                     onClick={() => handleReactivate(user.id)}
-                                                    className="flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-full hover:bg-green-600 text-md"
+                                                    className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-full hover:bg-green-700 text-sm"
                                                     title="Reactivate Account"
                                                 >
-                                                    <FaUnlock className="text-md" />
+                                                    <FaUnlock /> Reactivate
                                                 </button>
-                                            )}
+                                            ))}
                                         </div>
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500 relative group text-center">
-                                        {user.subscriptionStatus !== "None" ? (
-                                            <div className="inline-block relative">
-                                                <span
-                                                    className={`px-2 py-1 rounded-full text-sm font-semibold cursor-pointer ${user.subscriptionStatus === "Active"
-                                                        ? "bg-green-100 text-green-700"
-                                                        : user.subscriptionStatus === "Trial"
-                                                            ? "bg-blue-100 text-blue-700"
-                                                            : "bg-gray-100 text-gray-500"
-                                                        }`}
-                                                >
-                                                    {user.subscriptionStatus}{" "}
-                                                    {user.subscriptionPlan ? `(${user.subscriptionPlan})` : ""}
-                                                </span>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {filteredUsers.length === 0 && !loading && (
+                            <p className="text-center text-gray-500 py-6 italic text-lg w-full">
+                                No users match the current search or filters.
+                            </p>
+                        )}
+                    </div>
 
-                                                {/* Custom Tooltip */}
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap z-10">
-                                                    <div className="flex flex-col text-left">
-                                                        <span>
-                                                            <span className="font-semibold text-green-400">Start:</span>{" "}
-                                                            {user.subscriptionStatus === "Trial"
-                                                                ? user.trialStartDate
-                                                                    ? new Date(user.trialStartDate).toLocaleDateString("en-GB")
-                                                                    : "—"
-                                                                : user.subscriptionStartDate
-                                                                    ? new Date(user.subscriptionStartDate).toLocaleDateString("en-GB")
-                                                                    : "—"}
-                                                        </span>
-                                                        <span>
-                                                            <span className="font-semibold text-red-400">End:</span>{" "}
-                                                            {user.subscriptionStatus === "Trial"
-                                                                ? user.trialEndDate
-                                                                    ? new Date(user.trialEndDate).toLocaleDateString("en-GB")
-                                                                    : "—"
-                                                                : user.subscriptionEndDate
-                                                                    ? new Date(user.subscriptionEndDate).toLocaleDateString("en-GB")
-                                                                    : "—"}
-                                                        </span>
-                                                    </div>
-                                                    {/* Tooltip arrow */}
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            "-"
-                                        )}
-                                    </td>
-                                    <td className="p-3 border-r border-gray-500 relative group whitespace-nowrap">
-                                        {user.trialDaysLeft > 0 ? (
-                                            <div className="inline-block relative">
-                                                <span className="px-2 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700 cursor-pointer">
-                                                    Trial ({user.trialDaysLeft} day{user.trialDaysLeft > 1 ? "s" : ""} left)
-                                                </span>
-
-                                                {/* Tooltip */}
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap z-10">
-                                                    <div className="flex flex-col text-left">
-                                                        <span>
-                                                            <span className="font-semibold text-green-400">Start:</span>{" "}
-                                                            {user.trialStartDate
-                                                                ? new Date(user.trialStartDate).toLocaleDateString("en-GB")
-                                                                : "—"}
-                                                        </span>
-                                                        <span>
-                                                            <span className="font-semibold text-red-400">End:</span>{" "}
-                                                            {user.trialEndDate
-                                                                ? new Date(user.trialEndDate).toLocaleDateString("en-GB")
-                                                                : "—"}
-                                                        </span>
-                                                    </div>
-                                                    {/* Tooltip arrow */}
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            "-"
-                                        )}
-                                    </td>
-
-                                </tr>
-                            ))}
-                            {filteredUsers.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={7}
-                                        className="text-center text-gray-500 py-6 italic"
-                                    >
-                                        No users found
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
                     {/* Pagination Controls */}
                     {totalPages > 1 && (
-                        <div className="flex justify-center items-center mt-4 gap-2">
+                        <div className="flex justify-center items-center mt-6 gap-3">
                             <button
                                 disabled={currentPage === 1}
                                 onClick={() => setCurrentPage((prev) => prev - 1)}
-                                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                                className="px-4 py-2 bg-indigo-500 text-white rounded-lg disabled:opacity-50 disabled:bg-gray-400 hover:bg-indigo-600 transition text-sm font-medium shadow-md"
                             >
-                                Prev
+                                Previous
                             </button>
-                            <span>
+                            <span className="text-sm font-medium text-gray-700">
                                 Page {currentPage} of {totalPages}
                             </span>
                             <button
                                 disabled={currentPage === totalPages}
                                 onClick={() => setCurrentPage((prev) => prev + 1)}
-                                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                                className="px-4 py-2 bg-indigo-500 text-white rounded-lg disabled:opacity-50 disabled:bg-gray-400 hover:bg-indigo-600 transition text-sm font-medium shadow-md"
                             >
                                 Next
                             </button>
@@ -461,53 +563,59 @@ function UserList() {
                     )}
                 </div>
             </div >
-            {
-                showPurchases && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-xl shadow-xl p-6 max-w-2xl w-full">
-                            <h3 className="text-xl font-bold mb-4">User Purchases</h3>
-                            {purchases.length > 0 ? (
-                                <table className="min-w-full text-sm border border-gray-300">
-                                    <thead className="bg-gray-100 font-semibold">
+
+            {/* Purchases Modal (Redesigned for Clarity) */}
+            {showPurchases && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-full lg:max-w-4xl w-full max-h-[90vh] overflow-y-auto border-t-4 border-yellow-500">
+                        <h3 className="text-2xl font-bold mb-4 text-gray-800">
+                            Purchases for User ID: {selectedUser}
+                        </h3>
+                        {purchases.length > 0 ? (
+                            <div className="overflow-x-auto border rounded-lg">
+                                <table className="min-w-full text-sm divide-y divide-gray-200">
+                                    <thead className="bg-gray-50 whitespace-nowrap">
                                         <tr>
-                                            <th className="p-2 border-r">Invoice Number</th>
-                                            <th className="p-2 border-r">Plan Name</th>
-                                            <th className="p-2 border-r">Start Date</th>
-                                            <th className="p-2 border-r">End Date</th>
-                                            <th className="p-2 border-r">Status</th>
-                                            <th className="p-2 border-r">Price</th>
-                                            <th className="p-2">Purchase Date</th>
+                                            <th className="p-3 text-left">Invoice #</th>
+                                            <th className="p-3 text-left">Plan Name</th>
+                                            <th className="p-3 text-center">Price (₹)</th>
+                                            <th className="p-3 text-center">Status</th>
+                                            <th className="p-3 text-center">Start Date</th>
+                                            <th className="p-3 text-center">End Date</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-gray-200">
                                         {purchases.map((p, i) => (
-                                            <tr key={i} className="border border-gray-300 hover:bg-gray-50">
-                                                <td className="p-2 border-r text-center">{p.invoiceNumber}</td>
-                                                <td className="p-2 border-r text-center">{p.planName}</td>
-                                                <td className="p-2 border-r text-center">{new Date(p.startDate).toLocaleDateString("en-GB")}</td>
-                                                <td className="p-2 border-r text-center">{new Date(p.endDate).toLocaleDateString("en-GB")}</td>
-                                                <td className="p-2 border-r text-center">{p.status}</td>
-                                                <td className="p-2 border-r text-center">₹{p.price}</td>
-                                                <td className="p-2 text-center">{new Date(p.purchaseDate).toLocaleDateString("en-GB")}</td>
+                                            <tr key={i} className="hover:bg-yellow-50">
+                                                <td className="p-3 font-mono">{p.invoiceNumber}</td>
+                                                <td className="p-3 font-medium">{p.planName}</td>
+                                                <td className="p-3 text-center font-semibold text-green-700">₹{p.price}</td>
+                                                <td className="p-3 text-center">
+                                                    <StatusBadge status={p.status} isSubscription />
+                                                </td>
+                                                <td className="p-3 text-center">{new Date(p.startDate).toLocaleDateString("en-GB")}</td>
+                                                <td className="p-3 text-center">{new Date(p.endDate).toLocaleDateString("en-GB")}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                            ) : (
-                                <p>No purchases found</p>
-                            )}
-                            <div className="flex justify-end mt-4">
-                                <button
-                                    onClick={() => setShowPurchases(false)}
-                                    className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-                                >
-                                    Close
-                                </button>
                             </div>
+                        ) : (
+                            <p className="text-center text-gray-500 p-6 border rounded-lg bg-gray-50">
+                                No purchase history found for this user.
+                            </p>
+                        )}
+                        <div className="flex justify-end mt-6">
+                            <button
+                                onClick={() => setShowPurchases(false)}
+                                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium shadow-md"
+                            >
+                                Close
+                            </button>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div >
     );
 }

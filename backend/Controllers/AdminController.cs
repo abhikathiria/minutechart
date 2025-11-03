@@ -1145,6 +1145,7 @@ Nchart Team";
     public class UserProfileDto
     {
         public string CompanyName { get; set; }
+        public string CustomerName { get; set; } = "";
         public string CustomerGST { get; set; } = "";
         public string CustomerCode { get; set; } = "";
         public string ServerName { get; set; }
