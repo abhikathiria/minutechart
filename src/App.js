@@ -353,10 +353,10 @@ function Footer() {
                         </div>
                         
                         {/* Phone */}
-                        <div className="flex items-center gap-3 justify-center sm:justify-start">
+                        {/* <div className="flex items-center gap-3 justify-center sm:justify-start">
                             <FaPhone className="w-5 h-5 text-cyan-500 shrink-0" />
                             <a href="tel:+919978278879" className="text-gray-300 hover:text-cyan-400 transition">+91 99782 78879</a>
-                        </div>
+                        </div> */}
                     </address>
                     
                     {/* Social Icons (Stylized and larger touch targets) */}

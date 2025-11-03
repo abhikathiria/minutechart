@@ -350,6 +350,8 @@ export default function Profile() {
 
   const [companyName, setCompanyName] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -381,6 +383,8 @@ export default function Profile() {
 
         setCompanyName(targetUser.companyName || "N/A");
         setCustomerName(targetUser.customerName || "N/A");
+        setEmail(targetUser.email || "N/A");
+        setPhoneNumber(targetUser.phoneNumber || "N/A");
 
         // Fetch user profile settings
         const profileRes = await api.get(`/admin/user/${id}/profile`);
@@ -509,6 +513,12 @@ export default function Profile() {
               <h2 className="text-xl font-bold text-gray-800 break-words">{companyName || "Company Name"}</h2>
               <p className="text-sm text-gray-500 mt-1">
                 Customer Name: <span className="font-mono text-gray-600 text-xs break-all">{customerName}</span>
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Customer Email: <span className="font-mono text-gray-600 text-xs break-all">{email}</span>
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Contact Number: <span className="font-mono text-gray-600 text-xs break-all">{phoneNumber}</span>
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 User ID: <span className="font-mono text-gray-600 text-xs break-all">{id}</span>
