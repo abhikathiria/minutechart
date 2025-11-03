@@ -42,7 +42,7 @@ const PlanCard = ({ plan, index, prevPlan, getDiscountNote, handleChoose }) => {
         >
             {/* Highlight Tag */}
             {(isBest || isPopular) && (
-                <div 
+                <div
                     className={`absolute top-6 right-0 py-1 px-10 -mr-10 rotate-45 text-white text-sm font-bold shadow-md ${cardStyle.tag}`}
                 >
                     {plan.highlight}
@@ -53,13 +53,13 @@ const PlanCard = ({ plan, index, prevPlan, getDiscountNote, handleChoose }) => {
             <div className="mb-6 text-center">
                 <h4 className="text-3xl font-extrabold text-gray-900">{plan.name}</h4>
                 <p className={`mt-4 text-5xl font-extrabold ${cardStyle.price} flex items-center justify-center`}>
-                    <IndianRupee className="w-8 h-8 mr-1 inline"/>
+                    <IndianRupee className="w-8 h-8 mr-1 inline" />
                     {plan.price}
                     <span className="text-xl font-normal text-gray-500 ml-2"> / {plan.durationDays} days</span>
                 </p>
                 {discountNote && (
                     <p className="mt-4 text-sm font-bold text-green-600 flex items-center justify-center gap-1">
-                        <Zap className="w-4 h-4"/> {discountNote}
+                        <Zap className="w-4 h-4" /> {discountNote}
                     </p>
                 )}
             </div>
@@ -109,22 +109,8 @@ export default function SubscriptionPage() {
     const [showHistory, setShowHistory] = useState(false);
     const navigate = useNavigate();
 
-    const user = JSON.parse(localStorage.getItem("user")); 
+    const user = JSON.parse(localStorage.getItem("user"));
 
-    // --- Core Logic Functions (Simplified for display) ---
-
-    // Note: The logic for loadRazorpayScript, showSuccessToast, showErrorToast, and handleChoose
-    // is assumed to exist and is critical for payment functionality.
-    const getDiscountNote = (plan, prevPlan) => {
-        if (!prevPlan) return null;
-        const prevDaily = prevPlan.price / prevPlan.durationDays;
-        const planDaily = plan.price / plan.durationDays;
-        if (planDaily < prevDaily) {
-            const percent = Math.round(((prevDaily - planDaily) / prevDaily) * 100);
-            return `Save ${percent}% vs ${prevPlan.name}`;
-        }
-        return null;
-    };
     
     // --- Data Fetching ---
     useEffect(() => {
@@ -151,11 +137,157 @@ export default function SubscriptionPage() {
 
         fetchPlans();
         fetchStatus();
-    }, []); 
+    }, []);
     
+    const getDiscountNote = (plan, prevPlan) => {
+        if (!prevPlan) return null;
+        const prevDaily = prevPlan.price / prevPlan.durationDays;
+        const planDaily = plan.price / plan.durationDays;
+        if (planDaily < prevDaily) {
+            const percent = Math.round(((prevDaily - planDaily) / prevDaily) * 100);
+            return `Save ${percent}% vs ${prevPlan.name}`;
+        }
+        return null;
+    };
+    
+    const showSuccessToast = () => {
+    toast.custom(
+      (t) => (
+        <div
+          className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 border-green-500`}
+        >
+          <div className="flex-1 w-0 p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 pt-0.5">
+                <CheckCircle2 className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-black">
+                  Payment Verified Successfully
+                </p>
+                <p className="mt-1 text-sm text-black">
+                  Your subscription is now active. An invoice has been emailed and
+                  is also available in your Purchase History.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      { duration: 8000 }
+    );
+  };
+
+  const showErrorToast = () => {
+    toast.custom(
+      (t) => (
+        <div
+          className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 border-red-500`}
+        >
+          <div className="flex-1 w-0 p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 pt-0.5">
+                <XCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-black">
+                  Payment Verification Failed
+                </p>
+                <p className="mt-1 text-sm text-black">
+                  We couldn’t verify your payment. Please try again or contact
+                  support.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      { duration: 8000 }
+    );
+  };
+
+const handleChoose = async (plan) => {
+  let user = null;
+  try {
+    const storedUser = localStorage.getItem("user");
+    user = storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error("Error parsing user from localStorage:", error);
+    user = null;
+  }
+
+  if (!user) {
+    // Fallback: Quick API check to verify auth (optional but recommended)
+    try {
+      await api.get("/user/subscription-status"); // Or any protected endpoint
+      // If this succeeds, user is authenticated—proceed
+    } catch (err) {
+      toast.error("⚠️ Please log in to subscribe to a plan.");
+      navigate("/login", { state: { from: "/subscription/buy" } });
+      return;
+    }
+  }
+
+  // Proceed with payment logic...
+  try {
+    const createResp = await api.post("/subscription/create-order", { planId: plan.id });
+      const { orderId, amount, currency, key } = createResp.data;
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        toast.error("Failed to load payment SDK");
+        return;
+      }
+
+      const options = {
+        key,
+        amount,
+        currency,
+        name: "minutechart",
+        description: `${plan.name} plan`,
+        order_id: orderId,
+        handler: async (response) => {
+          setVerifying(true);
+          try {
+            await api.post("/subscription/verify", {
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            });
+
+            showSuccessToast();
+            setTimeout(() => setVerifying(false), 500);
+          } catch (verifyErr) {
+            console.error("Verification failed", verifyErr);
+            showErrorToast();
+            setTimeout(() => setVerifying(false), 500);
+          }
+        },
+        theme: { color: "#6d28d9" },
+      };
+
+      new window.Razorpay(options).open();
+    } catch (err) {
+      console.error("Error in handleChoose", err);
+      toast.error("Failed to start payment");
+    }
+  };
+
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
     // --- Data Filtering for Display ---
     const allPlans = subscriptionStatus?.activePlans || [];
-    
+
     // Filter currently active plans (remainingDays > 0)
     const activePlansFiltered = allPlans.filter(p => p.remainingDays > 0);
     const hasVisibleActivePlans = activePlansFiltered.length > 0;
@@ -170,7 +302,7 @@ export default function SubscriptionPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="text-xl text-indigo-600 font-medium flex items-center gap-2">
-                    <Loader className="animate-spin w-6 h-6"/> Loading Subscription Plans...
+                    <Loader className="animate-spin w-6 h-6" /> Loading Subscription Plans...
                 </div>
             </div>
         );
@@ -188,10 +320,10 @@ export default function SubscriptionPage() {
                     Choose a subscription duration that fits your needs. Purchasing longer plans gives you the best daily value.
                 </p>
             </div>
-            
+
             {/* --- Active Subscription Status Block --- */}
             {subscriptionStatus?.hasActivePlan && hasVisibleActivePlans && (
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 bg-white/90 backdrop-blur rounded-2xl shadow-2xl border-t-4 border-teal-500"
@@ -199,7 +331,7 @@ export default function SubscriptionPage() {
                     {/* Summary Header */}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-4 border-teal-200">
                         <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
-                            <CheckCircle2 className="text-teal-500 w-8 h-8"/> Your Current Active Subscription
+                            <CheckCircle2 className="text-teal-500 w-8 h-8" /> Your Current Active Subscription
                         </h2>
                         <div className="mt-3 sm:mt-0 bg-teal-500 text-white px-4 py-2 rounded-xl shadow-md">
                             <span className="text-xl font-extrabold">Total Days Remaining: {subscriptionStatus.totalDaysRemaining}</span>
@@ -214,23 +346,23 @@ export default function SubscriptionPage() {
                                 .map((plan, idx) => {
                                     const total = plan.totalDays;
                                     const remaining = plan.remainingDays;
-                                    const percentElapsed = Math.min((1 - (remaining / total)) * 100, 100); 
+                                    const percentElapsed = Math.min((1 - (remaining / total)) * 100, 100);
 
                                     return (
                                         <li key={idx} className="p-4 rounded-xl bg-teal-50 shadow-sm border border-teal-200">
                                             <div className="flex justify-between text-base font-semibold text-gray-800">
                                                 <span className="flex items-center gap-2">
-                                                    <span className="font-bold">{plan.name}</span> 
+                                                    <span className="font-bold">{plan.name}</span>
                                                 </span>
                                                 <span>{remaining} {remaining === 1 ? "day" : "days"} left</span>
                                             </div>
                                             <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                                                <FaCalendarAlt size={12} className="text-teal-400"/> Ends {new Date(plan.subscriptionEnd).toLocaleDateString()}
+                                                <FaCalendarAlt size={12} className="text-teal-400" /> Ends {new Date(plan.subscriptionEnd).toLocaleDateString()}
                                             </p>
                                             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3">
                                                 <div
                                                     className="bg-teal-500 h-2.5 rounded-full"
-                                                    style={{ width: `${percentElapsed}%` }} 
+                                                    style={{ width: `${percentElapsed}%` }}
                                                 />
                                             </div>
                                             <p className="text-xs text-right text-gray-500 mt-1">Time Elapsed</p>
@@ -247,9 +379,9 @@ export default function SubscriptionPage() {
                             className="w-full p-3 bg-indigo-600 rounded-xl text-white font-medium flex justify-center items-center gap-2 hover:bg-indigo-700 transition shadow-lg"
                         >
                             <FaHistory size={16} /> View Purchase History ({expiredPlans.length + futurePlans.length} records)
-                            {showHistory ? <FaChevronUp size={12}/> : <FaChevronDown size={12}/>}
+                            {showHistory ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
                         </button>
-                        
+
                         <AnimatePresence>
                             {showHistory && (
                                 <motion.div
@@ -286,19 +418,19 @@ export default function SubscriptionPage() {
                     const prevPlan = index > 0 ? plans[index - 1] : null;
 
                     return (
-                        <PlanCard 
+                        <PlanCard
                             key={plan.id}
                             plan={plan}
                             index={index}
                             prevPlan={prevPlan}
                             getDiscountNote={getDiscountNote}
                             // Note: handleChoose logic must be defined externally or here for payment flow
-                            handleChoose={() => { /* Placeholder for handleChoose */ }} 
+                            handleChoose={() => { /* Placeholder for handleChoose */ }}
                         />
                     );
                 })}
             </div>
-            
+
             {/* Payment Verification Modal (Unchanged - assumes full Razorpay logic is implemented) */}
             <AnimatePresence>
                 {verifying && (
