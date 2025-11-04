@@ -104,8 +104,6 @@ namespace minutechart.Controllers
 
             // ✅ Toggle the hidden flag
             query.HideQuery = request.HideQuery;
-            // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
-
             query.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
 
             await _db.SaveChangesAsync();
@@ -866,6 +864,34 @@ Nchart Team";
                 _db.CompanyInvoiceSettings.Add(settings);
             }
 
+            // --- Path Cleaning Helper ---
+            // Function to strip the base URL from the full URL received from the frontend
+            string GetRelativePath(string fullPath, HttpRequest request)
+            {
+                if (string.IsNullOrEmpty(fullPath)) return string.Empty;
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+
+                if (fullPath.StartsWith(baseUrl))
+                {
+                    var relativePath = fullPath.Substring(baseUrl.Length);
+                    // Ensure it starts with a slash if it was trimmed
+                    return relativePath.StartsWith("/") ? relativePath : $"/{relativePath}";
+                }
+
+                // If it already looks like a relative path (starts with /), return as is.
+                if (fullPath.StartsWith("/"))
+                {
+                    return fullPath;
+                }
+
+                // If it doesn't start with the base URL, assume it's already the correct relative path 
+                // (e.g., if it was just uploaded or never had a base URL)
+                return fullPath;
+            }
+
+            settings.CompanyLogoPath = GetRelativePath(dto.CompanyLogoPath, Request);
+            settings.OwnerSignaturePath = GetRelativePath(dto.OwnerSignaturePath, Request);
+
             // Map simple fields
             settings.CompanyName = dto.CompanyName;
             settings.CompanyAddress = dto.CompanyAddress;
@@ -874,7 +900,6 @@ Nchart Team";
             settings.CompanyWebsite = dto.CompanyWebsite;
             settings.GstNumber = dto.GstNumber;
             settings.OwnerName = dto.OwnerName;
-            // settings.OwnerSignaturePath = dto.OwnerSignaturePath;
             settings.PayableTo = dto.PayableTo;
             settings.OtherDetails = dto.OtherDetails;
             settings.BankName = dto.BankName;

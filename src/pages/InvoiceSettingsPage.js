@@ -12,24 +12,47 @@ export default function InvoiceSettingsPage() {
   const [fabBottom, setFabBottom] = useState(24);
   const fabRef = useRef(null);
 
+  const DEFAULT_LOGO_RELATIVE_PATH = "../../backend/wwwroot/images/default/company-logo-default.png";
+  const DEFAULT_SIGNATURE_RELATIVE_PATH = "../../backend/wwwroot/images/default/owner-signature-default.png";
+
   useEffect(() => {
     loadSettings();
+  }, []);
+
+  // Helper to ensure we get the full, usable image URL, using a fallback if needed.
+  const getFullUrl = useCallback((path, defaultPath) => {
+    if (!path) return defaultPath;
+
+    // If path is already a full URL (e.g., from a previous session load), return it.
+    if (path.startsWith("http")) return path;
+
+    // If path is a relative path (e.g., /uploads/...), prepend the base URL.
+    return api.defaults.baseURL + path;
   }, []);
 
   async function loadSettings() {
     try {
       const res = await api.get("/admin/invoicesettings");
-      setSettings(res.data);
-      setLogoPreview(
-        res.data?.companyLogoPath?.startsWith("http")
-          ? res.data.companyLogoPath
-          : api.defaults.baseURL + res.data?.companyLogoPath
-      );
-      setSignaturePreview(
-        res.data?.ownerSignaturePath?.startsWith("http")
-          ? res.data.ownerSignaturePath
-          : api.defaults.baseURL + res.data?.ownerSignaturePath
-      );
+      const data = res.data;
+
+      // 1. Set Preview URLs (Full URL or Default)
+      setLogoPreview(getFullUrl(data.companyLogoPath, DEFAULT_LOGO_RELATIVE_PATH));
+      setSignaturePreview(getFullUrl(data.ownerSignaturePath, DEFAULT_SIGNATURE_RELATIVE_PATH));
+
+      // 2. Normalize Paths for Settings State (Store only the relative path for saving)
+      const relativeLogoPath = data.companyLogoPath.startsWith("http")
+        ? data.companyLogoPath.substring(api.defaults.baseURL.length)
+        : data.companyLogoPath;
+
+      const relativeSignaturePath = data.ownerSignaturePath.startsWith("http")
+        ? data.ownerSignaturePath.substring(api.defaults.baseURL.length)
+        : data.ownerSignaturePath;
+
+      setSettings({
+        ...data,
+        companyLogoPath: relativeLogoPath.replace(/^\//, ''), // Strip leading slash if any, as the C# stripper adds it back
+        ownerSignaturePath: relativeSignaturePath.replace(/^\//, ''), // This is safer for sending back to a server that strips the base URL
+      });
     } catch (err) {
       console.error("Failed to load settings", err);
       toast.error("Failed to load invoice settings");
@@ -51,16 +74,20 @@ export default function InvoiceSettingsPage() {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      const fullUrl = res.data.path.startsWith("http")
-        ? res.data.path
-        : api.defaults.baseURL + res.data.path;
+      // Upload endpoint returns the FULL URL (e.g., http://.../uploads/...).
+      const fullUrl = res.data.path;
+      // Extract the RELATIVE PATH (e.g., /uploads/...)
+      const relativePath = fullUrl.substring(api.defaults.baseURL.length);
+
       if (type === "logo") {
         setLogoPreview(fullUrl);
-        setSettings((prev) => ({ ...prev, companyLogoPath: fullUrl }));
+        // *** CRITICAL FIX: Store RELATIVE PATH in state for saving ***
+        setSettings((prev) => ({ ...prev, companyLogoPath: relativePath }));
       }
       if (type === "signature") {
         setSignaturePreview(fullUrl);
-        setSettings((prev) => ({ ...prev, ownerSignaturePath: fullUrl }));
+        // *** CRITICAL FIX: Store RELATIVE PATH in state for saving ***
+        setSettings((prev) => ({ ...prev, ownerSignaturePath: relativePath }));
       }
     } catch (err) {
       console.error("File upload failed", err);
@@ -169,8 +196,15 @@ export default function InvoiceSettingsPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Company Logo</label>
                 <div className="w-36 h-36 bg-gradient-to-br from-white to-indigo-50 rounded-lg border border-indigo-200 flex items-center justify-center overflow-hidden shadow">
+                  {/* Using logoPreview which is either the saved URL or the default path */}
                   {logoPreview ? (
-                    <img src={logoPreview} alt="logo" className="object-contain w-full h-full" />
+                    <img
+                      src={logoPreview}
+                      alt="logo"
+                      className="object-contain w-full h-full"
+                      // Add onError to ensure the default loads even if the image path is broken
+                      onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_LOGO_RELATIVE_PATH; }}
+                    />
                   ) : (
                     <span className="text-gray-400">No logo</span>
                   )}
@@ -214,7 +248,13 @@ export default function InvoiceSettingsPage() {
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Owner Signature</label>
                 <div className="w-48 h-20 bg-gradient-to-br from-white to-indigo-50 rounded-lg border border-indigo-200 flex items-center justify-center overflow-hidden shadow">
                   {signaturePreview ? (
-                    <img src={signaturePreview} alt="signature" className="object-contain w-full h-full" />
+                    <img
+                      src={signaturePreview}
+                      alt="signature"
+                      className="object-contain w-full h-full"
+                      // Add onError to ensure the default loads even if the image path is broken
+                      onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_SIGNATURE_RELATIVE_PATH; }}
+                    />
                   ) : (
                     <span className="text-gray-400">No signature</span>
                   )}
