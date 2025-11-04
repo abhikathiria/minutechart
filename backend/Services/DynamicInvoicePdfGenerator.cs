@@ -9,9 +9,10 @@ using minutechart.Helpers;
 
 public static class DynamicInvoicePdfGenerator
 {
-    private static readonly string UploadsFolderBase = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "invoice");
-    private static readonly string DefaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default", "company-logo-default.png");
-    private static readonly string DefaultSignaturePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default", "owner-signature-default.png");
+    private static readonly string AppRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ".."));
+    private static readonly string UploadsFolderBase = Path.Combine(AppRoot, "wwwroot", "uploads", "invoice");
+    private static readonly string DefaultLogoPath = Path.Combine(AppRoot, "wwwroot", "images", "default", "company-logo-default.png");
+    private static readonly string DefaultSignaturePath = Path.Combine(AppRoot, "wwwroot", "images", "default", "owner-signature-default.png");
     public static byte[] GeneratePdf(CompanyInvoiceSetting company, Invoice invoice, AppUser user)
     {
         using (var ms = new MemoryStream())
@@ -638,46 +639,37 @@ public static class DynamicInvoicePdfGenerator
         };
     }
 
-    // NEW: Resolves the stored relative path (e.g., "/uploads/invoice/file.png") 
-    // to a physical file path on the server, or returns the default path if not found.
     private static string ResolveLocalFilePath(string storedRelativePath, string defaultPath)
     {
         if (string.IsNullOrWhiteSpace(storedRelativePath))
         {
             return defaultPath;
         }
-
-        // This assumes the path starts exactly as the controller saved it: "/uploads/invoice/"
-        if (storedRelativePath.StartsWith("/uploads/invoice/", StringComparison.OrdinalIgnoreCase))
+        
+        // 1. Ensure the path only contains the relative segment after the web root prefix (e.g., "uploads/invoice/GUID.png")
+        // We explicitly look for the path segment that matches where the controller saved it.
+        string pathSegmentToFind = "uploads/invoice/";
+        
+        if (storedRelativePath.StartsWith("/", StringComparison.OrdinalIgnoreCase))
         {
-            // Extract only the filename part
-            var fileName = storedRelativePath.Substring("/uploads/invoice/".Length);
-            var physicalPath = Path.Combine(UploadsFolderBase, fileName);
-
+            storedRelativePath = storedRelativePath.Substring(1); // Remove initial slash for reliable path joining
+        }
+        
+        if (storedRelativePath.Contains(pathSegmentToFind, StringComparison.OrdinalIgnoreCase))
+        {
+            // Find the start of the uploads folder relative to the URL root
+            int startIndex = storedRelativePath.IndexOf(pathSegmentToFind, StringComparison.OrdinalIgnoreCase);
+            
+            // Get only the filename part starting from 'uploads/invoice/'
+            string fileNameWithPath = storedRelativePath.Substring(startIndex);
+            
+            // Combine the known physical base folder with the rest of the path
+            var physicalPath = Path.Combine(UploadsFolderBase, fileNameWithPath.Replace("uploads/invoice/", ""));
+            
             return File.Exists(physicalPath) ? physicalPath : defaultPath;
         }
-
-        // If it doesn't match the expected structure, treat the stored path as a direct path 
-        // or return the default if it doesn't exist.
+        
+        // Fallback check: If it somehow looks like a direct physical path (unlikely from the API)
         return File.Exists(storedRelativePath) ? storedRelativePath : defaultPath;
-    }
-
-    private static string ResolveLocalPathOrDownload(string pathOrUrl)
-    {
-        if (string.IsNullOrEmpty(pathOrUrl)) return pathOrUrl;
-        if (pathOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                var ext = Path.GetExtension(pathOrUrl);
-                if (string.IsNullOrWhiteSpace(ext)) ext = ".tmp";
-                var temp = Path.Combine(Path.GetTempPath(), $"img_{Guid.NewGuid():N}{ext}");
-                using (var wc = new WebClient())
-                    wc.DownloadFile(pathOrUrl, temp);
-                return temp;
-            }
-            catch { return null; }
-        }
-        return pathOrUrl;
     }
 }
