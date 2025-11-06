@@ -1,3 +1,1132 @@
+// using Microsoft.AspNetCore.Authorization;
+// using Microsoft.AspNetCore.Identity;
+// using Microsoft.AspNetCore.Mvc;
+// using Microsoft.EntityFrameworkCore;
+// using minutechart.Data;
+// using minutechart.DTOs;
+// using minutechart.Models;
+// using minutechart.Services;
+// using minutechart.Helpers;
+// using System.Text.Json;
+// using CloudinaryDotNet;
+// using CloudinaryDotNet.Actions;
+// using SendGrid;
+// using SendGrid.Helpers.Mail;
+// using System;
+// using System.IO;
+// using System.Linq;
+// using System.Threading.Tasks;
+
+// namespace minutechart.Controllers
+// {
+//     [ApiController]
+//     [Route("api/[controller]")]
+//     public class AdminController : ControllerBase
+//     {
+//         private readonly MinutechartDbContext _db;
+//         private readonly ILogger<DatabaseService> _logger;
+//         private readonly UserManager<AppUser> _userManager;
+//         private readonly IConfiguration _configuration;
+//         private readonly DatabaseService _dbService;
+//         private readonly IEmailSender _emailSender;
+//         private readonly ActivityLogger _activityLogger;
+
+//         private readonly string _uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "invoice");
+
+//         public AdminController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, IConfiguration configuration, IEmailSender emailSender, ILogger<DatabaseService> logger, ActivityLogger activityLogger)
+//         {
+//             _db = db;
+//             _userManager = userManager;
+//             _dbService = dbService;
+//             _configuration = configuration;
+//             _emailSender = emailSender;
+//             _activityLogger = activityLogger;
+//             _logger = logger;
+//             Directory.CreateDirectory(_uploadsFolder);
+
+//         }
+
+
+//         [HttpGet("activitylogs")]
+//         [Authorize(Roles = "Admin")]
+//         public IActionResult GetActivityLogs()
+//         {
+//             var logs = _db.ActivityLogs
+//                 .OrderByDescending(l => l.Timestamp)
+//                 .Take(200)
+//                 .ToList();
+
+//             return Ok(logs);
+//         }
+
+
+//         [HttpGet("user/{id}/queries")]
+//         public async Task<IActionResult> GetUserQueries(string id)
+//         {
+//             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+//             if (user == null)
+//                 return NotFound(new { message = "User not found" });
+
+//             bool isAdmin = User.IsInRole("Admin");
+
+//             var queriesQuery = _db.UserQueries
+//                 .Where(q => q.AppUserId == user.Id);
+
+//             if (!isAdmin)
+//             {
+//                 // Normal users → only show non-hidden queries
+//                 queriesQuery = queriesQuery.Where(q => !q.HideQuery);
+//             }
+
+//             var queries = await queriesQuery
+//                 .OrderByDescending(q => q.UserQueryLastUpdated)
+//                 .ToListAsync();
+
+//             return Ok(queries);
+//         }
+
+//         [HttpDelete("delete-query/{id}")]
+//         public async Task<IActionResult> DeleteUserQuery(int id)
+//         {
+//             // Admin is authenticated; no need to restrict to owner
+//             var query = await _db.UserQueries
+//                 .FirstOrDefaultAsync(q => q.UserQueryId == id);
+
+//             if (query == null) return NotFound();
+
+//             _db.UserQueries.Remove(query);
+//             await _db.SaveChangesAsync();
+
+//             return Ok(new { success = true, message = "Module deleted successfully" });
+//         }
+
+//         [HttpPost("hide-query/{id}")]
+//         public async Task<IActionResult> ToggleHideQuery(int id, [FromBody] HideQueryDto request)
+//         {
+//             var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == id);
+//             if (query == null)
+//                 return NotFound(new { success = false, message = "Module not found" });
+
+//             // ✅ Toggle the hidden flag
+//             query.HideQuery = request.HideQuery;
+//             query.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
+
+//             await _db.SaveChangesAsync();
+
+//             return Ok(new
+//             {
+//                 success = true,
+//                 message = request.HideQuery
+//                     ? $"Module '{query.UserTitle}' hidden successfully."
+//                     : $"Module '{query.UserTitle}' is now visible."
+//             });
+//         }
+
+
+//         [HttpGet("users")]
+//         public async Task<IActionResult> GetUsers()
+//         {
+//             var users = await _db.Users
+//                 .Include(u => u.UserProfile)
+//                 .ToListAsync();
+
+//             var nonAdminUsers = new List<object>();
+
+//             foreach (var user in users)
+//             {
+//                 var roles = await _userManager.GetRolesAsync(user);
+//                 if (!roles.Contains("Admin") && user.EmailConfirmed)
+//                 {
+//                     int trialDaysLeft = 0;
+//                     if (user.IsTrialActive && user.TrialEndDate.HasValue)
+//                     {
+//                         trialDaysLeft = (user.TrialEndDate.Value - DateTimeHelper.GetIndianTime()).Days;
+//                         if (trialDaysLeft < 0) trialDaysLeft = 0;
+//                     }
+
+//                     string subscriptionStatus = "None";
+//                     if (user.IsTrialActive) subscriptionStatus = "Trial";
+//                     else if (user.IsPaidSubscriptionActive) subscriptionStatus = "Active";
+//                     else if (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate < DateTimeHelper.GetIndianTime())
+//                         subscriptionStatus = "Expired";
+
+//                     nonAdminUsers.Add(new
+//                     {
+//                         user.Id,
+//                         user.Email,
+//                         user.CompanyName,
+//                         user.CustomerName,
+//                         user.PhoneNumber,
+//                         user.AccountStatus,
+//                         ProfileConfigured = user.UserProfile != null,
+//                         SubscriptionStatus = subscriptionStatus,
+//                         TrialDaysLeft = trialDaysLeft,
+//                         TrialStartDate = user.TrialStartDate,
+//                         TrialEndDate = user.TrialEndDate,
+//                         SubscriptionStartDate = user.SubscriptionStartDate,
+//                         SubscriptionEndDate = user.SubscriptionEndDate
+//                     });
+//                 }
+//             }
+
+//             return Ok(nonAdminUsers);
+//         }
+
+//         [HttpGet("user/{id}/purchases")]
+//         public async Task<IActionResult> GetUserPurchases(string id)
+//         {
+//             var invoices = await _db.Invoices
+//                 .Where(p => p.AppUserId == id)
+//                 .Include(p => p.Plan)
+//                 .OrderByDescending(p => p.PaymentDate)
+//                 .ToListAsync();
+
+//             return Ok(invoices.Select(p => new
+//             {
+//                 InvoiceNumber = p.InvoiceNumber,
+//                 PlanName = p.Plan.Name,
+//                 StartDate = p.PlanStartDate,
+//                 EndDate = p.PlanEndDate,
+//                 Status = p.Status,
+//                 Price = p.Amount,
+//                 PurchaseDate = p.PaymentDate
+//             }));
+//         }
+
+
+//         [HttpPost("execute-user-query/{userId}")]
+//         public async Task<IActionResult> ExecuteUserQuery(string userId, [FromBody] ExecuteQueryRequest req)
+//         {
+//             var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+//             if (profile == null)
+//                 return BadRequest(new { success = false, message = "User profile not found" });
+
+//             try
+//             {
+//                 using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+//                 {
+//                     var cmd = connection.CreateCommand();
+
+//                     // Fix: Prepend semicolon if query starts with WITH (handles CTE syntax issues)
+//                     string sql = req.SqlQuery.Trim();
+//                     if (sql.ToUpper().StartsWith("WITH"))
+//                     {
+//                         sql = ";" + sql;
+//                     }
+//                     cmd.CommandText = sql;
+
+//                     var reader = await cmd.ExecuteReaderAsync();
+//                     var table = new List<Dictionary<string, object>>();
+
+//                     while (await reader.ReadAsync())
+//                     {
+//                         var row = new Dictionary<string, object>();
+//                         for (int i = 0; i < reader.FieldCount; i++)
+//                         {
+//                             row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+//                         }
+//                         table.Add(row);
+//                     }
+
+//                     await reader.CloseAsync();
+//                     return Ok(new { success = true, data = table });
+//                 }
+//             }
+//             catch (Exception ex)
+//             {
+//                 return StatusCode(500, new { success = false, message = ex.Message });
+//             }
+//         }
+
+//         public class ExecuteQueryRequest
+//         {
+//             public string SqlQuery { get; set; }
+//         }
+
+//         public class SaveUserQueryRequest
+//         {
+//             public int UserQueryId { get; set; }
+//             public string UserTitle { get; set; }
+//             public string UserQueryText { get; set; }
+//             public string VisualizationType { get; set; }
+
+
+//             public bool IsApprovalModule { get; set; } = false;
+//             public string ApprovalUpdateQuery { get; set; } = "";
+//             public string ApprovalIdColumn { get; set; } = "";
+//         }
+
+//         [HttpPost("save-user-query/{userId}")]
+//         public async Task<IActionResult> SaveUserQuery(string userId, [FromBody] SaveUserQueryRequest req)
+//         {
+//             var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+//             if (profile == null)
+//                 return BadRequest(new { success = false, message = "User profile not found" });
+
+//             try
+//             {
+//                 // Optional: validate query
+//                 using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+//                 {
+//                     var cmd = connection.CreateCommand();
+//                     cmd.CommandText = req.UserQueryText;
+//                     var reader = await cmd.ExecuteReaderAsync();
+//                     await reader.CloseAsync();
+//                 }
+
+//                 UserQuery userQuery;
+
+//                 if (req.UserQueryId != 0) // update existing
+//                 {
+//                     userQuery = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.UserQueryId && q.AppUserId == userId);
+//                     if (userQuery == null)
+//                         return NotFound(new { success = false, message = "Module not found" });
+
+//                     userQuery.UserTitle = req.UserTitle;
+//                     userQuery.UserQueryText = req.UserQueryText;
+//                     userQuery.VisualizationType = req.VisualizationType;
+//                     userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
+//                     userQuery.IsApprovalModule = req.IsApprovalModule;
+//                     userQuery.ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "";
+//                     userQuery.ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : "";
+
+//                     _db.UserQueries.Update(userQuery);
+//                 }
+//                 else // create new
+//                 {
+//                     userQuery = new UserQuery
+//                     {
+//                         AppUserId = userId,
+//                         UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+//                         UserTitle = req.UserTitle,
+//                         UserQueryText = req.UserQueryText,
+//                         VisualizationType = req.VisualizationType,
+//                         UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+//                         UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+//                         IsApprovalModule = req.IsApprovalModule,
+//                         ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "",
+//                         ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : ""
+//                     };
+//                     _db.UserQueries.Add(userQuery);
+//                 }
+//                 if (req.IsApprovalModule)
+//                 {
+//                     if (string.IsNullOrEmpty(req.ApprovalUpdateQuery) || !req.ApprovalUpdateQuery.Contains("@id") ||
+//                         string.IsNullOrEmpty(req.ApprovalIdColumn))
+//                     {
+//                         return BadRequest(new { success = false, message = "Approval module requires a valid update query with '?' placeholder and ID column." });
+//                     }
+//                 }
+
+//                 await _db.SaveChangesAsync();
+
+//                 return Ok(new { success = true, message = "Query saved successfully", query = userQuery });
+//             }
+//             catch (Exception ex)
+//             {
+//                 return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
+//             }
+//         }
+
+//         [HttpPost("approve-row/{userId}")]
+//         public async Task<IActionResult> ApproveRow(string userId, [FromBody] ApproveRowRequest req)
+//         {
+//             var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+//             if (profile == null)
+//                 return BadRequest(new { success = false, message = "User profile not found" });
+//             var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.QueryId && q.AppUserId == userId);
+//             if (query == null || !query.IsApprovalModule)
+//                 return NotFound(new { success = false, message = "Approval module not found" });
+//             try
+//             {
+//                 using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+//                 {
+//                     var cmd = connection.CreateCommand();
+//                     cmd.CommandText = query.ApprovalUpdateQuery;
+
+//                     if (req.RowId is JsonElement jsonElement)
+//                     {
+//                         if (jsonElement.ValueKind == JsonValueKind.Number)
+//                         {
+//                             cmd.Parameters.AddWithValue("@id", jsonElement.GetInt32());  // For integer IDs
+//                         }
+//                         else if (jsonElement.ValueKind == JsonValueKind.String)
+//                         {
+//                             cmd.Parameters.AddWithValue("@id", jsonElement.GetString());  // For string IDs (e.g., GUIDs)
+//                         }
+//                         else
+//                         {
+//                             return BadRequest(new { success = false, message = "Invalid RowId type. Must be a number or string." });
+//                         }
+//                     }
+//                     else
+//                     {
+//                         // Fallback if not JsonElement (unlikely in JSON requests)
+//                         cmd.Parameters.AddWithValue("@id", req.RowId);
+//                     }
+//                     await cmd.ExecuteNonQueryAsync();
+//                 }
+//                 return Ok(new { success = true, message = "Row approved successfully" });
+//             }
+//             catch (Exception ex)
+//             {
+//                 return StatusCode(500, new { success = false, message = ex.Message });
+//             }
+//         }
+//         public class ApproveRowRequest
+//         {
+//             public int QueryId { get; set; }
+//             public object RowId { get; set; }  // ID value from the row
+//         }
+
+
+//         // ✅ Run a saved query for a user
+//         [HttpGet("run-saved-query/{userId}/{queryId}")]
+//         public async Task<IActionResult> RunSavedQuery(string userId, int queryId)
+//         {
+//             var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+//             if (profile == null)
+//                 return BadRequest(new { success = false, message = "User profile not found" });
+
+//             var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == queryId && q.AppUserId == userId);
+//             if (query == null)
+//                 return NotFound(new { success = false, message = "Query not found" });
+
+//             try
+//             {
+//                 using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+//                 {
+//                     var cmd = connection.CreateCommand();
+//                     cmd.CommandText = query.UserQueryText;
+
+//                     var reader = await cmd.ExecuteReaderAsync();
+//                     var table = new List<Dictionary<string, object>>();
+
+//                     while (await reader.ReadAsync())
+//                     {
+//                         var row = new Dictionary<string, object>();
+//                         for (int i = 0; i < reader.FieldCount; i++)
+//                         {
+//                             row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+//                         }
+//                         table.Add(row);
+//                     }
+
+//                     await reader.CloseAsync();
+
+//                     return Ok(new { success = true, data = table });
+//                 }
+//             }
+//             catch (Exception ex)
+//             {
+//                 return StatusCode(500, new { success = false, message = ex.Message });
+//             }
+//         }
+
+//         [HttpGet("user/{id}/profile")]
+//         public async Task<IActionResult> GetUserProfile(string id)
+//         {
+//             var user = await _db.Users
+//                 .Include(u => u.UserProfile)
+//                 .FirstOrDefaultAsync(u => u.Id == id);
+
+//             if (user == null)
+//                 return NotFound(new { message = "User not found" });
+
+//             if (user.UserProfile == null)
+//             {
+//                 return Ok(new UserProfileDto
+//                 {
+//                     CustomerGST = user.GST ?? ""
+//                 });
+//             }
+
+//             var dto = new UserProfileDto
+//             {
+//                 CompanyName = user.CompanyName,
+//                 CustomerGST = user.UserProfile.CustomerGST ?? user.GST ?? "",  // Default to AppUser.GST if profile GST is null
+//                 CustomerCode = user.UserProfile.CustomerCode ?? "",
+//                 ServerName = user.UserProfile.ServerName,
+//                 DatabaseName = user.UserProfile.DatabaseName,
+//                 DbUsername = user.UserProfile.DbUsername,
+//                 DbPassword = user.UserProfile.DbPassword,
+//                 RefreshTime = user.UserProfile.RefreshTime
+//             };
+
+//             return Ok(dto);
+//         }
+
+//         [HttpPost("user/{id}/profile")]
+//         public async Task<IActionResult> SetUserProfile(string id, [FromBody] UserProfileDto model)
+//         {
+//             var user = await _db.Users
+//                 .Include(u => u.UserProfile)
+//                 .FirstOrDefaultAsync(u => u.Id == id);
+
+//             if (user == null)
+//                 return NotFound(new { message = "User not found" });
+
+//             if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
+//             {
+//                 return BadRequest(new { message = "Database connection failed", details = error });
+//             }
+
+//             var profile = user.UserProfile;
+//             if (profile == null)
+//             {
+//                 // Generate CustomerCode
+//                 var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
+//                 var companyWords = user.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+//                 var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
+//                 var customerWords = user.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+//                 var customerInitials = string.Join("", customerWords.Select(w => w[0])).ToUpper();
+//                 var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
+//                 var customerCode = $"C-{regYear}-{companyInitials}{customerInitials}-{userIdPart}";
+
+//                 profile = new UserProfile
+//                 {
+//                     AppUserId = user.Id,
+//                     CompanyName = user.CompanyName,
+//                     ServerName = model.ServerName,
+//                     DatabaseName = model.DatabaseName,
+//                     DbUsername = model.DbUsername,
+//                     DbPassword = model.DbPassword,
+//                     RefreshTime = model.RefreshTime,
+//                     CustomerGST = model.CustomerGST ?? user.GST ?? "",
+//                     CustomerCode = customerCode
+//                 };
+//                 _db.UserProfiles.Add(profile);
+//                 await _db.SaveChangesAsync();
+
+//                 // Activate user and set trial dates only on first creation
+//                 user.AccountStatus = "Active";
+//                 user.TrialStartDate = DateTimeHelper.GetIndianTime();
+//                 user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
+//                 _db.Users.Update(user);
+//                 // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
+//                 await _db.SaveChangesAsync();
+//             }
+//             else
+//             {
+//                 // Profile update: Just update the existing profile fields (no activation or email)
+//                 profile.CompanyName = user.CompanyName;
+//                 profile.ServerName = model.ServerName;
+//                 profile.DatabaseName = model.DatabaseName;
+//                 profile.DbUsername = model.DbUsername;
+//                 profile.DbPassword = model.DbPassword;
+//                 profile.RefreshTime = model.RefreshTime;
+//                 profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
+//                 _db.UserProfiles.Update(profile);
+//                 user.GST = model.CustomerGST ?? user.GST ?? "";
+//                 _db.Users.Update(user);
+//                 await _db.SaveChangesAsync();
+//             }
+
+//             return Ok(new { message = "Profile saved successfully" });
+//         }
+
+//         private async Task SendAccountActivationEmailAsync(string toEmail, string customerName, string companyName)
+//         {
+//             var subject = "Your Nchart Account Has Been Activated";
+
+//             var htmlContent = $@"
+//                 <p>Hi {customerName},</p>
+//                 <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>activated</strong> and is now ready to use!</p>
+//                 <p>You can now log in and start exploring our services.</p>
+//                 <p>If you need help, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
+//                 <p>Warm regards,<br/>Nchart Team</p>";
+
+//             var plainTextContent = $@"
+// Hi {customerName},
+
+// Your Nchart account for {companyName} has been activated and is ready to use!
+
+// You can now log in and start exploring our services.
+
+// For help, contact support@minutechart.com.
+
+// Warm regards,
+// Nchart Team";
+
+//             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
+//         }
+
+//         [HttpPost("user/{id}/deactivate")]
+//         public async Task<IActionResult> DeactivateUser(string id)
+//         {
+//             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+
+//             if (user == null)
+//                 return NotFound(new { message = "User not found" });
+
+//             if (user.AccountStatus == "Blocked")
+//                 return BadRequest(new { message = "User is already blocked" });
+
+//             user.AccountStatus = "Blocked";
+//             _db.Users.Update(user);
+//             // await SendAccountDeactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
+//             await _db.SaveChangesAsync();
+
+//             return Ok(new { message = "User account has been blocked" });
+//         }
+
+//         private async Task SendAccountDeactivationEmailAsync(string toEmail, string customerName, string companyName)
+//         {
+//             var subject = "Your Nchart Account Has Been Blocked";
+
+//             var htmlContent = $@"
+//                 <p>Hi {customerName},</p>
+//                 <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>blocked</strong>.</p>
+//                 <p>Possible reasons include overdue payments, terms violations, or compliance checks.</p>
+//                 <p>If you think this is a mistake, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
+//                 <p>Warm regards,<br/>Nchart Team</p>";
+
+//             var plainTextContent = $@"
+// Hi {customerName},
+
+// Your Nchart account for {companyName} has been blocked.
+
+// Possible reasons:
+// - Overdue payments
+// - Terms violations
+// - Compliance checks
+
+// If this is a mistake, please contact support@minutechart.com.
+
+// Warm regards,
+// Nchart Team";
+
+//             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
+//         }
+
+//         [HttpPost("user/{id}/reactivate")]
+//         public async Task<IActionResult> ReactivateUser(string id)
+//         {
+//             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id);
+
+//             if (user == null)
+//                 return NotFound(new { message = "User not found" });
+
+//             if (user.AccountStatus == "Active")
+//                 return BadRequest(new { message = "User account is already active" });
+
+//             user.AccountStatus = "Active";
+//             _db.Users.Update(user);
+//             // await SendAccountReactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
+//             await _db.SaveChangesAsync();
+
+//             return Ok(new { message = "User account has been reactivated" });
+//         }
+
+//         private async Task SendAccountReactivationEmailAsync(string toEmail, string customerName, string companyName)
+//         {
+//             var subject = "Your Nchart Account Has Been Reactivated";
+
+//             var htmlContent = $@"
+//                 <p>Hi {customerName},</p>
+//                 <p>Your <strong>Nchart</strong> account for {companyName} has been <strong>reactivated</strong> and is accessible again.</p>
+//                 <p>You can log in and continue using our services.</p>
+//                 <p>For help, contact <a href='mailto:support@minutechart.com'>support@minutechart.com</a>.</p>
+//                 <p>Warm regards,<br/>Nchart Team</p>";
+
+//             var plainTextContent = $@"
+// Hi {customerName},
+
+// Your Nchart account for {companyName} has been reactivated and is accessible again.
+
+// You can log in and continue using our services.
+
+// For help, contact support@minutechart.com.
+
+// Warm regards,
+// Nchart Team";
+
+//             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
+//         }
+
+//         [HttpGet("emailsettings")]
+//         public async Task<IActionResult> Get()
+//         {
+//             var settings = await _db.EmailSettings.FirstOrDefaultAsync();
+//             if (settings == null) return Ok(null);
+
+//             return Ok(new
+//             {
+//                 settings.SmtpHost,
+//                 settings.SmtpPort,
+//                 settings.SmtpUser,
+//                 settings.FromEmail,
+//                 settings.EnableSsl,
+//                 settings.UpdatedAt
+//                 // ⚠️ don’t send raw password
+//             });
+//         }
+
+//         [HttpPost("emailsettings/save")]
+//         public async Task<IActionResult> Save([FromBody] EmailSetting model)
+//         {
+//             var settings = await _db.EmailSettings.FirstOrDefaultAsync();
+
+//             if (settings == null)
+//             {
+//                 settings = new EmailSetting();
+//                 _db.EmailSettings.Add(settings);
+//             }
+
+//             settings.SmtpHost = model.SmtpHost;
+//             settings.SmtpPort = model.SmtpPort;
+//             settings.SmtpUser = model.SmtpUser;
+//             settings.FromEmail = model.FromEmail;
+//             settings.EnableSsl = model.EnableSsl;
+
+//             if (!string.IsNullOrEmpty(model.SmtpPassword))
+//             {
+//                 settings.SmtpPassword = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(model.SmtpPassword));
+//             }
+
+//             settings.UpdatedAt = DateTimeHelper.GetIndianTime();
+
+//             await _db.SaveChangesAsync();
+
+//             return Ok(new { message = "Email settings saved successfully" });
+//         }
+
+//         [HttpPost("emailsettings/test")]
+//         public async Task<IActionResult> Test([FromBody] string toEmail)
+//         {
+//             var sender = HttpContext.RequestServices.GetRequiredService<IEmailSender>();
+//             await sender.SendEmailAsync(toEmail, "Test Email", "This is a test email", "<p>This is a <b>test email</b></p>");
+//             return Ok(new { message = "Test email sent" });
+//         }
+
+//         [HttpGet("invoicesettings")]
+//         public async Task<IActionResult> GetInvoiceSettings()
+//         {
+//             var settings = await _db.CompanyInvoiceSettings
+//                 .Include(s => s.Columns)
+//                 .FirstOrDefaultAsync();
+
+//             var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+//             if (settings == null)
+//             {
+//                 var emptyDto = new InvoiceSettingsDto
+//                 {
+//                     CompanyLogoPath = "",
+//                     OwnerSignaturePath = "",
+//                     CompanyName = "",
+//                     CompanyAddress = "",
+//                     CompanyPhone = "",
+//                     CompanyEmail = "",
+//                     CompanyWebsite = "",
+//                     GstNumber = "",
+//                     OwnerName = "",
+//                     PayableTo = "",
+//                     OtherDetails = "",
+//                     BankName = "",
+//                     BranchName = "",
+//                     BankAccountNumber = "",
+//                     IFSC = "",
+//                     IgstPercent = 18,
+//                     CgstPercent = 9,
+//                     SgstPercent = 9,
+//                     TermsAndConditions = "",
+//                     ShowGst = true,
+//                     ShowBankDetails = true,
+//                     ShowWebsite = false,
+//                     ShowSignature = true,
+//                     ShowTermsAndConditions = true,
+//                     Columns = new List<InvoiceColumnDto>
+//                     {
+//                         new InvoiceColumnDto { ColumnKey = "srno", ColumnName = "SL NO", IsVisible = true, Order = 0 },
+//                         new InvoiceColumnDto { ColumnKey = "details", ColumnName = "DESCRIPTION", IsVisible = true, Order = 1 },
+//                         new InvoiceColumnDto { ColumnKey = "rate", ColumnName = "RATE", IsVisible = true, Order = 2 },
+//                         new InvoiceColumnDto { ColumnKey = "quantity", ColumnName = "QUANTITY", IsVisible = true, Order = 3 },
+//                         new InvoiceColumnDto { ColumnKey = "amount", ColumnName = "AMOUNT", IsVisible = true, Order = 4 },
+//                     }
+//                 };
+//                 return Ok(emptyDto);
+//             }
+
+//             var dto = new InvoiceSettingsDto
+//             {
+//                 CompanyLogoPath = !string.IsNullOrEmpty(settings.CompanyLogoPath)
+//                     ? $"{baseUrl}{settings.CompanyLogoPath}"
+//                     : "",
+//                 OwnerSignaturePath = !string.IsNullOrEmpty(settings.OwnerSignaturePath)
+//                     ? $"{baseUrl}{settings.OwnerSignaturePath}"
+//                     : "",
+//                 CompanyName = settings.CompanyName,
+//                 CompanyAddress = settings.CompanyAddress,
+//                 CompanyPhone = settings.CompanyPhone,
+//                 CompanyEmail = settings.CompanyEmail,
+//                 CompanyWebsite = settings.CompanyWebsite,
+//                 GstNumber = settings.GstNumber,
+//                 OwnerName = settings.OwnerName,
+//                 PayableTo = settings.PayableTo,
+//                 OtherDetails = settings.OtherDetails,
+//                 BankName = settings.BankName,
+//                 BranchName = settings.BranchName,
+//                 BankAccountNumber = settings.BankAccountNumber,
+//                 IFSC = settings.IFSC,
+//                 IgstPercent = settings.IgstPercent,
+//                 CgstPercent = settings.CgstPercent,
+//                 SgstPercent = settings.SgstPercent,
+//                 TermsAndConditions = settings.TermsAndConditions,
+//                 ShowGst = settings.ShowGst,
+//                 ShowBankDetails = settings.ShowBankDetails,
+//                 ShowWebsite = settings.ShowWebsite,
+//                 ShowSignature = settings.ShowSignature,
+//                 ShowTermsAndConditions = settings.ShowTermsAndConditions,
+//                 Columns = settings.Columns
+//                     .OrderBy(c => c.SortOrder)
+//                     .Select(c => new InvoiceColumnDto
+//                     {
+//                         Id = c.Id,
+//                         ColumnKey = c.ColumnKey,
+//                         ColumnName = c.ColumnName,
+//                         IsVisible = c.IsVisible,
+//                         Order = c.SortOrder
+//                     }).ToList()
+//             };
+
+//             return Ok(dto);
+//         }
+
+//         [HttpPost("invoicesettings/save")]
+//         public async Task<IActionResult> SaveInvoiceSettings([FromBody] InvoiceSettingsDto dto)
+//         {
+//             if (dto == null) return BadRequest("DTO is required.");
+
+//             var settings = await _db.CompanyInvoiceSettings
+//                 .Include(s => s.Columns)
+//                 .FirstOrDefaultAsync();
+
+//             if (settings == null)
+//             {
+//                 settings = new CompanyInvoiceSetting();
+//                 _db.CompanyInvoiceSettings.Add(settings);
+//             }
+
+//             // --- Path Cleaning Helper ---
+//             // Function to strip the base URL from the full URL received from the frontend
+//             string GetRelativePath(string fullPath, HttpRequest request)
+//             {
+//                 if (string.IsNullOrEmpty(fullPath)) return string.Empty;
+//                 var baseUrl = $"{request.Scheme}://{request.Host}";
+
+//                 if (fullPath.StartsWith(baseUrl))
+//                 {
+//                     var relativePath = fullPath.Substring(baseUrl.Length);
+//                     // Ensure it starts with a slash if it was trimmed
+//                     return relativePath.StartsWith("/") ? relativePath : $"/{relativePath}";
+//                 }
+
+//                 // If it already looks like a relative path (starts with /), return as is.
+//                 if (fullPath.StartsWith("/"))
+//                 {
+//                     return fullPath;
+//                 }
+
+//                 // If it doesn't start with the base URL, assume it's already the correct relative path 
+//                 // (e.g., if it was just uploaded or never had a base URL)
+//                 return fullPath;
+//             }
+
+//             settings.CompanyLogoPath = GetRelativePath(dto.CompanyLogoPath, Request);
+//             settings.OwnerSignaturePath = GetRelativePath(dto.OwnerSignaturePath, Request);
+
+//             // Map simple fields
+//             settings.CompanyName = dto.CompanyName;
+//             settings.CompanyAddress = dto.CompanyAddress;
+//             settings.CompanyPhone = dto.CompanyPhone;
+//             settings.CompanyEmail = dto.CompanyEmail;
+//             settings.CompanyWebsite = dto.CompanyWebsite;
+//             settings.GstNumber = dto.GstNumber;
+//             settings.OwnerName = dto.OwnerName;
+//             settings.PayableTo = dto.PayableTo;
+//             settings.OtherDetails = dto.OtherDetails;
+//             settings.BankName = dto.BankName;
+//             settings.BranchName = dto.BranchName;
+//             settings.BankAccountNumber = dto.BankAccountNumber;
+//             settings.IFSC = dto.IFSC;
+//             settings.IgstPercent = dto.IgstPercent;
+//             settings.CgstPercent = dto.IgstPercent / 2;
+//             settings.SgstPercent = dto.IgstPercent / 2;
+//             settings.TermsAndConditions = dto.TermsAndConditions;
+//             settings.ShowGst = dto.ShowGst;
+//             settings.ShowBankDetails = dto.ShowBankDetails;
+//             settings.ShowWebsite = dto.ShowWebsite;
+//             settings.ShowSignature = dto.ShowSignature;
+//             settings.ShowTermsAndConditions = dto.ShowTermsAndConditions;
+//             settings.UpdatedAt = DateTimeHelper.GetIndianTime();
+
+//             if (settings.Columns == null) settings.Columns = new List<InvoiceColumnSetting>();
+
+//             // Remove deleted columns
+//             var dtoColumnIds = dto.Columns.Where(c => c.Id.HasValue).Select(c => c.Id.Value).ToList();
+//             var columnsToRemove = settings.Columns.Where(c => !dtoColumnIds.Contains(c.Id)).ToList();
+//             foreach (var col in columnsToRemove)
+//             {
+//                 _db.InvoiceColumnSettings.Remove(col);
+//             }
+
+//             // Add or update columns
+//             foreach (var dtoCol in dto.Columns)
+//             {
+//                 if (dtoCol.Id.HasValue && dtoCol.Id.Value > 0)
+//                 {
+//                     var col = settings.Columns.FirstOrDefault(c => c.Id == dtoCol.Id.Value);
+//                     if (col != null)
+//                     {
+//                         col.ColumnName = dtoCol.ColumnName;
+//                         col.IsVisible = dtoCol.IsVisible;
+//                         col.SortOrder = dtoCol.Order;
+//                     }
+//                 }
+//                 else
+//                 {
+//                     settings.Columns.Add(new InvoiceColumnSetting
+//                     {
+//                         ColumnName = dtoCol.ColumnName,
+//                         IsVisible = dtoCol.IsVisible,
+//                         SortOrder = dtoCol.Order
+//                     });
+//                 }
+//             }
+
+//             await _db.SaveChangesAsync();
+//             return Ok(new { message = "Invoice settings saved successfully" });
+//         }
+
+//         // Helper: Save files and return relative URLs
+//         private async Task<List<string>> SaveFiles(IFormFileCollection files, HttpRequest request)
+//         {
+//             var urls = new List<string>();
+//             foreach (var file in files ?? new FormFileCollection())
+//             {
+//                 if (file.Length > 5 * 1024 * 1024) continue;  // Skip if > 5MB
+//                 var allowedTypes = new[] { "image/jpeg", "image/png", "image/svg+xml" };
+//                 if (!allowedTypes.Contains(file.ContentType)) continue;
+//                 var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+//                 var filePath = Path.Combine(_uploadsFolder, fileName);
+//                 Directory.CreateDirectory(_uploadsFolder);  // Ensure folder exists
+//                 using (var stream = new FileStream(filePath, FileMode.Create))
+//                 {
+//                     await file.CopyToAsync(stream);
+//                 }
+//                 urls.Add($"/uploads/invoice/{fileName}");  // Relative path matches save location
+//             }
+//             return urls;
+//         }
+
+
+//         [HttpPost("invoicesettings/upload-image")]
+//         public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery] string type)
+//         {
+//             if (file == null || file.Length == 0)
+//                 return BadRequest("No file uploaded");
+
+//             // Use SaveFiles to handle the upload
+//             var files = new FormFileCollection { file };  // Wrap single file in collection
+//             var relativePaths = await SaveFiles(files, Request);
+
+//             if (!relativePaths.Any())
+//                 return BadRequest("File upload failed (invalid type or size)");
+
+//             var relativePath = relativePaths.First();  // Get the relative path
+//             var baseUrl = $"{Request.Scheme}://{Request.Host}";  // Ensure HTTPS
+//             var publicUrl = $"{baseUrl}{relativePath}";  // Full URL for response
+
+//             // Save relative path to DB
+//             var settings = await _db.CompanyInvoiceSettings.FirstOrDefaultAsync();
+//             if (settings == null)
+//             {
+//                 settings = new CompanyInvoiceSetting();
+//                 _db.CompanyInvoiceSettings.Add(settings);
+//             }
+
+//             if (type == "logo")
+//                 settings.CompanyLogoPath = relativePath;
+//             else if (type == "signature")
+//                 settings.OwnerSignaturePath = relativePath;
+
+//             await _db.SaveChangesAsync();
+
+//             return Ok(new { path = publicUrl });
+//         }
+
+
+//         [HttpPost("transfer-modules")]
+//         public async Task<IActionResult> TransferModules([FromBody] TransferModulesRequest request)  // Made async for await
+//         {
+//             // Input validation (unchanged)
+//             if (string.IsNullOrEmpty(request.SourceUserId) ||
+//                 string.IsNullOrEmpty(request.TargetUserId) ||
+//                 request.ModuleIds == null || request.ModuleIds.Count == 0)
+//             {
+//                 return BadRequest(new { success = false, message = "Invalid input" });
+//             }
+
+//             try
+//             {
+//                 // Fetch source modules: Use loop to avoid OPENJSON and WITH syntax issues
+//                 var sourceModules = new List<UserQuery>();
+//                 foreach (var id in request.ModuleIds)
+//                 {
+//                     var module = await _db.UserQueries.FirstOrDefaultAsync(q => q.AppUserId == request.SourceUserId && q.UserQueryId == id);
+//                     if (module != null) sourceModules.Add(module);
+//                 }
+
+//                 // Fetch target modules (unchanged)
+//                 var targetModules = _db.UserQueries
+//                     .Where(q => q.AppUserId == request.TargetUserId)
+//                     .ToList();
+
+//                 var duplicates = new List<UserQuery>();
+//                 var copied = new List<UserQuery>();
+
+//                 // Detect duplicates and prepare for action (unchanged)
+//                 foreach (var sm in sourceModules)
+//                 {
+//                     var existing = targetModules.FirstOrDefault(tm =>
+//                         tm.UserTitle == sm.UserTitle && tm.UserQueryText == sm.UserQueryText);
+
+//                     if (existing != null)
+//                     {
+//                         duplicates.Add(existing);
+
+//                         // Handle based on requested action
+//                         if (request.Action == "replace")
+//                         {
+//                             _db.UserQueries.Remove(existing);
+//                         }
+//                         else if (request.Action == "ignore")
+//                         {
+//                             continue; // skip this one
+//                         }
+//                         else if (request.Action == "cancel" || request.Action == "check")
+//                         {
+//                             continue;
+//                         }
+//                     }
+
+//                     // Only add new module if not cancelling/checking
+//                     if (request.Action != "cancel" && request.Action != "check")
+//                     {
+//                         var newQuery = new UserQuery
+//                         {
+//                             AppUserId = request.TargetUserId,
+//                             UserTitle = sm.UserTitle,
+//                             UserQueryText = sm.UserQueryText,
+//                             VisualizationType = sm.VisualizationType,
+//                             UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+//                             UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+//                             UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+//                         };
+
+//                         _db.UserQueries.Add(newQuery);
+//                         copied.Add(newQuery);
+//                     }
+//                 }
+
+//                 // ✅ Handle check mode separately (unchanged)
+//                 if (request.Action == "check")
+//                 {
+//                     if (duplicates.Any())
+//                     {
+//                         // duplicates found → send back to frontend
+//                         return Ok(new
+//                         {
+//                             success = false,
+//                             duplicates = duplicates.Select(d => new
+//                             {
+//                                 d.UserQueryId,
+//                                 d.UserTitle
+//                             })
+//                         });
+//                     }
+//                     else
+//                     {
+//                         // no duplicates → directly transfer all modules
+//                         foreach (var sm in sourceModules)
+//                         {
+//                             var newQuery = new UserQuery
+//                             {
+//                                 AppUserId = request.TargetUserId,
+//                                 UserTitle = sm.UserTitle,
+//                                 UserQueryText = sm.UserQueryText,
+//                                 VisualizationType = sm.VisualizationType,
+//                                 UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+//                                 UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+//                                 UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+//                             };
+//                             _db.UserQueries.Add(newQuery);
+//                             copied.Add(newQuery);
+//                         }
+
+//                         await _db.SaveChangesAsync();  // Added await
+
+//                         return Ok(new
+//                         {
+//                             success = true,
+//                             message = $"{copied.Count} modules transferred successfully (no duplicates found)."
+//                         });
+//                     }
+//                 }
+
+//                 // Save changes for replace / ignore actions
+//                 await _db.SaveChangesAsync();  // Added await
+
+//                 return Ok(new
+//                 {
+//                     success = true,
+//                     message = request.Action switch
+//                     {
+//                         "replace" => $"{copied.Count} modules transferred and duplicates replaced.",
+//                         "ignore" => $"{copied.Count} modules transferred, duplicates ignored.",
+//                         "cancel" => "Transfer cancelled.",
+//                         _ => $"{copied.Count} modules transferred successfully."
+//                     }
+//                 });
+//             }
+//             catch (Exception ex)
+//             {
+//                 // Log the error for debugging (use your logger)
+//                 _logger.LogError(ex, "Error in TransferModules: {Message}", ex.Message);
+
+//                 // Return a user-friendly error
+//                 return StatusCode(500, new { success = false, message = "An error occurred while transferring modules. Please try again." });
+//             }
+//         }
+
+//         public class TransferModulesRequest
+//         {
+//             public string SourceUserId { get; set; }
+//             public string TargetUserId { get; set; }
+//             public List<int> ModuleIds { get; set; }
+//             public string Action { get; set; } = "check"; // check, replace, ignore, cancel
+//         }
+//     }
+
+
+//     // 🔹 DTO for profile input/output
+//     public class UserProfileDto
+//     {
+//         public string CompanyName { get; set; }
+//         public string CustomerName { get; set; } = "";
+//         public string CustomerGST { get; set; } = "";
+//         public string CustomerCode { get; set; } = "";
+//         public string ServerName { get; set; }
+//         public string DatabaseName { get; set; }
+//         public string DbUsername { get; set; }
+//         public string DbPassword { get; set; }
+//         public int RefreshTime { get; set; } = 60000;
+//     }
+// }
+
+
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -29,31 +1158,35 @@ namespace minutechart.Controllers
         private readonly IConfiguration _configuration;
         private readonly DatabaseService _dbService;
         private readonly IEmailSender _emailSender;
+        private readonly ActivityLogger _activityLogger;
+
         private readonly string _uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "invoice");
 
-        public AdminController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, IConfiguration configuration, IEmailSender emailSender, ILogger<DatabaseService> logger)
+        public AdminController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, IConfiguration configuration, IEmailSender emailSender, ILogger<DatabaseService> logger, ActivityLogger activityLogger)
         {
             _db = db;
             _userManager = userManager;
             _dbService = dbService;
             _configuration = configuration;
             _emailSender = emailSender;
+            _activityLogger = activityLogger;
             _logger = logger;
             Directory.CreateDirectory(_uploadsFolder);
 
         }
 
 
-        // [HttpGet("test-connection")]
-        // public IActionResult TestDatabaseConnection([FromQuery] string server, string database, string username, string password)
-        // {
-        //     var dbService = new DatabaseService(_logger);  // Inject or instantiate
-        //     if (dbService.TestConnection(server, database, username, password, out string error))
-        //     {
-        //         return Ok("Connection successful");
-        //     }
-        //     return BadRequest(new { message = "Connection failed", details = error });
-        // }
+        [HttpGet("activitylogs")]
+        [Authorize(Roles = "Admin")]
+        public IActionResult GetActivityLogs()
+        {
+            var logs = _db.ActivityLogs
+                .OrderByDescending(l => l.Timestamp)
+                .ToList();
+
+            return Ok(logs);
+        }
+
 
         [HttpGet("user/{id}/queries")]
         public async Task<IActionResult> GetUserQueries(string id)
@@ -77,20 +1210,29 @@ namespace minutechart.Controllers
                 .OrderByDescending(q => q.UserQueryLastUpdated)
                 .ToListAsync();
 
+            // LOG: Admin viewed user's modules
+            await _activityLogger.LogAsync("viewed modules for", "User", user.UserName ?? user.Email);
+
             return Ok(queries);
         }
 
         [HttpDelete("delete-query/{id}")]
         public async Task<IActionResult> DeleteUserQuery(int id)
         {
-            // Admin is authenticated; no need to restrict to owner
             var query = await _db.UserQueries
+                .Include(q => q.AppUser) // Include user for logging target name
                 .FirstOrDefaultAsync(q => q.UserQueryId == id);
 
             if (query == null) return NotFound();
 
+            var targetUserName = query.AppUser?.UserName ?? query.AppUser?.Email ?? "N/A";
+            var queryTitle = query.UserTitle;
+
             _db.UserQueries.Remove(query);
             await _db.SaveChangesAsync();
+
+            // LOG: Admin deleted a module
+            await _activityLogger.LogAsync("deleted module", "Module", queryTitle, targetUserName);
 
             return Ok(new { success = true, message = "Module deleted successfully" });
         }
@@ -98,15 +1240,26 @@ namespace minutechart.Controllers
         [HttpPost("hide-query/{id}")]
         public async Task<IActionResult> ToggleHideQuery(int id, [FromBody] HideQueryDto request)
         {
-            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == id);
+            var query = await _db.UserQueries
+                .Include(q => q.AppUser) // Include user for logging target name
+                .FirstOrDefaultAsync(q => q.UserQueryId == id);
+
             if (query == null)
                 return NotFound(new { success = false, message = "Module not found" });
+
+            var targetUserName = query.AppUser?.UserName ?? query.AppUser?.Email ?? "N/A";
+
+            // Determine the action string for logging
+            string action = request.HideQuery ? "hid module" : "made module visible";
 
             // ✅ Toggle the hidden flag
             query.HideQuery = request.HideQuery;
             query.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
 
             await _db.SaveChangesAsync();
+
+            // LOG: Admin toggled module visibility
+            await _activityLogger.LogAsync(action, "Module", query.UserTitle, targetUserName);
 
             return Ok(new
             {
@@ -118,9 +1271,287 @@ namespace minutechart.Controllers
         }
 
 
+        [HttpPost("execute-user-query/{userId}")]
+        public async Task<IActionResult> ExecuteUserQuery(string userId, [FromBody] ExecuteQueryRequest req)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var targetUserName = user?.UserName ?? user?.Email ?? userId;
+
+            try
+            {
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                {
+                    var cmd = connection.CreateCommand();
+
+                    // Fix: Prepend semicolon if query starts with WITH (handles CTE syntax issues)
+                    string sql = req.SqlQuery.Trim();
+                    if (sql.ToUpper().StartsWith("WITH"))
+                    {
+                        sql = ";" + sql;
+                    }
+                    cmd.CommandText = sql;
+
+                    var reader = await cmd.ExecuteReaderAsync();
+                    var table = new List<Dictionary<string, object>>();
+
+                    while (await reader.ReadAsync())
+                    {
+                        var row = new Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                        }
+                        table.Add(row);
+                    }
+
+                    await reader.CloseAsync();
+
+                    // LOG: Successful query execution
+                    // Note: Since this endpoint is often used for query testing/creation, logging execution is highly valuable.
+                    await _activityLogger.LogAsync("executed custom query for", "User Database", targetUserName);
+
+                    return Ok(new { success = true, data = table });
+                }
+            }
+            catch (Exception ex)
+            {
+                // LOG: Failed query execution
+                await _activityLogger.LogAsync("failed to execute custom query for", "User Database", targetUserName);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        public class ExecuteQueryRequest
+        {
+            public string SqlQuery { get; set; }
+        }
+
+        public class SaveUserQueryRequest
+        {
+            public int UserQueryId { get; set; }
+            public string UserTitle { get; set; }
+            public string UserQueryText { get; set; }
+            public string VisualizationType { get; set; }
+
+
+            public bool IsApprovalModule { get; set; } = false;
+            public string ApprovalUpdateQuery { get; set; } = "";
+            public string ApprovalIdColumn { get; set; } = "";
+        }
+
+        [HttpPost("save-user-query/{userId}")]
+        public async Task<IActionResult> SaveUserQuery(string userId, [FromBody] SaveUserQueryRequest req)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var targetUserName = user?.UserName ?? user?.Email ?? userId;
+
+            try
+            {
+                // Optional: validate query
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                {
+                    var cmd = connection.CreateCommand();
+                    cmd.CommandText = req.UserQueryText;
+                    var reader = await cmd.ExecuteReaderAsync();
+                    await reader.CloseAsync();
+                }
+
+                UserQuery userQuery;
+                string action;
+
+                if (req.UserQueryId != 0) // update existing
+                {
+                    userQuery = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.UserQueryId && q.AppUserId == userId);
+                    if (userQuery == null)
+                        return NotFound(new { success = false, message = "Module not found" });
+
+                    // Capture old title for logging if it changed
+                    var oldTitle = userQuery.UserTitle;
+
+                    // ... (Update fields logic remains) ...
+                    userQuery.UserTitle = req.UserTitle;
+                    userQuery.UserQueryText = req.UserQueryText;
+                    userQuery.VisualizationType = req.VisualizationType;
+                    userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
+                    userQuery.IsApprovalModule = req.IsApprovalModule;
+                    userQuery.ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "";
+                    userQuery.ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : "";
+
+                    _db.UserQueries.Update(userQuery);
+                    action = "updated module";
+                }
+                else // create new
+                {
+                    userQuery = new UserQuery
+                    {
+                        AppUserId = userId,
+                        UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        UserTitle = req.UserTitle,
+                        UserQueryText = req.UserQueryText,
+                        VisualizationType = req.VisualizationType,
+                        UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+                        IsApprovalModule = req.IsApprovalModule,
+                        ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "",
+                        ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : ""
+                    };
+                    _db.UserQueries.Add(userQuery);
+                    action = "created new module";
+                }
+
+                if (req.IsApprovalModule)
+                {
+                    if (string.IsNullOrEmpty(req.ApprovalUpdateQuery) || !req.ApprovalUpdateQuery.Contains("@id") ||
+                        string.IsNullOrEmpty(req.ApprovalIdColumn))
+                    {
+                        return BadRequest(new { success = false, message = "Approval module requires a valid update query with '?' placeholder and ID column." });
+                    }
+                }
+
+                await _db.SaveChangesAsync();
+
+                // LOG: Admin saved/updated a module for a user
+                await _activityLogger.LogAsync(action, "Module", req.UserTitle, targetUserName);
+
+                return Ok(new { success = true, message = "Query saved successfully", query = userQuery });
+            }
+            catch (Exception ex)
+            {
+                // LOG: Failed to save/update module
+                await _activityLogger.LogAsync("failed to save module", "Module", req.UserTitle, targetUserName);
+                return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("approve-row/{userId}")]
+        public async Task<IActionResult> ApproveRow(string userId, [FromBody] ApproveRowRequest req)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+
+            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.QueryId && q.AppUserId == userId);
+            if (query == null || !query.IsApprovalModule)
+                return NotFound(new { success = false, message = "Approval module not found" });
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var targetUserName = user?.UserName ?? user?.Email ?? userId;
+
+            try
+            {
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                {
+                    var cmd = connection.CreateCommand();
+                    cmd.CommandText = query.ApprovalUpdateQuery;
+
+                    if (req.RowId is JsonElement jsonElement)
+                    {
+                        if (jsonElement.ValueKind == JsonValueKind.Number)
+                        {
+                            cmd.Parameters.AddWithValue("@id", jsonElement.GetInt32());  // For integer IDs
+                        }
+                        else if (jsonElement.ValueKind == JsonValueKind.String)
+                        {
+                            cmd.Parameters.AddWithValue("@id", jsonElement.GetString());  // For string IDs (e.g., GUIDs)
+                        }
+                        else
+                        {
+                            return BadRequest(new { success = false, message = "Invalid RowId type. Must be a number or string." });
+                        }
+                    }
+                    else
+                    {
+                        cmd.Parameters.AddWithValue("@id", req.RowId);
+                    }
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // LOG: Admin approved a row
+                await _activityLogger.LogAsync("approved row (ID:" + req.RowId + ") using module", "Approval Module", query.UserTitle, targetUserName);
+
+                return Ok(new { success = true, message = "Row approved successfully" });
+            }
+            catch (Exception ex)
+            {
+                // LOG: Failed to approve row
+                await _activityLogger.LogAsync("failed to approve row (ID:" + req.RowId + ") using module", "Approval Module", query.UserTitle, targetUserName);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+        public class ApproveRowRequest
+        {
+            public int QueryId { get; set; }
+            public object RowId { get; set; }  // ID value from the row
+        }
+
+
+        // ✅ Run a saved query for a user
+        [HttpGet("run-saved-query/{userId}/{queryId}")]
+        public async Task<IActionResult> RunSavedQuery(string userId, int queryId)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+
+            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == queryId && q.AppUserId == userId);
+            if (query == null)
+                return NotFound(new { success = false, message = "Query not found" });
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var targetUserName = user?.UserName ?? user?.Email ?? userId;
+
+            try
+            {
+                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
+                {
+                    var cmd = connection.CreateCommand();
+                    cmd.CommandText = query.UserQueryText;
+
+                    var reader = await cmd.ExecuteReaderAsync();
+                    var table = new List<Dictionary<string, object>>();
+
+                    while (await reader.ReadAsync())
+                    {
+                        var row = new Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                        }
+                        table.Add(row);
+                    }
+
+                    await reader.CloseAsync();
+
+                    // LOG: Admin ran a saved query
+                    await _activityLogger.LogAsync("ran saved query", "Query", query.UserTitle, targetUserName);
+
+                    return Ok(new { success = true, data = table });
+                }
+            }
+            catch (Exception ex)
+            {
+                // LOG: Failed to run saved query
+                await _activityLogger.LogAsync("failed to run saved query", "Query", query.UserTitle, targetUserName);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        // ------------------ OTHER ENDPOINTS (No log needed for read-only/DTO helper) ------------------
+
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers()
         {
+            // LOG: Admin accessed the user list (logged in previous AdminController full update, retained here for context)
+            await _activityLogger.LogAsync("viewed the full list of", "Users", "all");
+            // ... (rest of logic remains) ...
             var users = await _db.Users
                 .Include(u => u.UserProfile)
                 .ToListAsync();
@@ -175,6 +1606,7 @@ namespace minutechart.Controllers
                 .Include(p => p.Plan)
                 .OrderByDescending(p => p.PaymentDate)
                 .ToListAsync();
+            // ... (rest of logic remains) ...
 
             return Ok(invoices.Select(p => new
             {
@@ -188,297 +1620,6 @@ namespace minutechart.Controllers
             }));
         }
 
-
-        [HttpPost("execute-user-query/{userId}")]
-        public async Task<IActionResult> ExecuteUserQuery(string userId, [FromBody] ExecuteQueryRequest req)
-        {
-            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
-            if (profile == null)
-                return BadRequest(new { success = false, message = "User profile not found" });
-
-            try
-            {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
-                {
-                    var cmd = connection.CreateCommand();
-
-                    // Fix: Prepend semicolon if query starts with WITH (handles CTE syntax issues)
-                    string sql = req.SqlQuery.Trim();
-                    if (sql.ToUpper().StartsWith("WITH"))
-                    {
-                        sql = ";" + sql;
-                    }
-                    cmd.CommandText = sql;
-
-                    var reader = await cmd.ExecuteReaderAsync();
-                    var table = new List<Dictionary<string, object>>();
-
-                    while (await reader.ReadAsync())
-                    {
-                        var row = new Dictionary<string, object>();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
-                        }
-                        table.Add(row);
-                    }
-
-                    await reader.CloseAsync();
-                    return Ok(new { success = true, data = table });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-
-        public class ExecuteQueryRequest
-        {
-            public string SqlQuery { get; set; }
-        }
-
-        public class SaveUserQueryRequest
-        {
-            public int UserQueryId { get; set; }
-            public string UserTitle { get; set; }
-            public string UserQueryText { get; set; }
-            public string VisualizationType { get; set; }
-
-
-            public bool IsApprovalModule { get; set; } = false;
-            public string ApprovalUpdateQuery { get; set; } = "";
-            public string ApprovalIdColumn { get; set; } = "";
-        }
-
-
-        // [HttpPost("save-user-query/{userId}")]
-        // public async Task<IActionResult> SaveUserQuery(string userId, [FromBody] SaveUserQueryRequest req)
-        // {
-        //     var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
-        //     if (profile == null)
-        //         return BadRequest(new { success = false, message = "User profile not found" });
-
-        //     try
-        //     {
-        //         // Optional: validate query
-        //         using (var connection = await _dbService.CreateClientConnectionAsync(profile))
-        //         {
-        //             var cmd = connection.CreateCommand();
-        //             cmd.CommandText = req.UserQueryText;
-        //             var reader = await cmd.ExecuteReaderAsync();
-        //             await reader.CloseAsync();
-        //         }
-
-        //         // var istTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "India Standard Time");
-
-        //         UserQuery userQuery;
-
-        //         if (req.UserQueryId != 0) // update existing
-        //         {
-        //             userQuery = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.UserQueryId && q.AppUserId == userId);
-        //             if (userQuery == null)
-        //                 return NotFound(new { success = false, message = "Module not found" });
-
-        //             userQuery.UserTitle = req.UserTitle;
-        //             userQuery.UserQueryText = req.UserQueryText;
-        //             userQuery.VisualizationType = req.VisualizationType;
-        //             userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
-
-        //             _db.UserQueries.Update(userQuery);
-        //         }
-        //         else // create new
-        //         {
-        //             userQuery = new UserQuery
-        //             {
-        //                 AppUserId = userId,
-        //                 UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        //                 UserTitle = req.UserTitle,
-        //                 UserQueryText = req.UserQueryText,
-        //                 VisualizationType = req.VisualizationType,
-        //                 UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
-        //                 UserQueryLastUpdated = DateTimeHelper.GetIndianTime()
-        //             };
-        //             _db.UserQueries.Add(userQuery);
-        //         }
-
-        //         await _db.SaveChangesAsync();
-
-        //         return Ok(new { success = true, message = "Query saved successfully", query = userQuery });
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
-        //     }
-        // }
-
-        [HttpPost("save-user-query/{userId}")]
-        public async Task<IActionResult> SaveUserQuery(string userId, [FromBody] SaveUserQueryRequest req)
-        {
-            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
-            if (profile == null)
-                return BadRequest(new { success = false, message = "User profile not found" });
-
-            try
-            {
-                // Optional: validate query
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
-                {
-                    var cmd = connection.CreateCommand();
-                    cmd.CommandText = req.UserQueryText;
-                    var reader = await cmd.ExecuteReaderAsync();
-                    await reader.CloseAsync();
-                }
-
-                UserQuery userQuery;
-
-                if (req.UserQueryId != 0) // update existing
-                {
-                    userQuery = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.UserQueryId && q.AppUserId == userId);
-                    if (userQuery == null)
-                        return NotFound(new { success = false, message = "Module not found" });
-
-                    userQuery.UserTitle = req.UserTitle;
-                    userQuery.UserQueryText = req.UserQueryText;
-                    userQuery.VisualizationType = req.VisualizationType;
-                    userQuery.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
-                    userQuery.IsApprovalModule = req.IsApprovalModule;
-                    userQuery.ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "";
-                    userQuery.ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : "";
-
-                    _db.UserQueries.Update(userQuery);
-                }
-                else // create new
-                {
-                    userQuery = new UserQuery
-                    {
-                        AppUserId = userId,
-                        UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                        UserTitle = req.UserTitle,
-                        UserQueryText = req.UserQueryText,
-                        VisualizationType = req.VisualizationType,
-                        UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
-                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
-                        IsApprovalModule = req.IsApprovalModule,
-                        ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "",
-                        ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : ""
-                    };
-                    _db.UserQueries.Add(userQuery);
-                }
-                if (req.IsApprovalModule)
-                {
-                    if (string.IsNullOrEmpty(req.ApprovalUpdateQuery) || !req.ApprovalUpdateQuery.Contains("@id") ||
-                        string.IsNullOrEmpty(req.ApprovalIdColumn))
-                    {
-                        return BadRequest(new { success = false, message = "Approval module requires a valid update query with '?' placeholder and ID column." });
-                    }
-                }
-
-                await _db.SaveChangesAsync();
-
-                return Ok(new { success = true, message = "Query saved successfully", query = userQuery });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { success = false, message = $"Query validation failed: {ex.Message}" });
-            }
-        }
-
-        [HttpPost("approve-row/{userId}")]
-        public async Task<IActionResult> ApproveRow(string userId, [FromBody] ApproveRowRequest req)
-        {
-            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
-            if (profile == null)
-                return BadRequest(new { success = false, message = "User profile not found" });
-            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == req.QueryId && q.AppUserId == userId);
-            if (query == null || !query.IsApprovalModule)
-                return NotFound(new { success = false, message = "Approval module not found" });
-            try
-            {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
-                {
-                    var cmd = connection.CreateCommand();
-                    cmd.CommandText = query.ApprovalUpdateQuery;
-
-                    if (req.RowId is JsonElement jsonElement)
-                    {
-                        if (jsonElement.ValueKind == JsonValueKind.Number)
-                        {
-                            cmd.Parameters.AddWithValue("@id", jsonElement.GetInt32());  // For integer IDs
-                        }
-                        else if (jsonElement.ValueKind == JsonValueKind.String)
-                        {
-                            cmd.Parameters.AddWithValue("@id", jsonElement.GetString());  // For string IDs (e.g., GUIDs)
-                        }
-                        else
-                        {
-                            return BadRequest(new { success = false, message = "Invalid RowId type. Must be a number or string." });
-                        }
-                    }
-                    else
-                    {
-                        // Fallback if not JsonElement (unlikely in JSON requests)
-                        cmd.Parameters.AddWithValue("@id", req.RowId);
-                    }
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                return Ok(new { success = true, message = "Row approved successfully" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-        public class ApproveRowRequest
-        {
-            public int QueryId { get; set; }
-            public object RowId { get; set; }  // ID value from the row
-        }
-
-
-        // ✅ Run a saved query for a user
-        [HttpGet("run-saved-query/{userId}/{queryId}")]
-        public async Task<IActionResult> RunSavedQuery(string userId, int queryId)
-        {
-            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
-            if (profile == null)
-                return BadRequest(new { success = false, message = "User profile not found" });
-
-            var query = await _db.UserQueries.FirstOrDefaultAsync(q => q.UserQueryId == queryId && q.AppUserId == userId);
-            if (query == null)
-                return NotFound(new { success = false, message = "Query not found" });
-
-            try
-            {
-                using (var connection = await _dbService.CreateClientConnectionAsync(profile))
-                {
-                    var cmd = connection.CreateCommand();
-                    cmd.CommandText = query.UserQueryText;
-
-                    var reader = await cmd.ExecuteReaderAsync();
-                    var table = new List<Dictionary<string, object>>();
-
-                    while (await reader.ReadAsync())
-                    {
-                        var row = new Dictionary<string, object>();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
-                        }
-                        table.Add(row);
-                    }
-
-                    await reader.CloseAsync();
-
-                    return Ok(new { success = true, data = table });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-
         [HttpGet("user/{id}/profile")]
         public async Task<IActionResult> GetUserProfile(string id)
         {
@@ -488,6 +1629,9 @@ namespace minutechart.Controllers
 
             if (user == null)
                 return NotFound(new { message = "User not found" });
+
+            // LOG: Admin viewed user's profile (logged in previous AdminController full update, retained here for context)
+            await _activityLogger.LogAsync("viewed profile details for", "User", user.UserName ?? user.Email);
 
             if (user.UserProfile == null)
             {
@@ -524,13 +1668,19 @@ namespace minutechart.Controllers
 
             if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
             {
+                // LOG: Failed profile set (Connection failed)
+                await _activityLogger.LogAsync("failed to set/update profile (DB connection failed) for", "User", user.UserName ?? user.Email);
                 return BadRequest(new { message = "Database connection failed", details = error });
             }
 
             var profile = user.UserProfile;
-            if (profile == null)
+            bool isNewProfile = (profile == null);
+
+            if (isNewProfile)
             {
-                // Generate CustomerCode
+                // --- Profile Creation (Activation/Trial Start) ---
+
+                // Generate CustomerCode logic (remains)
                 var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
                 var companyWords = user.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
                 var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
@@ -552,7 +1702,7 @@ namespace minutechart.Controllers
                     CustomerCode = customerCode
                 };
                 _db.UserProfiles.Add(profile);
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(); // Save profile first to get ID/link relationship
 
                 // Activate user and set trial dates only on first creation
                 user.AccountStatus = "Active";
@@ -561,10 +1711,19 @@ namespace minutechart.Controllers
                 _db.Users.Update(user);
                 // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
                 await _db.SaveChangesAsync();
+
+                // LOG: Admin created new profile and activated user
+                await _activityLogger.LogAsync("created new profile (including DB connection) and activated trial for", "User", user.UserName ?? user.Email);
             }
             else
             {
-                // Profile update: Just update the existing profile fields (no activation or email)
+                // --- Profile Update ---
+
+                // Capture old details for logging significance
+                var oldServer = profile.ServerName;
+                var oldDB = profile.DatabaseName;
+
+                // Update logic (remains)
                 profile.CompanyName = user.CompanyName;
                 profile.ServerName = model.ServerName;
                 profile.DatabaseName = model.DatabaseName;
@@ -572,10 +1731,25 @@ namespace minutechart.Controllers
                 profile.DbPassword = model.DbPassword;
                 profile.RefreshTime = model.RefreshTime;
                 profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
+
                 _db.UserProfiles.Update(profile);
                 user.GST = model.CustomerGST ?? user.GST ?? "";
                 _db.Users.Update(user);
                 await _db.SaveChangesAsync();
+
+                // Determine log message based on what was updated
+                string updateMessage;
+                if (oldServer != model.ServerName || oldDB != model.DatabaseName)
+                {
+                    updateMessage = "updated database connection details for";
+                }
+                else
+                {
+                    updateMessage = "updated profile settings for";
+                }
+
+                // LOG: Admin updated existing profile
+                await _activityLogger.LogAsync(updateMessage, "User", user.UserName ?? user.Email);
             }
 
             return Ok(new { message = "Profile saved successfully" });
@@ -622,6 +1796,9 @@ Nchart Team";
             _db.Users.Update(user);
             // await SendAccountDeactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
             await _db.SaveChangesAsync();
+
+            // LOG: Admin blocked a user account
+            await _activityLogger.LogAsync("blocked account for", "User", user.UserName ?? user.Email);
 
             return Ok(new { message = "User account has been blocked" });
         }
@@ -671,6 +1848,9 @@ Nchart Team";
             // await SendAccountReactivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
             await _db.SaveChangesAsync();
 
+            // LOG: Admin reactivated a user account
+            await _activityLogger.LogAsync("reactivated account for", "User", user.UserName ?? user.Email);
+
             return Ok(new { message = "User account has been reactivated" });
         }
 
@@ -700,35 +1880,23 @@ Nchart Team";
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
 
-        [HttpGet("emailsettings")]
-        public async Task<IActionResult> Get()
-        {
-            var settings = await _db.EmailSettings.FirstOrDefaultAsync();
-            if (settings == null) return Ok(null);
-
-            return Ok(new
-            {
-                settings.SmtpHost,
-                settings.SmtpPort,
-                settings.SmtpUser,
-                settings.FromEmail,
-                settings.EnableSsl,
-                settings.UpdatedAt
-                // ⚠️ don’t send raw password
-            });
-        }
-
         [HttpPost("emailsettings/save")]
         public async Task<IActionResult> Save([FromBody] EmailSetting model)
         {
             var settings = await _db.EmailSettings.FirstOrDefaultAsync();
 
-            if (settings == null)
+            bool isNew = (settings == null);
+
+            if (isNew)
             {
                 settings = new EmailSetting();
                 _db.EmailSettings.Add(settings);
             }
 
+            // Capture old settings before applying model (optional for diff logging)
+            var oldSmtpHost = settings.SmtpHost;
+
+            // Apply updates
             settings.SmtpHost = model.SmtpHost;
             settings.SmtpPort = model.SmtpPort;
             settings.SmtpUser = model.SmtpUser;
@@ -737,12 +1905,25 @@ Nchart Team";
 
             if (!string.IsNullOrEmpty(model.SmtpPassword))
             {
+                // Password is being saved/updated
                 settings.SmtpPassword = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(model.SmtpPassword));
+
+                // LOG: High-value target: Log password change explicitly
+                if (!isNew)
+                {
+                    await _activityLogger.LogAsync("changed SMTP password for", "System Settings", settings.SmtpHost);
+                }
             }
 
             settings.UpdatedAt = DateTimeHelper.GetIndianTime();
 
             await _db.SaveChangesAsync();
+
+            // LOG: Admin saved email settings (general update)
+            string action = isNew ? "created email settings" :
+                (oldSmtpHost != settings.SmtpHost ? "updated email settings (host changed)" : "updated email settings");
+
+            await _activityLogger.LogAsync(action, "System Settings", settings.SmtpHost);
 
             return Ok(new { message = "Email settings saved successfully" });
         }
@@ -750,9 +1931,22 @@ Nchart Team";
         [HttpPost("emailsettings/test")]
         public async Task<IActionResult> Test([FromBody] string toEmail)
         {
-            var sender = HttpContext.RequestServices.GetRequiredService<IEmailSender>();
-            await sender.SendEmailAsync(toEmail, "Test Email", "This is a test email", "<p>This is a <b>test email</b></p>");
-            return Ok(new { message = "Test email sent" });
+            try
+            {
+                var sender = HttpContext.RequestServices.GetRequiredService<IEmailSender>();
+                await sender.SendEmailAsync(toEmail, "Test Email", "This is a test email", "<p>This is a <b>test email</b></p>");
+
+                // LOG: Admin sent test email
+                await _activityLogger.LogAsync("sent test email to", "System Settings", toEmail);
+
+                return Ok(new { message = "Test email sent" });
+            }
+            catch (Exception ex)
+            {
+                // LOG: Admin failed to send test email
+                await _activityLogger.LogAsync("failed to send test email to", "System Settings", toEmail);
+                return StatusCode(500, new { message = $"Failed to send test email: {ex.Message}" });
+            }
         }
 
         [HttpGet("invoicesettings")]
@@ -801,6 +1995,8 @@ Nchart Team";
                         new InvoiceColumnDto { ColumnKey = "amount", ColumnName = "AMOUNT", IsVisible = true, Order = 4 },
                     }
                 };
+                // LOG: Admin viewed invoice settings (optional read log, often skipped)
+                await _activityLogger.LogAsync("viewed", "Invoice Settings", "retrieved");
                 return Ok(emptyDto);
             }
 
@@ -846,10 +2042,12 @@ Nchart Team";
                     }).ToList()
             };
 
+            // LOG: Admin viewed invoice settings
+            await _activityLogger.LogAsync("viewed", "Invoice Settings", settings.CompanyName);
             return Ok(dto);
         }
 
-        [HttpPost("invoicesettings/save")]
+        // [HttpPost("invoicesettings/save")]
         public async Task<IActionResult> SaveInvoiceSettings([FromBody] InvoiceSettingsDto dto)
         {
             if (dto == null) return BadRequest("DTO is required.");
@@ -858,14 +2056,24 @@ Nchart Team";
                 .Include(s => s.Columns)
                 .FirstOrDefaultAsync();
 
-            if (settings == null)
+            bool isNew = (settings == null);
+
+            if (isNew)
             {
                 settings = new CompanyInvoiceSetting();
                 _db.CompanyInvoiceSettings.Add(settings);
             }
 
-            // --- Path Cleaning Helper ---
-            // Function to strip the base URL from the full URL received from the frontend
+            // Capture data before mapping for logging significance
+            var oldIgst = settings?.IgstPercent;
+            var oldCompanyName = settings?.CompanyName;
+
+
+
+
+            // --- Path Cleaning Helper (NEW) ---
+            // Function to strip the base URL from the full URL received from the frontend, 
+            // ensuring only the relative path (e.g., "/uploads/invoice/...") is saved.
             string GetRelativePath(string fullPath, HttpRequest request)
             {
                 if (string.IsNullOrEmpty(fullPath)) return string.Empty;
@@ -884,13 +2092,15 @@ Nchart Team";
                     return fullPath;
                 }
 
-                // If it doesn't start with the base URL, assume it's already the correct relative path 
-                // (e.g., if it was just uploaded or never had a base URL)
+                // This handles cases where the DTO path is already the relative path 
+                // (e.g., if the frontend sends the result of the upload endpoint directly)
                 return fullPath;
             }
 
+            // Map paths, ensuring only the relative path is saved
             settings.CompanyLogoPath = GetRelativePath(dto.CompanyLogoPath, Request);
             settings.OwnerSignaturePath = GetRelativePath(dto.OwnerSignaturePath, Request);
+            // ----------------------------
 
             // Map simple fields
             settings.CompanyName = dto.CompanyName;
@@ -951,9 +2161,134 @@ Nchart Team";
                 }
             }
 
+
             await _db.SaveChangesAsync();
+
+            // Determine log action
+            string action;
+            if (isNew)
+            {
+                action = "created new";
+            }
+            else if (oldIgst != settings.IgstPercent)
+            {
+                action = $"updated tax rate (IGST changed to {settings.IgstPercent}%) on";
+            }
+            else
+            {
+                action = "updated general";
+            }
+
+            // LOG: Admin saved invoice settings
+            await _activityLogger.LogAsync(action, "Invoice Settings", settings.CompanyName);
+
             return Ok(new { message = "Invoice settings saved successfully" });
         }
+
+        // [HttpPost("invoicesettings/save")]
+        // public async Task<IActionResult> SaveInvoiceSettings([FromBody] InvoiceSettingsDto dto)
+        // {
+        //     if (dto == null) return BadRequest("DTO is required.");
+
+        //     var settings = await _db.CompanyInvoiceSettings
+        //         .Include(s => s.Columns)
+        //         .FirstOrDefaultAsync();
+
+        //     bool isNew = (settings == null);
+
+        //     if (isNew)
+        //     {
+        //         settings = new CompanyInvoiceSetting();
+        //         _db.CompanyInvoiceSettings.Add(settings);
+        //     }
+
+        //     // Capture data before mapping for logging significance
+        //     var oldIgst = settings?.IgstPercent;
+        //     var oldCompanyName = settings?.CompanyName;
+
+        //     // --- Path Cleaning Helper (remains) ---
+        //     string GetRelativePath(string fullPath, HttpRequest request)
+        //     {
+        //         if (string.IsNullOrEmpty(fullPath)) return string.Empty;
+        //         var baseUrl = $"{request.Scheme}://{request.Host}";
+
+        //         if (fullPath.StartsWith(baseUrl))
+        //         {
+        //             var relativePath = fullPath.Substring(baseUrl.Length);
+        //             return relativePath.StartsWith("/") ? relativePath : $"/{relativePath}";
+        //         }
+        //         if (fullPath.StartsWith("/"))
+        //         {
+        //             return fullPath;
+        //         }
+        //         return fullPath;
+        //     }
+
+        //     // Map simple fields
+        //     settings.CompanyLogoPath = GetRelativePath(dto.CompanyLogoPath, Request);
+        //     settings.OwnerSignaturePath = GetRelativePath(dto.OwnerSignaturePath, Request);
+        //     settings.CompanyName = dto.CompanyName;
+        //     // ... (Map other fields remains) ...
+        //     settings.IgstPercent = dto.IgstPercent;
+        //     settings.CgstPercent = dto.IgstPercent / 2;
+        //     settings.SgstPercent = dto.IgstPercent / 2;
+        //     settings.UpdatedAt = DateTimeHelper.GetIndianTime();
+
+        //     if (settings.Columns == null) settings.Columns = new List<InvoiceColumnSetting>();
+
+        //     // --- Column update/remove/add logic (remains) ---
+        //     var dtoColumnIds = dto.Columns.Where(c => c.Id.HasValue).Select(c => c.Id.Value).ToList();
+        //     var columnsToRemove = settings.Columns.Where(c => !dtoColumnIds.Contains(c.Id)).ToList();
+        //     foreach (var col in columnsToRemove)
+        //     {
+        //         _db.InvoiceColumnSettings.Remove(col);
+        //     }
+
+        //     foreach (var dtoCol in dto.Columns)
+        //     {
+        //         if (dtoCol.Id.HasValue && dtoCol.Id.Value > 0)
+        //         {
+        //             var col = settings.Columns.FirstOrDefault(c => c.Id == dtoCol.Id.Value);
+        //             if (col != null)
+        //             {
+        //                 col.ColumnName = dtoCol.ColumnName;
+        //                 col.IsVisible = dtoCol.IsVisible;
+        //                 col.SortOrder = dtoCol.Order;
+        //             }
+        //         }
+        //         else
+        //         {
+        //             settings.Columns.Add(new InvoiceColumnSetting
+        //             {
+        //                 ColumnName = dtoCol.ColumnName,
+        //                 IsVisible = dtoCol.IsVisible,
+        //                 SortOrder = dtoCol.Order
+        //             });
+        //         }
+        //     }
+
+        //     await _db.SaveChangesAsync();
+
+        //     // Determine log action
+        //     string action;
+        //     if (isNew)
+        //     {
+        //         action = "created new";
+        //     }
+        //     else if (oldIgst != settings.IgstPercent)
+        //     {
+        //         action = $"updated tax rate (IGST changed to {settings.IgstPercent}%) on";
+        //     }
+        //     else
+        //     {
+        //          action = "updated general";
+        //     }
+
+        //     // LOG: Admin saved invoice settings
+        //     await _activityLogger.LogAsync(action, "Invoice Settings", settings.CompanyName);
+
+        //     return Ok(new { message = "Invoice settings saved successfully" });
+        // }
 
         // Helper: Save files and return relative URLs
         private async Task<List<string>> SaveFiles(IFormFileCollection files, HttpRequest request)
@@ -988,7 +2323,11 @@ Nchart Team";
             var relativePaths = await SaveFiles(files, Request);
 
             if (!relativePaths.Any())
+            {
+                // LOG: Failed image upload
+                await _activityLogger.LogAsync($"failed to upload invoice image ({type})", "System Settings", "Invoice Image");
                 return BadRequest("File upload failed (invalid type or size)");
+            }
 
             var relativePath = relativePaths.First();  // Get the relative path
             var baseUrl = $"{Request.Scheme}://{Request.Host}";  // Ensure HTTPS
@@ -1002,12 +2341,18 @@ Nchart Team";
                 _db.CompanyInvoiceSettings.Add(settings);
             }
 
+            // Determine log action before saving
+            string logAction = (type == "logo") ? "uploaded company logo" : "uploaded owner signature";
+
             if (type == "logo")
                 settings.CompanyLogoPath = relativePath;
             else if (type == "signature")
                 settings.OwnerSignaturePath = relativePath;
 
             await _db.SaveChangesAsync();
+
+            // LOG: Admin uploaded image
+            await _activityLogger.LogAsync(logAction, "Invoice Settings", "Image");
 
             return Ok(new { path = publicUrl });
         }
@@ -1024,6 +2369,11 @@ Nchart Team";
                 return BadRequest(new { success = false, message = "Invalid input" });
             }
 
+            // Fetch user info for logging
+            var sourceUser = await _userManager.FindByIdAsync(request.SourceUserId);
+            var targetUser = await _userManager.FindByIdAsync(request.TargetUserId);
+            var sourceName = sourceUser?.CompanyName ?? "Unknown";
+            var targetName = targetUser?.CompanyName ?? "Unknown";
             try
             {
                 // Fetch source modules: Use loop to avoid OPENJSON and WITH syntax issues
@@ -1091,6 +2441,8 @@ Nchart Team";
                 {
                     if (duplicates.Any())
                     {
+                        // LOG: Transfer check found duplicates
+                        await _activityLogger.LogAsync("checked module transfer (duplicates found) from", "User", sourceName, targetName);
                         // duplicates found → send back to frontend
                         return Ok(new
                         {
@@ -1123,6 +2475,9 @@ Nchart Team";
 
                         await _db.SaveChangesAsync();  // Added await
 
+                        // LOG: Successful transfer check (no duplicates)
+                        await _activityLogger.LogAsync("checked module transfer (no duplicates) from", "User", sourceName, targetName);
+
                         return Ok(new
                         {
                             success = true,
@@ -1133,6 +2488,17 @@ Nchart Team";
 
                 // Save changes for replace / ignore actions
                 await _db.SaveChangesAsync();  // Added await
+
+                // LOG: Final successful transfer based on action
+                string logAction = request.Action switch
+                {
+                    "replace" => $"transferred/replaced {copied.Count} modules from",
+                    "ignore" => $"transferred {copied.Count} modules (ignored {duplicates.Count} duplicates) from",
+                    "cancel" => "cancelled module transfer from",
+                    _ => $"transferred {copied.Count} modules from"
+                };
+
+                await _activityLogger.LogAsync(logAction, "User", sourceName, targetName);
 
                 return Ok(new
                 {
@@ -1150,6 +2516,9 @@ Nchart Team";
             {
                 // Log the error for debugging (use your logger)
                 _logger.LogError(ex, "Error in TransferModules: {Message}", ex.Message);
+
+                // LOG: General transfer failure
+                await _activityLogger.LogAsync("failed module transfer from", "User", sourceName, targetName);
 
                 // Return a user-friendly error
                 return StatusCode(500, new { success = false, message = "An error occurred while transferring modules. Please try again." });

@@ -12,8 +12,9 @@ export default function InvoiceSettingsPage() {
   const [fabBottom, setFabBottom] = useState(24);
   const fabRef = useRef(null);
 
-  const DEFAULT_LOGO_RELATIVE_PATH = "../../backend/wwwroot/images/default/company-logo-default.png";
-  const DEFAULT_SIGNATURE_RELATIVE_PATH = "../../backend/wwwroot/images/default/owner-signature-default.png";
+  // Default paths are relative to the public root (e.g., wwwroot)
+  const DEFAULT_LOGO_RELATIVE_PATH = "/images/default/company-logo-default.png";
+  const DEFAULT_SIGNATURE_RELATIVE_PATH = "/images/default/owner-signature-default.png";
 
   useEffect(() => {
     loadSettings();
@@ -23,10 +24,10 @@ export default function InvoiceSettingsPage() {
   const getFullUrl = useCallback((path, defaultPath) => {
     if (!path) return defaultPath;
 
-    // If path is already a full URL (e.g., from a previous session load), return it.
+    // If the path already includes the base URL, use it directly.
     if (path.startsWith("http")) return path;
 
-    // If path is a relative path (e.g., /uploads/...), prepend the base URL.
+    // If it's a relative path (e.g., /uploads/...) or the default, prepend the API base URL.
     return api.defaults.baseURL + path;
   }, []);
 
@@ -40,18 +41,25 @@ export default function InvoiceSettingsPage() {
       setSignaturePreview(getFullUrl(data.ownerSignaturePath, DEFAULT_SIGNATURE_RELATIVE_PATH));
 
       // 2. Normalize Paths for Settings State (Store only the relative path for saving)
-      const relativeLogoPath = data.companyLogoPath.startsWith("http")
-        ? data.companyLogoPath.substring(api.defaults.baseURL.length)
-        : data.companyLogoPath;
-
-      const relativeSignaturePath = data.ownerSignaturePath.startsWith("http")
-        ? data.ownerSignaturePath.substring(api.defaults.baseURL.length)
-        : data.ownerSignaturePath;
+      // This logic ensures the state only holds the relative path part for saving back to the DB,
+      // regardless of whether the GET endpoint returned a relative or full path.
+      
+      const baseUrlLength = api.defaults.baseURL.length;
+      
+      const getNormalizedRelativePath = (path) => {
+        if (!path) return "";
+        let relativePath = path.startsWith("http") 
+          ? path.substring(baseUrlLength)
+          : path;
+        
+        // Strip a leading slash before saving. The C# code handles re-adding the leading slash if needed.
+        return relativePath.replace(/^\//, ''); 
+      }
 
       setSettings({
         ...data,
-        companyLogoPath: relativeLogoPath.replace(/^\//, ''), // Strip leading slash if any, as the C# stripper adds it back
-        ownerSignaturePath: relativeSignaturePath.replace(/^\//, ''), // This is safer for sending back to a server that strips the base URL
+        companyLogoPath: getNormalizedRelativePath(data.companyLogoPath),
+        ownerSignaturePath: getNormalizedRelativePath(data.ownerSignaturePath),
       });
     } catch (err) {
       console.error("Failed to load settings", err);
@@ -74,20 +82,24 @@ export default function InvoiceSettingsPage() {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      // Upload endpoint returns the FULL URL (e.g., http://.../uploads/...).
+      
+      // Upload endpoint is expected to return the FULL URL in res.data.path.
       const fullUrl = res.data.path;
-      // Extract the RELATIVE PATH (e.g., /uploads/...)
+      // Extract the RELATIVE PATH (e.g., /uploads/...) for state and saving.
       const relativePath = fullUrl.substring(api.defaults.baseURL.length);
+      
+      // Strip leading slash before saving to match the normalization in loadSettings.
+      const normalizedRelativePath = relativePath.replace(/^\//, ''); 
 
       if (type === "logo") {
         setLogoPreview(fullUrl);
-        // *** CRITICAL FIX: Store RELATIVE PATH in state for saving ***
-        setSettings((prev) => ({ ...prev, companyLogoPath: relativePath }));
+        // CRITICAL FIX: Store RELATIVE PATH in state for saving
+        setSettings((prev) => ({ ...prev, companyLogoPath: normalizedRelativePath }));
       }
       if (type === "signature") {
         setSignaturePreview(fullUrl);
-        // *** CRITICAL FIX: Store RELATIVE PATH in state for saving ***
-        setSettings((prev) => ({ ...prev, ownerSignaturePath: relativePath }));
+        // CRITICAL FIX: Store RELATIVE PATH in state for saving
+        setSettings((prev) => ({ ...prev, ownerSignaturePath: normalizedRelativePath }));
       }
     } catch (err) {
       console.error("File upload failed", err);
@@ -123,6 +135,7 @@ export default function InvoiceSettingsPage() {
 
   async function saveSettings() {
     try {
+      // settings state holds the normalized relative path, which is correct for the server.
       await api.post("/admin/invoicesettings/save", settings);
       toast.success("Invoice settings saved successfully!");
     } catch (err) {
@@ -196,13 +209,13 @@ export default function InvoiceSettingsPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">Company Logo</label>
                 <div className="w-36 h-36 bg-gradient-to-br from-white to-indigo-50 rounded-lg border border-indigo-200 flex items-center justify-center overflow-hidden shadow">
-                  {/* Using logoPreview which is either the saved URL or the default path */}
+                  {/* Image source logic: uses logoPreview (full URL or default relative path) */}
                   {logoPreview ? (
                     <img
                       src={logoPreview}
                       alt="logo"
                       className="object-contain w-full h-full"
-                      // Add onError to ensure the default loads even if the image path is broken
+                      // Fallback to relative default path if the primary logo link breaks
                       onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_LOGO_RELATIVE_PATH; }}
                     />
                   ) : (
@@ -252,7 +265,7 @@ export default function InvoiceSettingsPage() {
                       src={signaturePreview}
                       alt="signature"
                       className="object-contain w-full h-full"
-                      // Add onError to ensure the default loads even if the image path is broken
+                      // Fallback to relative default path if the primary signature link breaks
                       onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_SIGNATURE_RELATIVE_PATH; }}
                     />
                   ) : (
@@ -415,8 +428,8 @@ export default function InvoiceSettingsPage() {
         transition={{ type: "spring", stiffness: 260, damping: 20 }}
         style={{ bottom: fabBottom, right: 24 }}
         className="fixed z-50 p-5 rounded-full shadow-xl text-white
-                   bg-gradient-to-br from-blue-600 to-purple-600
-                   focus:outline-none focus:ring-4 focus:ring-orange-300"
+                    bg-gradient-to-br from-blue-600 to-purple-600
+                    focus:outline-none focus:ring-4 focus:ring-orange-300"
       >
         <FaSave size={22} />
       </motion.button>
@@ -436,7 +449,6 @@ function SectionCard({ title, children }) {
       className="p-6 mb-8 bg-white/90 backdrop-blur rounded-2xl shadow-lg border-l-4 border-orange-400"
     >
       <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-        {/* <span className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-600 to-purple-600" /> */}
         {title}
       </h2>
       <div className="space-y-4">{children}</div>
@@ -444,7 +456,7 @@ function SectionCard({ title, children }) {
   );
 }
 
-function Input({ label, name, value, onChange, type = "text", className = "" }) {
+function Input({ label, name, value, onChange, type = "text", className = "", readOnly = false }) {
   return (
     <div className={className}>
       {label && <label className="block text-sm font-semibold text-gray-800 mb-1">{label}</label>}
@@ -453,8 +465,10 @@ function Input({ label, name, value, onChange, type = "text", className = "" }) 
         name={name}
         value={value ?? ""}
         onChange={onChange}
-        className="w-full rounded-lg px-3 py-2 bg-indigo-50 border border-indigo-200
-                   focus:border-orange-400 focus:ring-2 focus:ring-orange-300 transition"
+        readOnly={readOnly}
+        className={`w-full rounded-lg px-3 py-2 border border-indigo-200 transition ${
+          readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-indigo-50 focus:border-orange-400 focus:ring-2 focus:ring-orange-300'
+        }`}
       />
     </div>
   );
