@@ -69,7 +69,7 @@ namespace minutechart
             // {
             //     options.AddPolicy("AllowReactApp", policy =>
             //     {
-            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.104:3000", "http://192.168.1.104:5027")
+            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.105:3000", "http://192.168.1.105:5027")
             //               .AllowAnyHeader()
             //               .AllowAnyMethod()
             //               .AllowCredentials();
@@ -86,7 +86,7 @@ namespace minutechart
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.104:3000")
+                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.105:3000")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
@@ -107,13 +107,22 @@ namespace minutechart
 
             builder.Services.AddScoped<IClientDbContextFactory, ClientDbContextFactory>();
             builder.Services.AddScoped<DatabaseService>();
+            builder.Services.AddScoped<UserActivityFilter>();
+            builder.Services.AddControllers(options =>
+            {
+                // Apply the filter to all controllers (or you can apply it per-controller/per-action)
+                options.Filters.Add(typeof(UserActivityFilter));
+            });
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddScoped<ActivityLogger>();
+
             builder.Services.AddScoped<IEmailSender, MailKitEmailSender>();
             // builder.Services.AddScoped<IEmailSender, SendGridEmailSender>();
             // builder.Services.AddScoped<IEmailSender, MailjetEmailSender>();
 
 
             builder.Services.AddSignalR();
-            builder.Services.AddHttpContextAccessor();
+            // builder.Services.AddHttpContextAccessor();
 
             var app = builder.Build();
 

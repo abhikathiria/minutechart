@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using minutechart.Data;
 
@@ -11,9 +12,11 @@ using minutechart.Data;
 namespace Backend.Migrations
 {
     [DbContext(typeof(MinutechartDbContext))]
-    partial class MinutechartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251105052039_onlineusers")]
+    partial class onlineusers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -175,58 +178,6 @@ namespace Backend.Migrations
                     b.HasIndex("AppUserId");
 
                     b.ToTable("ActiveSessions");
-                });
-
-            modelBuilder.Entity("minutechart.Models.ActivityLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ActorId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ActorName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ActorRole")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("BrowserInfo")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("IPAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TargetEntity")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TargetName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ActivityLogs");
                 });
 
             modelBuilder.Entity("minutechart.Models.Agent", b =>
@@ -721,7 +672,7 @@ namespace Backend.Migrations
 
                     b.Property<string>("AppUserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Currency")
                         .IsRequired()
@@ -759,8 +710,6 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AppUserId");
 
                     b.HasIndex("PlanId");
 
@@ -1123,7 +1072,7 @@ namespace Backend.Migrations
 
                     b.Property<string>("AppUserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ApprovalIdColumn")
                         .IsRequired()
@@ -1165,8 +1114,6 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("UserQueryId");
-
-                    b.HasIndex("AppUserId");
 
                     b.ToTable("UserQueries");
                 });
@@ -1246,19 +1193,11 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("minutechart.Models.Invoice", b =>
                 {
-                    b.HasOne("minutechart.Models.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("minutechart.Models.SubscriptionPlan", "Plan")
                         .WithMany()
                         .HasForeignKey("PlanId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("AppUser");
 
                     b.Navigation("Plan");
                 });
@@ -1348,17 +1287,6 @@ namespace Backend.Migrations
                         .WithOne("UserProfile")
                         .HasForeignKey("minutechart.Models.UserProfile", "AppUserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("AppUser");
-                });
-
-            modelBuilder.Entity("minutechart.Models.UserQuery", b =>
-                {
-                    b.HasOne("minutechart.Models.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("AppUser");

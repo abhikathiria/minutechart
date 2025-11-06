@@ -6,6 +6,7 @@ namespace minutechart.Models
     {
         public int Id { get; set; }
         public string AppUserId { get; set; }
+        public virtual AppUser AppUser { get; set; }
         public int PlanId { get; set; }
         public SubscriptionPlan Plan { get; set; }
         public string RazorpayOrderId { get; set; }

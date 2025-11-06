@@ -593,7 +593,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
     FaUserCircle, FaSignOutAlt, FaSignInAlt, FaChevronDown, FaUserPlus, FaUserShield,
     FaBars, FaTimes, FaCog, FaChevronUp, FaChartArea, FaHome, FaTags, FaLock, FaHistory, FaEnvelope,
-    FaUsers, FaAt, FaFileInvoice, FaClipboardList // New icons for Admin Dropdown
+    FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaTachometerAlt
 } from "react-icons/fa";
 import api from "../api";
 import { motion, AnimatePresence } from "framer-motion";
@@ -720,6 +720,8 @@ function Header({ user, onLogout }) {
             <AdminDropdownItem to="/admin/emailsettings" icon={<FaAt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Email Settings</AdminDropdownItem>
             <AdminDropdownItem to="/admin/invoicesettings" icon={<FaFileInvoice className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Invoice Settings</AdminDropdownItem>
             <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
+            <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
+            <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
 
         </motion.div>
     );
@@ -898,6 +900,12 @@ function Header({ user, onLogout }) {
                             </Link>}
                             {isAdmin && <Link to="/admin/complaintsmanagement" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
                                 <FaClipboardList className="inline mr-2" /> Complaints Management
+                            </Link>}
+                            {isAdmin && <Link to="/admin/admindashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                <FaTachometerAlt className="inline mr-2" /> Admin Dashboard
+                            </Link>}
+                            {isAdmin && <Link to="/admin/activitylogs" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                <FaHistory className="inline mr-2" /> Activity Log
                             </Link>}
 
                             {!isAdmin && <Link to="/dashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>

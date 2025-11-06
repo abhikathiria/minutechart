@@ -19,6 +19,8 @@ namespace minutechart.Controllers.Api
         private readonly MinutechartDbContext _mainDb;
         private readonly IConfiguration _configuration;
         private readonly IEmailSender _emailSender;
+        private readonly ActivityLogger _activityLogger;
+
 
         public AccountController(
             SignInManager<AppUser> signInManager,
@@ -26,7 +28,8 @@ namespace minutechart.Controllers.Api
             RoleManager<IdentityRole> roleManager,
             MinutechartDbContext mainDb,
             IConfiguration configuration,
-            IEmailSender emailSender)
+            IEmailSender emailSender,
+            ActivityLogger activityLogger)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -34,6 +37,14 @@ namespace minutechart.Controllers.Api
             _mainDb = mainDb;
             _configuration = configuration;
             _emailSender = emailSender;
+            _activityLogger = activityLogger;
+        }
+
+        // --- Helper to get user context for logging when target user is different from actor ---
+        private async Task<string> GetTargetUserNameById(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            return user?.UserName;
         }
 
         // -------------------- REGISTER --------------------
@@ -67,7 +78,7 @@ namespace minutechart.Controllers.Api
                 <a href='{confirmationLink}'>Confirm Email</a>";
 
                     // await _emailSender.SendEmailAsync(existingUser.Email, subject, plainText, htmlContent);
-
+                    await _activityLogger.LogAsync("resent confirmation email for", "User", existingUser.UserName);
                     return Ok(new
                     {
                         message = "You already registered but didn’t confirm your email. A new confirmation email has been sent."
@@ -75,6 +86,8 @@ namespace minutechart.Controllers.Api
                 }
                 else
                 {
+                    // LOG: Failed Registration (Email exists)
+                    await _activityLogger.LogAsync("failed registration: email exists", "User", model.Email);
                     return BadRequest(new { message = "Email already exists." });
                 }
             }
@@ -94,7 +107,11 @@ namespace minutechart.Controllers.Api
 
             var result = await _userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
+            {
+                // LOG: Failed Registration (Identity Error)
+                await _activityLogger.LogAsync("failed registration: identity error", "User", model.Email);
                 return BadRequest(new { errors = result.Errors });
+            }
 
             if (!await _roleManager.RoleExistsAsync("User"))
                 await _roleManager.CreateAsync(new IdentityRole("User"));
@@ -133,7 +150,8 @@ namespace minutechart.Controllers.Api
                 </html>";
 
             // await _emailSender.SendEmailAsync(user.Email, subjectNew, plainTextNew, htmlContentNew);
-
+            // LOG: Successful Registration
+            await _activityLogger.LogAsync("registered new account", "User", user.UserName);
             return Ok(new
             {
                 message = "Registration successful! Please confirm your email and wait for admin approval before logging in."
@@ -149,7 +167,11 @@ namespace minutechart.Controllers.Api
 
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
+            {
+                // LOG: Failed Confirmation (User not found)
+                await _activityLogger.LogAsync("failed email confirmation: user not found", "User ID", userId);
                 return NotFound("User not found.");
+            }
 
             if (user.EmailConfirmationTokenGeneratedAt.HasValue)
             {
@@ -167,10 +189,15 @@ namespace minutechart.Controllers.Api
             var result = await _userManager.ConfirmEmailAsync(user, decodedToken);
             if (result.Succeeded)
             {
+                // LOG: Successful Email Confirmation
+                await _activityLogger.LogAsync("confirmed email address", "User", user.UserName);
+
                 var loginUrl = $"{_configuration["Frontend:LoginUrl"]}?emailConfirmed=true";
                 return Redirect(loginUrl);
             }
 
+            // LOG: Failed Email Confirmation
+            await _activityLogger.LogAsync("failed email confirmation: token invalid/expired", "User", user.UserName);
             return BadRequest(new { message = "Email confirmation failed." });
         }
 
@@ -183,10 +210,18 @@ namespace minutechart.Controllers.Api
 
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
+            {
+                // LOG: Failed Resend (User not found)
+                await _activityLogger.LogAsync("failed to resend confirmation: user not found", "Email", model.Email);
                 return NotFound(new { message = "User not found." });
+            }
 
             if (user.EmailConfirmed)
+            {
+                // LOG: Failed Resend (Already Confirmed)
+                await _activityLogger.LogAsync("failed to resend confirmation: already confirmed", "User", user.UserName);
                 return BadRequest(new { message = "Email is already confirmed." });
+            }
 
             var minInterval = TimeSpan.FromMinutes(2);
             if (user.EmailConfirmationTokenGeneratedAt.HasValue &&
@@ -210,6 +245,8 @@ namespace minutechart.Controllers.Api
             var htmlContent = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
 
             // await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
+            // LOG: Resent Confirmation Email
+            await _activityLogger.LogAsync("resent confirmation email", "User", user.UserName);
 
             return Ok(new { message = "A new confirmation email has been sent." });
         }
@@ -223,7 +260,11 @@ namespace minutechart.Controllers.Api
 
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
+            {
+                // LOG: Failed Forgot Password (User not found)
+                await _activityLogger.LogAsync("failed forgot password request: user not found", "Email", model.Email);
                 return NotFound(new { message = "User not found." });
+            }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var frontendUrl = _configuration["Frontend:ResetPasswordUrl"];
@@ -253,6 +294,9 @@ namespace minutechart.Controllers.Api
 
             // await _emailSender.SendEmailAsync(user.Email, subject, plainText, htmlContent);
 
+            // LOG: Forgot Password Link Sent
+            await _activityLogger.LogAsync("requested password reset link", "User", user.UserName);
+
             return Ok(new { message = "Password reset link has been sent to your email." });
         }
 
@@ -265,12 +309,22 @@ namespace minutechart.Controllers.Api
 
             var user = await _userManager.FindByIdAsync(model.UserId);
             if (user == null)
+            {
+                // LOG: Failed Reset (User not found)
+                await _activityLogger.LogAsync("failed password reset: user not found", "User ID", model.UserId);
                 return NotFound(new { message = "User not found." });
-
+            }
+            
             var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
             if (result.Succeeded)
+            {
+                // LOG: Successful Password Reset
+                await _activityLogger.LogAsync("successfully reset password", "User", user.UserName);
                 return Ok(new { message = "Password has been reset successfully." });
+            }
 
+            // LOG: Failed Password Reset (Identity error/bad token)
+            await _activityLogger.LogAsync("failed password reset: token or password invalid", "User", user.UserName);
             return BadRequest(new { message = "Password reset failed.", errors = result.Errors });
         }
 
@@ -295,8 +349,14 @@ namespace minutechart.Controllers.Api
 
             var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
             if (result.Succeeded)
+            {
+                // LOG: Successful Password Change
+                await _activityLogger.LogAsync("changed password successfully", "User", user.UserName);
                 return Ok(new { message = "Password updated successfully." });
+            }
 
+            // LOG: Failed Password Change (Wrong current password)
+            await _activityLogger.LogAsync("failed to change password: current password incorrect", "User", user.UserName);
             return BadRequest(new { message = "Password update failed.", errors = result.Errors });
         }
 
@@ -310,16 +370,32 @@ namespace minutechart.Controllers.Api
 
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
+            {
+                // LOG: Failed Login (User not found)
+                await _activityLogger.LogAsync("failed login attempt: user not found", "Email", model.Email);
                 return BadRequest(new { message = "User not found" });
+            }
 
-            if (user.AccountStatus == "Pending")
-                return BadRequest(new { message = "Your account is pending activation by admin." });
-            if (user.AccountStatus == "Blocked")
-                return BadRequest(new { message = "Your account is blocked by admin." });
+            if (user.AccountStatus == "Pending" || user.AccountStatus == "Blocked")
+            {
+                // LOG: Failed Login (Account restricted)
+                await _activityLogger.LogAsync($"failed login attempt: status {user.AccountStatus}", "User", user.UserName);
+                return BadRequest(new { message = user.AccountStatus == "Pending" ? 
+                    "Your account is pending activation by admin." : 
+                    "Your account is blocked by admin." 
+                });
+            }
 
             var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, true, false);
             if (!result.Succeeded)
+            {
+                // LOG: Failed Login (Bad credentials)
+                await _activityLogger.LogAsync("failed login attempt: bad credentials", "User", user.UserName);
                 return BadRequest(new { message = "Invalid login attempt" });
+            }
+
+            // LOG: Successful Login
+            await _activityLogger.LogAsync("successfully logged in", "User", user.UserName);
 
             var roles = await _userManager.GetRolesAsync(user);
 
@@ -340,7 +416,15 @@ namespace minutechart.Controllers.Api
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
+            // Fetch the user before signing out, as context is lost after sign-out
+            var user = await _userManager.GetUserAsync(User);
+            var userName = user?.UserName ?? "Unknown";
+
             await _signInManager.SignOutAsync();
+            
+            // LOG: Successful Logout
+            await _activityLogger.LogAsync("logged out", "User", userName);
+            
             return Ok(new { message = "Logged out successfully" });
         }
 

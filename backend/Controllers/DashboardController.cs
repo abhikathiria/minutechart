@@ -18,17 +18,18 @@ namespace minutechart.Controllers
         private readonly IClientDbContextFactory _factory;
         private readonly MinutechartDbContext _mainDb;
         private readonly AggregateQueryService _queryService;
-        
-
+        private readonly ActivityLogger _activityLogger;
 
         public DashboardController(
             UserManager<AppUser> userManager,
             IClientDbContextFactory factory,
-            MinutechartDbContext mainDb)
+            MinutechartDbContext mainDb,
+            ActivityLogger activityLogger)
         {
             _userManager = userManager;
             _factory = factory;
             _mainDb = mainDb;
+            _activityLogger = activityLogger;
             _queryService = new AggregateQueryService();
         }
 
@@ -122,7 +123,7 @@ namespace minutechart.Controllers
             }
 
             await _mainDb.SaveChangesAsync();
-
+            await _activityLogger.LogAsync("reordered", "Modules", "positions");
             return Ok(new { success = true, message = "Modules reordered successfully." });
         }
 
@@ -215,6 +216,7 @@ namespace minutechart.Controllers
 
                 _mainDb.UserQueries.Add(newQuery);
                 await _mainDb.SaveChangesAsync();
+                await _activityLogger.LogAsync("created", "Module", newQuery.UserTitle);
                 return Ok(new { success = true, message = "Module saved successfully", query = newQuery });
             }
             else
@@ -230,6 +232,7 @@ namespace minutechart.Controllers
                 existing.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
 
                 await _mainDb.SaveChangesAsync();
+                // await _activityLogger.LogAsync("updated", "Module", existing.UserTitle);
                 return Ok(new { success = true, message = "Module updated successfully", query = existing });
             }
         }
@@ -273,6 +276,7 @@ namespace minutechart.Controllers
 
                 await reader.CloseAsync();
                 await db.CloseAsync();
+                // await _activityLogger.LogAsync("executed", "Saved Query", query.UserTitle);
 
                 return Ok(new { success = true, message = "Query executed successfully", data = table });
             }
@@ -324,6 +328,7 @@ namespace minutechart.Controllers
 
                 await reader.CloseAsync();
                 await db.CloseAsync();
+                // await _activityLogger.LogAsync("executed", "Custom SQL Query", "adhoc query");
 
                 return Ok(new { success = true, message = "Query executed successfully", data = table });
             }
@@ -346,7 +351,7 @@ namespace minutechart.Controllers
 
             _mainDb.UserQueries.Remove(query);
             await _mainDb.SaveChangesAsync();
-
+            // await _activityLogger.LogAsync("deleted", "Module", query.UserTitle);
             return Ok(new { success = true, message = "Module deleted successfully" });
         }
 

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using minutechart.Models;
 using minutechart.Data;
 using minutechart.Helpers;
+using minutechart.Services;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,12 +17,15 @@ namespace minutechart.Controllers
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly MinutechartDbContext _mainDb;
+        private readonly ActivityLogger _activityLogger;
 
 
-        public UserController(UserManager<AppUser> userManager, MinutechartDbContext mainDb)
+
+        public UserController(UserManager<AppUser> userManager, MinutechartDbContext mainDb, ActivityLogger activityLogger)
         {
             _userManager = userManager;
             _mainDb = mainDb;
+            _activityLogger = activityLogger;
         }
 
         [HttpGet("subscription-status")]

@@ -4,6 +4,7 @@ namespace minutechart.Models
     {
         public int UserQueryId { get; set; }
         public string AppUserId { get; set; }
+        public virtual AppUser AppUser { get; set; }
         public string UserTitle { get; set; }
         public string UserQueryText { get; set; }
         public string VisualizationType { get; set; }

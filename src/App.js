@@ -240,7 +240,7 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } f
 import { FaArrowRight, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe, FaHome, FaChartArea, FaTags, FaInfoCircle, FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaEnvelope, FaPhone } from "react-icons/fa";
 import ProductDashboard from "./pages/ProductDashboard";
 import HRDashboard from "./pages/HRDashboard";
-import AnalysisDashboard from "./pages/AnalysisDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import HomeContent from "./pages/HomeContent";
 import ScrollToTop from "./ScrollToTop";
 import Login from "./pages/Login";
@@ -264,6 +264,7 @@ import Information from "./pages/Information";
 import Header from "./components/Header";
 import Complaints from "./pages/Complaints";
 import ComplaintsManagement from "./pages/ComplaintsManagement";
+import ActivityLogs from "./pages/ActivityLogs";
 import { Toaster } from "react-hot-toast";
 
 function Footer() {
@@ -297,6 +298,8 @@ function Footer() {
             { to: "/dashboard", label: "Dashboard", icon: FaChartArea },
             { to: "/subscription/buy", label: "Plans & Pricing", icon: FaTags },
             { to: "/information", label: "Information", icon: FaInfoCircle },
+            // { to: "/admin/admindashboard", label: "Admin Dashboard", icon: FaInfoCircle },
+            // { to: "/admin/activitylogs", label: "Activity Logs", icon: FaInfoCircle },
         ];
 
         // const adminLinks = [
@@ -448,11 +451,13 @@ function AppContent() {
           {/* Admin routes */}
           <Route path="/profile/:id" element={<AdminRoute><Profile /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><UserList /></AdminRoute>} />
+          <Route path="/admin/admindashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/user/:id/modules" element={<AdminRoute><UserModules /></AdminRoute>} />
           <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
           <Route path="/admin/emailsettings" element={<AdminRoute><EmailSettings /></AdminRoute>} />
           <Route path="/admin/invoicesettings" element={<AdminRoute><InvoiceSettingsPage /></AdminRoute>} />
           <Route path="/admin/complaintsmanagement" element={<AdminRoute><ComplaintsManagement /></AdminRoute>} />
+          <Route path="/admin/activitylogs" element={<AdminRoute><ActivityLogs /></AdminRoute>} />
 
           {/* Private routes (logged-in users) */}
           <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
