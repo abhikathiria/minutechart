@@ -292,7 +292,16 @@ namespace minutechart.Controllers
                 // LOG: Admin saved/updated a module for a user
                 await _activityLogger.LogAsync(action, "Module", req.UserTitle, targetUserName);
 
-                return Ok(new { success = true, message = "Query saved successfully", query = userQuery });
+                return Ok(new { 
+    success = true, 
+    message = "Query saved successfully", 
+    query = new { 
+        UserQueryId = userQuery.UserQueryId, 
+        UserTitle = userQuery.UserTitle,
+        VisualizationType = userQuery.VisualizationType,
+        IsApprovalModule = userQuery.IsApprovalModule
+    } 
+});
             }
             catch (Exception ex)
             {
@@ -527,105 +536,6 @@ namespace minutechart.Controllers
             return Ok(dto);
         }
 
-        [HttpPost("user/{id}/profile")]
-        public async Task<IActionResult> SetUserProfile(string id, [FromBody] UserProfileDto model)
-        {
-            var user = await _db.Users
-                .Include(u => u.UserProfile)
-                .FirstOrDefaultAsync(u => u.Id == id);
-
-            if (user == null)
-                return NotFound(new { message = "User not found" });
-
-            if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
-            {
-                // LOG: Failed profile set (Connection failed)
-                await _activityLogger.LogAsync("failed to set/update profile (DB connection failed) for", "User", user.UserName ?? user.Email);
-                return BadRequest(new { message = "Database connection failed", details = error });
-            }
-
-            var profile = user.UserProfile;
-            bool isNewProfile = (profile == null);
-
-            if (isNewProfile)
-            {
-                // --- Profile Creation (Activation/Trial Start) ---
-
-                // Generate CustomerCode logic (remains)
-                var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
-                var companyWords = user.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
-                var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
-                var customerWords = user.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
-                var customerInitials = string.Join("", customerWords.Select(w => w[0])).ToUpper();
-                var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
-                var customerCode = $"C-{regYear}-{companyInitials}{customerInitials}-{userIdPart}";
-
-                profile = new UserProfile
-                {
-                    AppUserId = user.Id,
-                    CompanyName = user.CompanyName,
-                    ServerName = model.ServerName,
-                    DatabaseName = model.DatabaseName,
-                    DbUsername = model.DbUsername,
-                    DbPassword = model.DbPassword,
-                    RefreshTime = model.RefreshTime,
-                    CustomerGST = model.CustomerGST ?? user.GST ?? "",
-                    CustomerCode = customerCode
-                };
-                _db.UserProfiles.Add(profile);
-                await _db.SaveChangesAsync(); // Save profile first to get ID/link relationship
-
-                // Activate user and set trial dates only on first creation
-                user.AccountStatus = "Active";
-                user.TrialStartDate = DateTimeHelper.GetIndianTime();
-                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
-                _db.Users.Update(user);
-                // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
-                await _db.SaveChangesAsync();
-
-                // LOG: Admin created new profile and activated user
-                await _activityLogger.LogAsync("created new profile (including DB connection) and activated trial for", "User", user.UserName ?? user.Email);
-            }
-            else
-            {
-                // --- Profile Update ---
-
-                // Capture old details for logging significance
-                var oldServer = profile.ServerName;
-                var oldDB = profile.DatabaseName;
-
-                // Update logic (remains)
-                profile.CompanyName = user.CompanyName;
-                profile.ServerName = model.ServerName;
-                profile.DatabaseName = model.DatabaseName;
-                profile.DbUsername = model.DbUsername;
-                profile.DbPassword = model.DbPassword;
-                profile.RefreshTime = model.RefreshTime;
-                profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
-
-                _db.UserProfiles.Update(profile);
-                user.GST = model.CustomerGST ?? user.GST ?? "";
-                _db.Users.Update(user);
-                await _db.SaveChangesAsync();
-
-                // Determine log message based on what was updated
-                string updateMessage;
-                if (oldServer != model.ServerName || oldDB != model.DatabaseName)
-                {
-                    updateMessage = "updated database connection details for";
-                }
-                else
-                {
-                    updateMessage = "updated profile settings for";
-                }
-
-                // LOG: Admin updated existing profile
-                await _activityLogger.LogAsync(updateMessage, "User", user.UserName ?? user.Email);
-            }
-
-            return Ok(new { message = "Profile saved successfully" });
-        }
-
         // [HttpPost("user/{id}/profile")]
         // public async Task<IActionResult> SetUserProfile(string id, [FromBody] UserProfileDto model)
         // {
@@ -650,23 +560,19 @@ namespace minutechart.Controllers
         //     {
         //         // --- Profile Creation (Activation/Trial Start) ---
 
-        //         // --- UPDATED CustomerCode Generation logic to use model data ---
+        //         // Generate CustomerCode logic (remains)
         //         var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
-        //         // Use model.CompanyName for code generation on first creation
-        //         var companyWords = model.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+        //         var companyWords = user.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
         //         var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
-        //         // Use model.CustomerName for code generation on first creation
-        //         var customerWords = model.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+        //         var customerWords = user.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
         //         var customerInitials = string.Join("", customerWords.Select(w => w[0])).ToUpper();
         //         var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
         //         var customerCode = $"C-{regYear}-{companyInitials}{customerInitials}-{userIdPart}";
-        //         // -----------------------------------------------------------------
 
         //         profile = new UserProfile
         //         {
         //             AppUserId = user.Id,
-        //             // Set CompanyName/CustomerCode from the DTO for new profile
-        //             CompanyName = model.CompanyName ?? user.CompanyName,
+        //             CompanyName = user.CompanyName,
         //             ServerName = model.ServerName,
         //             DatabaseName = model.DatabaseName,
         //             DbUsername = model.DbUsername,
@@ -682,11 +588,8 @@ namespace minutechart.Controllers
         //         user.AccountStatus = "Active";
         //         user.TrialStartDate = DateTimeHelper.GetIndianTime();
         //         user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
-        //         // --- UPDATED: Update AppUser fields based on model ---
-        //         user.CompanyName = model.CompanyName ?? user.CompanyName;
-        //         user.CustomerName = model.CustomerName ?? user.CustomerName;
-        //         // ----------------------------------------------------
         //         _db.Users.Update(user);
+        //         // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
         //         await _db.SaveChangesAsync();
 
         //         // LOG: Admin created new profile and activated user
@@ -701,8 +604,7 @@ namespace minutechart.Controllers
         //         var oldDB = profile.DatabaseName;
 
         //         // Update logic (remains)
-        //         // NOTE: You might want to check if CompanyName/CustomerName from model differ from user's current values
-        //         profile.CompanyName = model.CompanyName ?? user.CompanyName; // Update profile company name from model or existing user value
+        //         profile.CompanyName = user.CompanyName;
         //         profile.ServerName = model.ServerName;
         //         profile.DatabaseName = model.DatabaseName;
         //         profile.DbUsername = model.DbUsername;
@@ -710,22 +612,8 @@ namespace minutechart.Controllers
         //         profile.RefreshTime = model.RefreshTime;
         //         profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
 
-        //         // Update AppUser fields if they were present in the model and changed
-        //         if (!string.IsNullOrEmpty(model.CompanyName) && user.CompanyName != model.CompanyName)
-        //         {
-        //             user.CompanyName = model.CompanyName;
-        //         }
-        //         if (!string.IsNullOrEmpty(model.CustomerName) && user.CustomerName != model.CustomerName)
-        //         {
-        //             user.CustomerName = model.CustomerName;
-        //             // IMPORTANT: If CustomerName changes, the CustomerCode *should* be recalculated, 
-        //             // but since the code is only calculated on creation in the current logic, 
-        //             // we'll update the User's GST field which *is* updated on the profile below.
-        //             // For a complete solution, you'd need to re-implement the code generation here or in a service.
-        //         }
-
         //         _db.UserProfiles.Update(profile);
-        //         user.GST = model.CustomerGST ?? user.GST ?? ""; // Also update AppUser.GST
+        //         user.GST = model.CustomerGST ?? user.GST ?? "";
         //         _db.Users.Update(user);
         //         await _db.SaveChangesAsync();
 
@@ -746,6 +634,127 @@ namespace minutechart.Controllers
 
         //     return Ok(new { message = "Profile saved successfully" });
         // }
+
+        [HttpPost("user/{id}/profile")]
+        public async Task<IActionResult> SetUserProfile(string id, [FromBody] UserProfileDto model)
+        {
+            var user = await _db.Users
+                .Include(u => u.UserProfile)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+            if (user == null)
+                return NotFound(new { message = "User not found" });
+
+            if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
+            {
+                // LOG: Failed profile set (Connection failed)
+                await _activityLogger.LogAsync("failed to set/update profile (DB connection failed) for", "User", user.UserName ?? user.Email);
+                return BadRequest(new { message = "Database connection failed", details = error });
+            }
+
+            var profile = user.UserProfile;
+            bool isNewProfile = (profile == null);
+
+            if (isNewProfile)
+            {
+                // --- Profile Creation (Activation/Trial Start) ---
+
+                // --- UPDATED CustomerCode Generation logic to use model data ---
+                var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
+                // Use model.CompanyName for code generation on first creation
+                var companyWords = model.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+                var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
+                // Use model.CustomerName for code generation on first creation
+                var customerWords = model.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+                var customerInitials = string.Join("", customerWords.Select(w => w[0])).ToUpper();
+                var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
+                var customerCode = $"C-{regYear}-{companyInitials}{customerInitials}-{userIdPart}";
+                // -----------------------------------------------------------------
+
+                profile = new UserProfile
+                {
+                    AppUserId = user.Id,
+                    // Set CompanyName/CustomerCode from the DTO for new profile
+                    CompanyName = model.CompanyName ?? user.CompanyName,
+                    ServerName = model.ServerName,
+                    DatabaseName = model.DatabaseName,
+                    DbUsername = model.DbUsername,
+                    DbPassword = model.DbPassword,
+                    RefreshTime = model.RefreshTime,
+                    CustomerGST = model.CustomerGST ?? user.GST ?? "",
+                    CustomerCode = customerCode
+                };
+                _db.UserProfiles.Add(profile);
+                await _db.SaveChangesAsync(); // Save profile first to get ID/link relationship
+
+                // Activate user and set trial dates only on first creation
+                user.AccountStatus = "Active";
+                user.TrialStartDate = DateTimeHelper.GetIndianTime();
+                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
+                // --- UPDATED: Update AppUser fields based on model ---
+                user.CompanyName = model.CompanyName ?? user.CompanyName;
+                user.CustomerName = model.CustomerName ?? user.CustomerName;
+                // ----------------------------------------------------
+                _db.Users.Update(user);
+                await _db.SaveChangesAsync();
+
+                // LOG: Admin created new profile and activated user
+                await _activityLogger.LogAsync("created new profile (including DB connection) and activated trial for", "User", user.UserName ?? user.Email);
+            }
+            else
+            {
+                // --- Profile Update ---
+
+                // Capture old details for logging significance
+                var oldServer = profile.ServerName;
+                var oldDB = profile.DatabaseName;
+
+                // Update logic (remains)
+                // NOTE: You might want to check if CompanyName/CustomerName from model differ from user's current values
+                profile.CompanyName = model.CompanyName ?? user.CompanyName; // Update profile company name from model or existing user value
+                profile.ServerName = model.ServerName;
+                profile.DatabaseName = model.DatabaseName;
+                profile.DbUsername = model.DbUsername;
+                profile.DbPassword = model.DbPassword;
+                profile.RefreshTime = model.RefreshTime;
+                profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
+
+                // Update AppUser fields if they were present in the model and changed
+                if (!string.IsNullOrEmpty(model.CompanyName) && user.CompanyName != model.CompanyName)
+                {
+                    user.CompanyName = model.CompanyName;
+                }
+                if (!string.IsNullOrEmpty(model.CustomerName) && user.CustomerName != model.CustomerName)
+                {
+                    user.CustomerName = model.CustomerName;
+                    // IMPORTANT: If CustomerName changes, the CustomerCode *should* be recalculated, 
+                    // but since the code is only calculated on creation in the current logic, 
+                    // we'll update the User's GST field which *is* updated on the profile below.
+                    // For a complete solution, you'd need to re-implement the code generation here or in a service.
+                }
+
+                _db.UserProfiles.Update(profile);
+                user.GST = model.CustomerGST ?? user.GST ?? ""; // Also update AppUser.GST
+                _db.Users.Update(user);
+                await _db.SaveChangesAsync();
+
+                // Determine log message based on what was updated
+                string updateMessage;
+                if (oldServer != model.ServerName || oldDB != model.DatabaseName)
+                {
+                    updateMessage = "updated database connection details for";
+                }
+                else
+                {
+                    updateMessage = "updated profile settings for";
+                }
+
+                // LOG: Admin updated existing profile
+                await _activityLogger.LogAsync(updateMessage, "User", user.UserName ?? user.Email);
+            }
+
+            return Ok(new { message = "Profile saved successfully" });
+        }
 
         private async Task SendAccountActivationEmailAsync(string toEmail, string customerName, string companyName)
         {

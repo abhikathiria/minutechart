@@ -317,8 +317,28 @@ export default function UserModules() {
                 setFormSuccess("Module saved successfully");
                 setFormOpen(false);
                 setResults(execRes.data.data || []);
-                loadUserAndModules();
-            } else {
+                // Instead of full reload, update modules state directly if it's a new module (id=0)
+                if (formData.id === 0) {
+                    // For new module, we must load all data again to get the new ID, or we can update the structure for simplicity.
+                    // Since the backend likely assigns an ID on creation, re-fetching is often simplest for a new item.
+                    loadUserAndModules(); 
+                } else {
+                    // For an edit, update the specific module in the state to avoid a full list reload/flicker
+                    setModules(prevModules => 
+                        prevModules.map(m => 
+                            m.id === formData.id 
+                                ? { ...m, title: formData.title, visualizationType: formData.visualizationType, isApprovalModule: formData.isApprovalModule, approvalUpdateQuery: formData.approvalUpdateQuery, approvalIdColumn: formData.approvalIdColumn, updatedAt: new Date().toISOString() }
+                                : m
+                            )
+                        );
+                        // Also update selectedModule view state if it was the one edited
+                        setSelectedModule(prevSelected => 
+                            prevSelected && prevSelected.id === formData.id
+                                ? { ...prevSelected, title: formData.title, visualizationType: formData.visualizationType, isApprovalModule: formData.isApprovalModule, approvalUpdateQuery: formData.approvalUpdateQuery, approvalIdColumn: formData.approvalIdColumn, updatedAt: new Date().toISOString() }
+                                : prevSelected
+                        );
+                    }
+                } else {
                 setFormError(saveRes.data?.message || "Failed to save module");
             }
         } catch (err) {

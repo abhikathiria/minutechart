@@ -314,7 +314,7 @@ namespace minutechart.Controllers.Api
                 await _activityLogger.LogAsync("failed password reset: user not found", "User ID", model.UserId);
                 return NotFound(new { message = "User not found." });
             }
-            
+
             var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
             if (result.Succeeded)
             {
@@ -380,9 +380,11 @@ namespace minutechart.Controllers.Api
             {
                 // LOG: Failed Login (Account restricted)
                 await _activityLogger.LogAsync($"failed login attempt: status {user.AccountStatus}", "User", user.UserName);
-                return BadRequest(new { message = user.AccountStatus == "Pending" ? 
-                    "Your account is pending activation by admin." : 
-                    "Your account is blocked by admin." 
+                return BadRequest(new
+                {
+                    message = user.AccountStatus == "Pending" ?
+                    "Your account is pending activation by admin." :
+                    "Your account is blocked by admin."
                 });
             }
 
@@ -421,10 +423,10 @@ namespace minutechart.Controllers.Api
             var userName = user?.UserName ?? "Unknown";
 
             await _signInManager.SignOutAsync();
-            
+
             // LOG: Successful Logout
             await _activityLogger.LogAsync("logged out", "User", userName);
-            
+
             return Ok(new { message = "Logged out successfully" });
         }
 
@@ -475,6 +477,38 @@ namespace minutechart.Controllers.Api
 
             return Ok(dto);
         }
+
+        [HttpPut("save-profile")]
+        public async Task<IActionResult> SaveProfile([FromBody] SaveProfileDto dto)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized(new { message = "User not found" });
+
+            user.CompanyName = dto.CompanyName;
+            user.CustomerName = dto.CustomerName;
+            user.GST = dto.GST;
+
+            var profile = await _mainDb.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+            if (profile != null)
+            {
+                profile.CompanyName = dto.CompanyName;
+                profile.CustomerGST = dto.GST;
+            }
+
+            await _userManager.UpdateAsync(user);
+            await _mainDb.SaveChangesAsync();
+
+            return Ok(new { message = "Profile updated successfully" });
+        }
+
+        public class SaveProfileDto
+        {
+            public string CompanyName { get; set; }
+            public string CustomerName { get; set; }
+            public string GST { get; set; }
+        }
+
 
     }
 }

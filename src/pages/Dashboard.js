@@ -11,6 +11,7 @@ import { Clock, Calendar, RefreshCw, AlertTriangle, RefreshCcw } from 'lucide-re
 
 // 1. Define the sidebar width (fixed size for clean transitions)
 const SIDEBAR_WIDTH_DESKTOP = 288; // md:w-72 (72 * 4px = 288px)
+const SIDEBAR_STORAGE_KEY = 'dashboardSidebarOpen';
 
 // --- Helper Components ---
 
@@ -50,7 +51,16 @@ export default function Dashboard() {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [countdown, setCountdown] = useState("");
   // Use an initial state that checks window width for a better initial load
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    // Get the stored value, or default to true if it doesn't exist (matching original logic for first load)
+    const storedValue = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (storedValue === null) {
+        // Default to open on first load based on screen size, or simply 'true' for guaranteed open on first entry
+        return window.innerWidth >= 768; 
+    }
+    // Convert the stored string 'true'/'false' back to a boolean
+    return storedValue === 'true';
+  });
   const [userId, setUserId] = useState(null);
 
   // --- All Existing Logic (API, Countdown, Status Fetching) remains the same ---
@@ -244,7 +254,10 @@ export default function Dashboard() {
                     </h1>
                     {/* Universal Close Button */}
                     <button
-                        onClick={() => setIsSidebarOpen(false)}
+                        onClick={() => {
+                            setIsSidebarOpen(false);
+                            localStorage.setItem(SIDEBAR_STORAGE_KEY, 'false');
+                        }}
                         className="text-white p-2 rounded hover:bg-gray-700 ml-auto"
                         title="Close Sidebar"
                     >
@@ -320,7 +333,10 @@ export default function Dashboard() {
                     <div className="flex items-center">
                         {!isSidebarOpen && (
                             <button
-                                onClick={() => setIsSidebarOpen(true)}
+                                onClick={() => {
+                                    setIsSidebarOpen(true);
+                                    localStorage.setItem(SIDEBAR_STORAGE_KEY, 'true');
+                                }}
                                 className="p-3 bg-[#152342] text-white rounded-lg hover:bg-gray-800 transition mr-4 shadow-lg"
                                 title="Open Sidebar"
                             >
