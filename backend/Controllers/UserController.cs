@@ -115,5 +115,70 @@ namespace minutechart.Controllers
 
             return Ok(invoices);
         }
+        // Inside User Controller
+
+        public class SuggestModuleDto
+        {
+            public string Text { get; set; } = string.Empty;
+        }
+
+        [HttpPost("suggest-module")]
+        public async Task<IActionResult> SuggestModule([FromBody] SuggestModuleDto model)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var suggestion = new ModuleSuggestion
+            {
+                AppUserId = userId,
+                SuggestionText = model.Text
+            };
+            _mainDb.ModuleSuggestions.Add(suggestion);
+            await _mainDb.SaveChangesAsync();
+            return Ok();
+        }
+
+        // ----------------------------------------------------
+        // DTO and GetSuggestionHistory (Updated with AdminResponse)
+        // ----------------------------------------------------
+
+        public class UserModuleSuggestionDto
+        {
+            public int Id { get; set; }
+            public string SuggestionText { get; set; } = string.Empty;
+            public string Status { get; set; } = "Pending";
+
+            // --- ADDED ADMIN RESPONSE ---
+            public string AdminResponse { get; set; } = string.Empty;
+            // ----------------------------
+
+            public DateTime CreatedAt { get; set; }
+        }
+
+        [HttpGet("module-suggestions-history")]
+        public async Task<IActionResult> GetSuggestionHistory()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("User identity not found.");
+            }
+
+            var history = await _mainDb.ModuleSuggestions
+                .Where(s => s.AppUserId == userId)
+                .OrderByDescending(s => s.CreatedAt)
+                .Select(s => new UserModuleSuggestionDto
+                {
+                    Id = s.Id,
+                    SuggestionText = s.SuggestionText,
+                    Status = s.Status,
+                    CreatedAt = s.CreatedAt,
+                    // Map the new field
+                    AdminResponse = s.AdminResponse
+                })
+                .ToListAsync();
+
+            return Ok(history);
+        }
+
     }
 }

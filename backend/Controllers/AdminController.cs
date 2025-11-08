@@ -292,16 +292,18 @@ namespace minutechart.Controllers
                 // LOG: Admin saved/updated a module for a user
                 await _activityLogger.LogAsync(action, "Module", req.UserTitle, targetUserName);
 
-                return Ok(new { 
-    success = true, 
-    message = "Query saved successfully", 
-    query = new { 
-        UserQueryId = userQuery.UserQueryId, 
-        UserTitle = userQuery.UserTitle,
-        VisualizationType = userQuery.VisualizationType,
-        IsApprovalModule = userQuery.IsApprovalModule
-    } 
-});
+                return Ok(new
+                {
+                    success = true,
+                    message = "Query saved successfully",
+                    query = new
+                    {
+                        UserQueryId = userQuery.UserQueryId,
+                        UserTitle = userQuery.UserTitle,
+                        VisualizationType = userQuery.VisualizationType,
+                        IsApprovalModule = userQuery.IsApprovalModule
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -1533,6 +1535,107 @@ Nchart Team";
             public List<int> ModuleIds { get; set; }
             public string Action { get; set; } = "check"; // check, replace, ignore, cancel
         }
+
+        [HttpGet("module-suggestions")]
+        public async Task<IActionResult> GetModuleSuggestions()
+        {
+            var suggestions = await _db.ModuleSuggestions
+                .Include(s => s.AppUser)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+            return Ok(suggestions);
+        }
+
+        [HttpGet("user/{userId}/suggestions")]
+        public async Task<IActionResult> GetSuggestionsByUserId(string userId)
+        {
+            // The userId passed in the route (e.g., from /admin/user/123/suggestions) 
+            // is captured by the parameter 'userId'.
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest("User ID is required.");
+            }
+
+            try
+            {
+                var suggestions = await _db.ModuleSuggestions
+                    .Where(s => s.AppUserId == userId) // <-- THE KEY FILTERING STEP
+                    .Include(s => s.AppUser)
+                    .OrderByDescending(s => s.CreatedAt)
+                    .ToListAsync();
+
+                // Map the results to a DTO if you have one, or return the raw entities.
+                // Assuming your frontend expects the raw structure from the previous method.
+                return Ok(suggestions);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (recommended)
+                return StatusCode(500, "Internal server error while fetching user suggestions.");
+            }
+        }
+
+        public class AdminResponseDto
+        {
+            public string AdminResponse { get; set; } = string.Empty;
+        }
+
+        public class RejectSuggestionDto : AdminResponseDto
+        {
+            // Inherits AdminResponse. Status will be handled separately in the logic.
+        }
+
+        // 1. MarkCreated (Updated to accept optional AdminResponse)
+        [HttpPost("mark-created/{id}")]
+        public async Task<IActionResult> MarkCreated(int id, [FromBody] AdminResponseDto model)
+        {
+            var suggestion = await _db.ModuleSuggestions.FindAsync(id);
+            if (suggestion == null) return NotFound();
+
+            suggestion.Status = "Created";
+
+            // Set the optional response
+            suggestion.AdminResponse = model?.AdminResponse ?? string.Empty;
+
+            // // Signal the user for the confirmation toast (Assuming AppUser has ModuleSuggestionCreatedToastSignal)
+            // var user = await _db.AppUsers.FindAsync(suggestion.AppUserId);
+            // if (user != null)
+            // {
+            //     user.ModuleSuggestionCreatedToastSignal = true;
+            // }
+
+            await _db.SaveChangesAsync();
+            return Ok();
+        }
+
+        // 2. RejectSuggestion (NEW method)
+        [HttpPost("reject-suggestion/{id}")]
+        public async Task<IActionResult> RejectSuggestion(int id, [FromBody] RejectSuggestionDto model)
+        {
+            var suggestion = await _db.ModuleSuggestions.FindAsync(id);
+            if (suggestion == null) return NotFound();
+
+            if (string.IsNullOrWhiteSpace(model.AdminResponse))
+            {
+                // Require a reason for rejection
+                return BadRequest(new { message = "Rejection reason (AdminResponse) is required." });
+            }
+
+            suggestion.Status = "Rejected"; // Hardcoded status change
+            suggestion.AdminResponse = model.AdminResponse.Trim();
+
+            // // Find the associated user and clear the toast signal, just in case
+            // var user = await _db.AppUsers.FindAsync(suggestion.AppUserId);
+            // if (user != null)
+            // {
+            //     user.ModuleSuggestionCreatedToastSignal = false;
+            // }
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Suggestion rejected successfully and user response saved." });
+        }
+
     }
 
 

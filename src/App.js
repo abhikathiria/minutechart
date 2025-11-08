@@ -264,6 +264,7 @@ import Information from "./pages/Information";
 import Header from "./components/Header";
 import Complaints from "./pages/Complaints";
 import ComplaintsManagement from "./pages/ComplaintsManagement";
+import ModuleSuggestionsHistory from "./pages/ModuleSuggestionsHistory"
 import ActivityLogs from "./pages/ActivityLogs";
 import { Toaster } from "react-hot-toast";
 
@@ -465,6 +466,7 @@ function AppContent() {
           <Route path="/reset-password" element={<PrivateRoute><ResetPassword /></PrivateRoute>} />
           <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
           <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
+          <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />

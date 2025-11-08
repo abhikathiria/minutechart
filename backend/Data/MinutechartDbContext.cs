@@ -31,8 +31,7 @@ namespace minutechart.Data
         public DbSet<Complaint> Complaints { get; set; }
         public DbSet<ActiveSession> ActiveSessions { get; set; }
         public DbSet<ActivityLog> ActivityLogs { get; set; }
-
-
+        public DbSet<ModuleSuggestion> ModuleSuggestions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

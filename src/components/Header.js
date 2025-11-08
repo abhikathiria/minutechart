@@ -746,6 +746,7 @@ function Header({ user, onLogout }) {
                     <DropdownItem to="/my-profile" icon={<FaUserCircle />} onClick={() => closeAllMenus()}>My Profile</DropdownItem>
                     <DropdownItem to="/purchase-history" icon={<FaHistory />} onClick={() => closeAllMenus()}>Purchase History</DropdownItem>
                     <DropdownItem to="/complaints" icon={<FaEnvelope />} onClick={() => closeAllMenus()}>Complaints</DropdownItem>
+                    <DropdownItem to="/suggestions-history" icon={<FaClipboardList />} onClick={() => closeAllMenus()}>Suggestions History</DropdownItem>
                 </>
             )}
 
@@ -925,6 +926,7 @@ function Header({ user, onLogout }) {
                                     {!isAdmin && <Link to="/my-profile" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaUserCircle className="text-cyan-400 w-4" /> My Profile</Link>}
                                     {!isAdmin && <Link to="/purchase-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaHistory className="text-cyan-400 w-4" /> Purchase History</Link>}
                                     {!isAdmin && <Link to="/complaints" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-4" /> My Complaints</Link>}
+                                    {!isAdmin && <Link to="/suggestions-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-4" /> Suggestions History</Link>}
                                     <Link to="/change-password" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaLock className="text-cyan-400 w-4" /> Change Password</Link>
 
                                     <button
