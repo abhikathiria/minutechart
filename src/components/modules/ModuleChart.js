@@ -417,6 +417,13 @@ const indiaGeoUrl = "/india_state_geo.json";
 
 export default function ModuleChart({ data, type, isApprovalModule, approvalIdColumn, queryId, userId, onRefresh, limitHeight }) {
   const [activeIndex, setActiveIndex] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({});
+  const [filterColumn, setFilterColumn] = useState("");
+  const [filterValue, setFilterValue] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("");
+  const [xCol, setXCol] = useState("");
+  const [yCol, setYCol] = useState("");
 
   if (!data || data.length === 0) {
     return <p className="text-center text-gray-500">No data to display</p>;
@@ -451,10 +458,60 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
     }
   };
 
+  const columnOptions = {};
+  keys.forEach(k => {
+    const uniqueValues = [...new Set(data.map(row => row[k]))];
+    columnOptions[k] = uniqueValues.filter(v => v !== null && v !== undefined);
+  });
+
+  // Filter + search logic
+  const filteredData = data.filter(row => {
+    // Search across all values
+    const matchesSearch = Object.values(row)
+      .some(val => String(val).toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Apply filters
+    const matchesFilters = Object.entries(filters).every(([col, val]) => {
+      if (!val) return true;
+      return String(row[col]) === String(val);
+    });
+
+    return matchesSearch && matchesFilters;
+  });
+
   switch (type) {
     case "table":
       return (
         <div className="mt-2 border rounded overflow-hidden">
+          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-gray-100 border-b">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="border px-3 py-2 rounded w-60"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            {/* <div className="flex flex-wrap gap-2">
+              {keys.map(k => (
+                <select
+                  key={k}
+                  value={filters[k] || ""}
+                  onChange={(e) =>
+                    setFilters(prev => ({ ...prev, [k]: e.target.value || undefined }))
+                  }
+                  className="border px-2 py-1 rounded text-sm"
+                >
+                  <option value="">Filter by {k}</option>
+                  {columnOptions[k].map((opt, idx) => (
+                    <option key={idx} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              ))}
+            </div> */}
+          </div>
           <div className={`overflow-x-auto ${limitHeight ? 'max-h-[400px] overflow-y-auto' : ''}`}>
             <table className="border-collapse border w-full min-w-max text-sm">
               <thead className="bg-[#152342FF] sticky top-0 z-10">
@@ -475,7 +532,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                 </tr>
               </thead>
               <tbody>
-                {data.map((row, i) => {
+                {filteredData.map((row, i) => {
                   const isTotalRow = Object.values(row).some(
                     (val) => typeof val === "string" && val.toLowerCase().includes("total")
                   );
@@ -549,83 +606,130 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
         </div>
       );
 
-    case "pie":
-      const chartData = data.map((item) => ({
-        name: item[keys[0]],
-        value: Number(item[keys[1]]),
-      }));
+    case "pie": {
+      const allColumns = keys || [];
 
-      const sortedData = [...chartData].sort((a, b) => b.value - a.value);
-      const topName = sortedData[0]?.name;
+      // --- Handle 2 or 3 column cases dynamically ---
+  let filterColumn = null;
+  let xCol = "";
+  let yCol = "";
 
-      const renderActiveShape = (props) => {
-        const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-        return (
-          <g>
-            <Sector
-              cx={cx}
-              cy={cy}
-              innerRadius={innerRadius}
-              outerRadius={outerRadius + 10}
-              startAngle={startAngle}
-              endAngle={endAngle}
-              fill={fill}
-            />
-          </g>
-        );
-      };
+  if (allColumns.length === 2) {
+    // No filter — use both columns
+    [xCol, yCol] = allColumns;
+  } else if (allColumns.length >= 3) {
+    // First column is filter, next two are chart columns
+    [filterColumn, xCol, yCol] = allColumns;
+  }
 
-      const handleClick = (_, index) => {
-        setActiveIndex(index === activeIndex ? null : index);
-      };
+  // Build filter options if applicable
+  const filterOptions = filterColumn
+    ? [...new Set(data.map((d) => d[filterColumn]))].filter(Boolean)
+    : [];
 
-      const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-          const item = payload[0].payload;
-          const isTop = item.name === topName;
-          // const label = keys[1].charAt(0).toUpperCase() + keys[1].slice(1);
+  // Apply filtering
+  const filteredData = filterColumn && selectedFilter
+    ? data.filter((d) => String(d[filterColumn]) === String(selectedFilter))
+    : data;
 
-          return (
-            <div className="bg-white border border-gray-300 rounded shadow px-3 py-2 text-sm font-semibold">
-              <div className="flex items-center gap-1 text-gray-800 font-bold text-lg">
-                {isTop && <FaCrown className="text-yellow-500 text-lg" />}
-                <span>{item.name}</span>
-              </div>
-              <div>{keys[1]}: {item.value.toLocaleString()}</div>
-            </div>
-          );
-        }
-        return null;
-      };
+  // Transform data for pie chart
+  const chartData = filteredData
+    .filter((item) => item[xCol] && !isNaN(Number(item[yCol])))
+    .map((item) => ({
+      name: item[xCol],
+      value: Number(item[yCol]),
+    }));
 
+  if (chartData.length === 0) {
+    return (
+      <div className="p-4 border rounded text-center text-gray-500">
+        No data available for this selection.
+      </div>
+    );
+  }
+
+  const renderActiveShape = (props) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+    return (
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 10}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+    );
+  };
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload?.length) {
+      const item = payload[0].payload;
       return (
-        <div className="h-96 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={120}
-                activeIndex={activeIndex}
-                activeShape={renderActiveShape}
-                onClick={handleClick}
-                isAnimationActive={true}
-                animationDuration={400}
-                animationBegin={0}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <ReTooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="bottom" height={60} />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="bg-white border border-gray-300 rounded shadow px-3 py-2 text-sm font-semibold">
+          <div className="flex items-center gap-1 text-gray-800 font-bold text-lg">
+            <span>{item.name}</span>
+          </div>
+          <div>
+            {yCol}: {item.value.toLocaleString()}
+          </div>
         </div>
       );
+    }
+    return null;
+  };
+
+  return (
+    <div className="h-96 w-full">
+      {/* --- Optional Filter Dropdown --- */}
+      {filterColumn && (
+        <div className="flex justify-end mb-3">
+          <select
+            value={selectedFilter}
+            onChange={(e) => setSelectedFilter(e.target.value)}
+            className="border px-3 py-1 rounded text-sm"
+          >
+            <option value="">All {filterColumn}</option>
+            {filterOptions.map((opt, i) => (
+              <option key={i} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* --- Pie Chart --- */}
+      <ResponsiveContainer width="100%" height="90%">
+        <PieChart>
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={120}
+            activeIndex={activeIndex}
+            activeShape={renderActiveShape}
+            onClick={(_, index) => setActiveIndex(index === activeIndex ? null : index)}
+            isAnimationActive={true}
+            animationDuration={400}
+          >
+            {chartData.map((_, index) => (
+              <Cell key={index} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <ReTooltip content={<CustomTooltip />} />
+          <Legend verticalAlign="bottom" height={60} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+
+
 
     case "line":
       return (
@@ -658,6 +762,35 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
 
       return (
         <div className="mt-4 border rounded overflow-hidden">
+          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-gray-100 border-b">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="border px-3 py-2 rounded w-60"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              {keys.map(k => (
+                <select
+                  key={k}
+                  value={filters[k] || ""}
+                  onChange={(e) =>
+                    setFilters(prev => ({ ...prev, [k]: e.target.value || undefined }))
+                  }
+                  className="border px-2 py-1 rounded text-sm"
+                >
+                  <option value="">Filter by {k}</option>
+                  {columnOptions[k].map((opt, idx) => (
+                    <option key={idx} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              ))}
+            </div>
+          </div>
           <div className={`overflow-x-auto ${limitHeight ? 'max-h-[400px] overflow-y-auto' : ''}`}>
             <table className="border-collapse border w-full min-w-max text-sm">
               <thead className="bg-[#152342FF] sticky top-0 z-10">
@@ -677,7 +810,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                 </tr>
               </thead>
               <tbody>
-                {data.map((row, i) => (
+                {filteredData.map((row, i) => (
                   <tr key={i}>
                     {keys.map((k, j) => {
                       const value = Number(row[k]);
