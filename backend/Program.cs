@@ -126,6 +126,20 @@ namespace minutechart
 
             var app = builder.Build();
 
+            // Ensure required roles exist before creating users
+            using (var scope = app.Services.CreateScope())
+            {
+                var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+                var roles = new[] { "SuperAdmin", "Admin", "User" };
+
+                foreach (var role in roles)
+                {
+                    if (!await roleManager.RoleExistsAsync(role))
+                        await roleManager.CreateAsync(new IdentityRole(role));
+                }
+            }
+
+
             try
             {
                 using (var tcpClient = new TcpClient())
@@ -139,65 +153,6 @@ namespace minutechart
             {
                 Console.WriteLine("❌ Port 1433 unreachable from Render backend: " + ex.Message);
             }
-
-            // using (var scope = app.Services.CreateScope())
-            // {
-            //     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
-            //     var roles = new[] { "Admin", "User" };
-
-            //     foreach (var role in roles)
-            //     {
-            //         if (!await roleManager.RoleExistsAsync(role))
-            //             await roleManager.CreateAsync(new IdentityRole(role));
-            //     }
-            // }
-
-            // using (var scope = app.Services.CreateScope())
-            // {
-            //     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-
-            //     string email = "admin@gmail.com";
-            //     string password = "Admin@123";
-            //     if (await userManager.FindByEmailAsync(email) == null)
-            //     {
-            //         var user = new AppUser();
-            //         user.AdminName = "Test Admin";
-            //         // user.CompanyName = "Admin";
-            //         user.UserName = email;
-            //         user.Email = email;
-            //         user.EmailConfirmed = true;
-            //         user.AccountStatus = "Active";
-
-            //         await userManager.CreateAsync(user, password);
-
-            //         await userManager.AddToRoleAsync(user, "Admin");
-            //     }
-            // }
-
-            // using (var scope = app.Services.CreateScope())
-            // {
-            //     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-
-            //     string email = "abhi@gmail.com";
-            //     string password = "Abhi@123";
-            //     if (await userManager.FindByEmailAsync(email) == null)
-            //     {
-            //         var user = new AppUser();
-            //         user.AdminName = "Abhi Kathiriya";
-            //         // user.CompanyName = "Admin";
-            //         user.UserName = email;
-            //         user.Email = email;
-            //         user.EmailConfirmed = true;
-            //         user.AccountStatus = "Active";
-
-            //         await userManager.CreateAsync(user, password);
-
-            //         await userManager.AddToRoleAsync(user, "Admin");
-            //     }
-            // }
 
             // Reusable method to create roles and users
             async Task CreateUserIfNotExists(IServiceProvider services, string email, string password, string adminName, string role)
@@ -231,8 +186,9 @@ namespace minutechart
 
             // Now create your users below
             await CreateUserIfNotExists(app.Services, "admin@gmail.com", "Admin@123", "Test Admin", "Admin");
-            await CreateUserIfNotExists(app.Services, "abhi@gmail.com", "Abhi Kathiriya", "Abhi Kathiriya", "Admin");
+            await CreateUserIfNotExists(app.Services, "abhi@gmail.com", "Admin@123", "Abhi Kathiriya", "Admin");
             await CreateUserIfNotExists(app.Services, "admin2@gmail.com", "Admin@123", "Test Admin 2", "Admin");
+            await CreateUserIfNotExists(app.Services, "superadmin@ngraph.com", "Super@123", "NGraph HQ", "SuperAdmin");
 
 
             if (app.Environment.IsDevelopment() || app.Environment.IsProduction())

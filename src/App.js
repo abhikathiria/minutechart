@@ -267,6 +267,7 @@ import ComplaintsManagement from "./pages/ComplaintsManagement";
 import ModuleSuggestionsHistory from "./pages/ModuleSuggestionsHistory"
 import ActivityLogs from "./pages/ActivityLogs";
 import { Toaster } from "react-hot-toast";
+import SuperAdminUserList from "./pages/SuperAdminUserList";
 
 function Footer() {
     const [user, setUser] = useState(null);
@@ -293,7 +294,10 @@ function Footer() {
 
     // Determine links based on user role (Memoized for efficiency)
     const getQuickLinks = (user) => {
-        const isAdmin = user?.roles?.includes("Admin");
+        const roles = user?.roles || [];
+        const isSuperAdmin = roles.includes("SuperAdmin");
+        const isAdmin = roles.includes("Admin");
+
         const baseLinks = [
             { to: "/", label: "Home", icon: FaHome },
             { to: "/dashboard", label: "Dashboard", icon: FaChartArea },
@@ -392,7 +396,6 @@ function Footer() {
 }
 
 function AppContent() {
-    // ... (Your existing AppContent logic) ...
     const [dashboardOpen, setDashboardOpen] = useState(false);
     const [user, setUser] = useState(null);
     const [companies, setCompanies] = useState([]);
@@ -406,10 +409,30 @@ function AppContent() {
       return children;
     };
 
+    // SuperAdminRoute: Only accessible by SuperAdmins
+    const SuperAdminRoute = ({ children }) => {
+      if (!user) return <Navigate to="/login" replace />;
+      if (!user.roles?.includes("SuperAdmin")) return <Navigate to="/" replace />;
+      return children;
+    };
+    
+    // AdminRoute: Accessible by both SuperAdmins and Admins (Union logic)
     const AdminRoute = ({ children }) => {
       if (!user) return <Navigate to="/login" replace />;
-      if (!user.roles?.includes("Admin")) return <Navigate to="/" replace />;
+      const isSuperAdmin = user.roles?.includes("SuperAdmin");
+      const isAdmin = user.roles?.includes("Admin");
+      
+      // If the user is neither SuperAdmin nor Admin, redirect them.
+      if (!isSuperAdmin && !isAdmin) return <Navigate to="/" replace />;
+      
       return children;
+    };
+
+    // AdminRestrictedRoute: Accessible by SuperAdmins only (for the routes you removed from standard Admin)
+    const AdminRestrictedRoute = ({ children }) => {
+        if (!user) return <Navigate to="/login" replace />;
+        if (!user.roles?.includes("SuperAdmin")) return <Navigate to="/" replace />;
+        return children;
     };
 
     useEffect(() => {
@@ -419,7 +442,8 @@ function AppContent() {
     }, []);
 
     useEffect(() => {
-      if (user?.roles?.includes("Admin")) {
+      // Check for SuperAdmin OR Admin when deciding whether to fetch user list
+      if (user?.roles?.includes("SuperAdmin") || user?.roles?.includes("Admin")) {
         api.get("/admin/users")
           .then((response) => setCompanies(response.data))
           .catch(() => setCompanies([]));
@@ -449,17 +473,19 @@ function AppContent() {
           <Route path="/subscription/buy" element={<PublicRoute><SubscriptionPage /></PublicRoute>} />
           <Route path="/information" element={<PublicRoute><Information /></PublicRoute>} />
 
-          {/* Admin routes */}
+          {/* Admin and SuperAdmin routes (Accessible by both roles) */}
           <Route path="/profile/:id" element={<AdminRoute><Profile /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><UserList /></AdminRoute>} />
-          <Route path="/admin/admindashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/user/:id/modules" element={<AdminRoute><UserModules /></AdminRoute>} />
           <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
-          <Route path="/admin/emailsettings" element={<AdminRoute><EmailSettings /></AdminRoute>} />
-          <Route path="/admin/invoicesettings" element={<AdminRoute><InvoiceSettingsPage /></AdminRoute>} />
           <Route path="/admin/complaintsmanagement" element={<AdminRoute><ComplaintsManagement /></AdminRoute>} />
-          <Route path="/admin/activitylogs" element={<AdminRoute><ActivityLogs /></AdminRoute>} />
-
+          
+          {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
+          <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList /></AdminRestrictedRoute>} />
+          <Route path="/admin/admindashboard" element={<AdminRestrictedRoute><AdminDashboard /></AdminRestrictedRoute>} />
+          <Route path="/admin/emailsettings" element={<AdminRestrictedRoute><EmailSettings /></AdminRestrictedRoute>} />
+          <Route path="/admin/invoicesettings" element={<AdminRestrictedRoute><InvoiceSettingsPage /></AdminRestrictedRoute>} />
+          <Route path="/admin/activitylogs" element={<AdminRestrictedRoute><ActivityLogs /></AdminRestrictedRoute>} />
           {/* Private routes (logged-in users) */}
           <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
           <Route path="/purchase-history" element={<PrivateRoute><PurchaseHistory /></PrivateRoute>} />

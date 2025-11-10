@@ -1,17 +1,16 @@
-// src/pages/UserList.jsx
+// src/pages/SuperAdminUserList.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import api from "../api";
-import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSortUp, FaSortDown, FaBars, FaTimes, FaSort, FaFileExport } from "react-icons/fa";
+import { FaSearch, FaUserTag, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSortUp, FaSortDown, FaBars, FaTimes, FaSort, FaFileExport, FaUserShield, FaUserCircle, FaHandHoldingUsd, FaArrowRight } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { toast } from 'react-hot-toast'; // Assuming you have react-hot-toast
 
-// --- Custom Components ---
-
-// Helper function to capitalize string (for table headers)
+// --- Custom Components (Reused) ---
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/([A-Z])/g, ' $1');
 
-// Status Badge Helper
+// Status Badge Helper (Keep existing logic)
 const StatusBadge = ({ status, isSubscription = false }) => {
     const colors = {
         Active: "bg-green-100 text-green-700 border-green-200",
@@ -32,7 +31,7 @@ const StatusBadge = ({ status, isSubscription = false }) => {
     );
 };
 
-// Subscription Tooltip/Badge Renderer
+// Subscription Tooltip/Badge Renderer (Keep existing logic)
 const SubscriptionDetails = ({ user }) => {
     const status = user.subscriptionStatus || "None";
     const isTrial = status === "Trial" || user.trialDaysLeft > 0;
@@ -78,63 +77,125 @@ const SubscriptionDetails = ({ user }) => {
 };
 
 
-function UserList() {
+// --- New Helper Components for SuperAdmin View ---
+
+const RoleBadge = ({ role }) => {
+    const isUser = role === "User";
+    const colors = {
+        User: "bg-blue-100 text-blue-700 border-blue-200",
+        Admin: "bg-red-100 text-red-700 border-red-200",
+    };
+    return (
+        <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold border ${colors[role] || colors.User}`}
+        >
+            {isUser ? <FaUserCircle className="inline mr-1" /> : <FaUserShield className="inline mr-1" />}
+            {role}
+        </span>
+    );
+};
+
+// --- Main SuperAdminUserList Component ---
+
+function SuperAdminUserList() {
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const location = useLocation();
     const [sortBy, setSortBy] = useState("createdAt");
     const [sortOrder, setSortOrder] = useState("desc");
     const [loading, setLoading] = useState(true);
 
-    // --- Filter State Logic (Kept Intact) ---
+    // Admin list state for assignment dropdown
+    const [availableAdmins, setAvailableAdmins] = useState([]);
+    const [selectedAdminId, setSelectedAdminId] = useState("");
 
+    // State for role management actions
+    const [showRoleManagement, setShowRoleManagement] = useState(false);
+    const [promotionTargetId, setPromotionTargetId] = useState(null);
+    const [assignmentTargetId, setAssignmentTargetId] = useState(null);
+
+
+    // Filter state (Ported over from UserList)
+    const location = useLocation();
     const [accountStatusFilter, setAccountStatusFilter] = useState(() => {
         if (location.state?.keepFilters) {
-            return localStorage.getItem("accountStatusFilter") || "Pending";
+            return localStorage.getItem("saAccountStatusFilter") || "All";
         } else {
-            localStorage.removeItem("accountStatusFilter");
-            return "Pending";
-        }
-    });
-    useEffect(() => {
-        localStorage.setItem("accountStatusFilter", accountStatusFilter);
-    }, [accountStatusFilter]);
-
-    const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState(() => {
-        if (location.state?.keepFilters) {
-            return localStorage.getItem("subscriptionStatusFilter") || "All";
-        } else {
-            localStorage.removeItem("subscriptionStatusFilter");
+            localStorage.removeItem("saAccountStatusFilter");
             return "All";
         }
     });
     useEffect(() => {
-        localStorage.setItem("subscriptionStatusFilter", subscriptionStatusFilter);
+        localStorage.setItem("saAccountStatusFilter", accountStatusFilter);
+    }, [accountStatusFilter]);
+
+    const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState(() => {
+        if (location.state?.keepFilters) {
+            return localStorage.getItem("saSubscriptionStatusFilter") || "All";
+        } else {
+            localStorage.removeItem("saSubscriptionStatusFilter");
+            return "All";
+        }
+    });
+    useEffect(() => {
+        localStorage.setItem("saSubscriptionStatusFilter", subscriptionStatusFilter);
     }, [subscriptionStatusFilter]);
 
-    // --- Modal/View State ---
+
     const [selectedUser, setSelectedUser] = useState(null);
     const [purchases, setPurchases] = useState([]);
     const [showPurchases, setShowPurchases] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const usersPerPage = 10;
-    const [expandedRows, setExpandedRows] = useState({}); // State for mobile card expansion
+    const [expandedRows, setExpandedRows] = useState({});
 
     // --- Core Data Fetch ---
-
     useEffect(() => {
         setLoading(true);
-        api
-            .get("/admin/users")
-            .then((res) => setUsers(res.data))
+        // 1. Fetch SuperAdmin's aggregated user list
+        api.get("/superadmin/userlist") // 👈 New Endpoint
+            .then((res) => {
+                setUsers(res.data);
+                // Filter the list to find available Admins (for the assignment dropdown)
+                const admins = res.data.filter(u => u.UserRole === "Admin");
+                setAvailableAdmins(admins);
+            })
             .catch((err) => {
-                console.error("Error fetching users:", err);
+                console.error("Error fetching SuperAdmin list:", err);
+                toast.error("Failed to load user list.");
                 setUsers([]);
             })
             .finally(() => setLoading(false));
     }, []);
 
-    // --- Action Handlers (Kept Intact) ---
+    // --- SuperAdmin Action Handlers ---
+
+    const handlePromoteToAdmin = (userId) => {
+        if (!window.confirm("CONFIRM: Are you sure you want to promote this User to Admin?")) return;
+        api.post(`/superadmin/promote-to-admin/${userId}`)
+            .then(() => {
+                toast.success("User promoted to Admin! List data may need refresh.");
+                // Optimistic UI update: Change role locally
+                setUsers(prev => prev.map(u => u.Id === userId ? { ...u, UserRole: 'Admin' } : u));
+            })
+            .catch(err => toast.error("Promotion failed."));
+    };
+
+    const handleAssignAdmin = (userId) => {
+        if (!selectedAdminId) {
+            toast.error("Please select an Admin to assign.");
+            return;
+        }
+        if (!window.confirm(`CONFIRM: Assign user ${userId} to Admin ID: ${selectedAdminId}?`)) return;
+        
+        api.post(`/superadmin/assign-user/${userId}/to-admin/${selectedAdminId}`)
+            .then(() => {
+                toast.success("User successfully assigned.");
+                // Update local state with new AssignedAdminId
+                setUsers(prev => prev.map(u => u.Id === userId ? { ...u, AssignedAdminId: selectedAdminId } : u));
+                setSelectedAdminId(""); // Reset dropdown
+            })
+            .catch(err => toast.error("Assignment failed."));
+    };
 
     const handleDeactivate = (id) => {
         api.post(`/admin/user/${id}/deactivate`).then(() => {
@@ -155,9 +216,8 @@ function UserList() {
             );
         });
     };
-
+    
     const handleShowPurchases = (id) => {
-        // Set loading/purchases state before API call (omitted for brevity but recommended in production)
         api.get(`/admin/user/${id}/purchases`)
             .then((res) => {
                 setPurchases(res.data);
@@ -168,15 +228,12 @@ function UserList() {
                 console.error("Error fetching purchases:", err);
                 setPurchases([]);
                 setSelectedUser(id);
-                setShowPurchases(true); // Still show modal even on error
+                setShowPurchases(true);
             });
     };
 
     const handleExportTable = () => {
-        const table = document.querySelector("table");
-        if (!table) return;
-
-        // Simplified data extraction focusing on key fields for export, robustifying the export logic
+        // ... (Export logic remains the same) ...
         const dataToExport = filteredUsers.map(user => ({
             "Company Name": user.companyName,
             "Customer Name": user.customerName,
@@ -184,28 +241,23 @@ function UserList() {
             "Phone Number": user.phoneNumber,
             "Account Status": user.accountStatus,
             "Subscription Status": user.subscriptionStatus,
-            "Trial Days Left": user.trialDaysLeft,
+            "Role": user.UserRole, // Include Role
+            "Assigned Admin": user.AssignedAdminId || "None",
             "Subscription Plan": user.subscriptionPlan || "N/A",
-            "Subscription Start": user.subscriptionStartDate ? new Date(user.subscriptionStartDate).toLocaleDateString("en-GB") : "N/A",
-            "Subscription End": user.subscriptionEndDate ? new Date(user.subscriptionEndDate).toLocaleDateString("en-GB") : "N/A",
         }));
-
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Users");
+        XLSX.utils.book_append_sheet(wb, ws, "SuperAdminUsers");
         const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         const blob = new Blob([wbout], { type: "application/octet-stream" });
-        saveAs(blob, "users.xlsx");
+        saveAs(blob, "superadmin_users.xlsx");
     };
-
 
     // --- Filtering, Sorting, and Pagination ---
     const filteredUsers = users
         .filter((user) => {
-            // 🛡️ CRITICAL FIX: Ensure 'user' object is not null/undefined
             if (!user) return false;
 
-            // 🛡️ Safe property access using optional chaining (?.) and nullish coalescing (??)
             const matchesSearch =
                 (user.companyName?.toLowerCase() ?? "").includes(searchTerm.toLowerCase()) ||
                 (user.customerName?.toLowerCase() ?? "").includes(searchTerm.toLowerCase()) ||
@@ -222,8 +274,7 @@ function UserList() {
         .sort((a, b) => {
             const aVal = a[sortBy];
             const bVal = b[sortBy];
-
-            // Handle nulls/undefined for robust sorting
+            
             const valA = aVal === undefined || aVal === null ? (sortOrder === "asc" ? "" : "zzz") : String(aVal).toLowerCase();
             const valB = bVal === undefined || bVal === null ? (sortOrder === "asc" ? "" : "zzz") : String(bVal).toLowerCase();
 
@@ -249,7 +300,7 @@ function UserList() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <p className="text-xl text-indigo-600 font-semibold">Loading Users...</p>
+                <p className="text-xl text-red-600 font-semibold">Loading Super Admin List...</p>
             </div>
         );
     }
@@ -259,9 +310,10 @@ function UserList() {
             <div className="max-w-7xl mx-auto bg-white shadow-2xl rounded-2xl border border-gray-200 overflow-hidden">
 
                 {/* Header and Filters Section */}
-                <header className="bg-gradient-to-r from-indigo-700 to-blue-600 p-6 flex flex-col gap-4">
-                    <h2 className="text-3xl font-extrabold text-white">Admin User Management</h2>
-
+                <header className="bg-gradient-to-r from-red-700 to-red-500 p-6 flex flex-col gap-4">
+                    <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
+                        <FaUserShield className="w-8 h-8" /> Super Admin Management Hub
+                    </h2>
                     {/* Search Bar */}
                     <div className="relative">
                         <FaSearch className="absolute left-4 top-3 text-white/70 w-4 h-4" />
@@ -323,7 +375,7 @@ function UserList() {
                 {/* Data Display Content */}
                 <div className="p-4 sm:p-6">
                     <p className="text-lg font-bold text-gray-800 mb-4">
-                        Showing {currentUsers.length} of {filteredUsers.length} total filtered users.
+                        Showing {currentUsers.length} of {filteredUsers.length} total filtered users/admins.
                     </p>
 
                     {/* Table View (Desktop/Tablet) */}
@@ -332,34 +384,26 @@ function UserList() {
                             <thead className="bg-gray-50">
                                 <tr className="text-left text-xs text-gray-600 uppercase tracking-wider">
                                     <th className="p-4 w-10">#</th>
+                                    <th className="p-4 text-center">Role</th>
                                     {["companyName", "customerName", "phoneNumber", "email"].map((col) => (
-                                        <th
-                                            key={col}
-                                            className="p-4 cursor-pointer whitespace-nowrap"
-                                            onClick={() => {
-                                                setSortBy(col);
-                                                setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                {capitalize(col)}
-                                                {sortBy === col ? (
-                                                    sortOrder === "asc" ? <FaSortUp className="text-indigo-600" /> : <FaSortDown className="text-indigo-600" />
-                                                ) : (
-                                                    <FaSort className="text-gray-400 text-xs" />
-                                                )}
-                                            </div>
+                                        <th key={col} className="p-4 cursor-pointer whitespace-nowrap" onClick={() => { setSortBy(col); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                                            <div className="flex items-center gap-1">{capitalize(col)} {sortBy === col ? (sortOrder === "asc" ? <FaSortUp className="text-red-600" /> : <FaSortDown className="text-red-600" />) : (<FaSort className="text-gray-400 text-xs" />)}</div>
                                         </th>
                                     ))}
                                     <th className="p-4 text-center">Account Status</th>
                                     <th className="p-4 text-center">Subscription Status</th>
-                                    <th className="p-4 text-center w-32">Actions</th>
+                                    <th className="p-4 text-center w-40">SuperAdmin Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {currentUsers.map((user, index) => (
-                                    <tr key={user.id} className="hover:bg-indigo-50 transition">
+                                    <tr key={user.id} className="hover:bg-red-50 transition">
                                         <td className="p-4 font-medium text-center">{indexOfFirstUser + index + 1}</td>
+
+                                        <td className="p-4 text-center">
+                                            <RoleBadge role={user.UserRole} />
+                                        </td>
+
                                         <td className="p-4 font-semibold text-gray-900">{user.companyName}</td>
                                         <td className="p-4 text-gray-700">{user.customerName}</td>
                                         <td className="p-4 text-gray-700">{user.phoneNumber}</td>
@@ -371,58 +415,59 @@ function UserList() {
                                             <SubscriptionDetails user={user} />
                                         </td>
                                         <td className="p-4">
-                                            <div className="flex flex-wrap gap-2 justify-center">
-                                                {/* DB Profile Link */}
-                                                <Link
-                                                    to={`/profile/${user.id}`}
-                                                    state={{ keepFilters: true }}
-                                                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                                                    title="Set Database Profile (D)"
-                                                >
-                                                    <FaDatabase className="w-4 h-4" />
-                                                </Link>
-
-                                                {/* Queries Link */}
-                                                {user.accountStatus === "Active" && (
-                                                    <Link
-                                                        to={`/user/${user.id}/modules`}
-                                                        state={{ keepFilters: true }}
-                                                        className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                                                        title="Set Queries/Modules (Q)"
-                                                    >
-                                                        <FaChartPie className="w-4 h-4" />
-                                                    </Link>
-                                                )}
-
-                                                {/* Purchases Button */}
-                                                {user.accountStatus === "Active" && (
+                                            <div className="flex flex-col gap-1 items-center">
+                                                {/* SuperAdmin Action 1: Promote to Admin (Only for Users) */}
+                                                {user.UserRole === "User" && (
                                                     <button
-                                                        onClick={() => handleShowPurchases(user.id)}
-                                                        className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
-                                                        title="View Purchases (P)"
+                                                        onClick={() => handlePromoteToAdmin(user.Id)}
+                                                        className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1"
+                                                        title="Promote to Admin"
                                                     >
-                                                        <FaReceipt className="w-4 h-4" />
+                                                        <FaUserShield /> Promote
                                                     </button>
                                                 )}
 
-                                                {/* De/Reactivate Button */}
+                                                {/* SuperAdmin Action 2: Assign Admin (Only for Users) */}
+                                                {user.UserRole === "User" && availableAdmins.length > 0 && (
+                                                    <div className="flex items-center gap-1 w-full">
+                                                        <select
+                                                            className="flex-grow py-1 px-2 border border-gray-300 rounded-lg text-xs"
+                                                            onChange={(e) => setSelectedAdminId(e.target.value)}
+                                                            value={user.AssignedAdminId || selectedAdminId || ""}
+                                                        >
+                                                            <option value="">{user.AssignedAdminId ? 'Re-assign' : 'Select Admin'}</option>
+                                                            {availableAdmins.map(admin => (
+                                                                <option key={admin.Id} value={admin.Id}>
+                                                                    {admin.CompanyName || admin.CustomerName}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            onClick={() => handleAssignAdmin(user.Id)}
+                                                            className="p-1 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
+                                                            title="Confirm Assignment"
+                                                        >
+                                                            <FaArrowRight className="w-3 h-3"/>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* General Actions (DB Setup, Queries) */}
+                                                <Link to={`/profile/${user.Id}`} className="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 mt-1">
+                                                    <FaDatabase /> DB Setup
+                                                </Link>
+                                                
+                                                {/* Status Toggles (Retained from previous list, though SuperAdmin might use dedicated endpoints) */}
                                                 {user.accountStatus === "Active" ? (
-                                                    <button
-                                                        onClick={() => handleDeactivate(user.id)}
-                                                        className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                                                        title="Deactivate Account (A)"
-                                                    >
-                                                        <FaLock className="w-4 h-4" />
+                                                    <button onClick={() => handleDeactivate(user.Id)} className="p-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1">
+                                                        <FaLock /> Deactivate
                                                     </button>
                                                 ) : (user.accountStatus === "Blocked" && (
-                                                    <button
-                                                        onClick={() => handleReactivate(user.id)}
-                                                        className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                                                        title="Reactivate Account (A)"
-                                                    >
-                                                        <FaUnlock className="w-4 h-4" />
+                                                    <button onClick={() => handleReactivate(user.Id)} className="p-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs font-medium w-full flex items-center justify-center gap-1">
+                                                        <FaUnlock /> Reactivate
                                                     </button>
                                                 ))}
+                                                
                                             </div>
                                         </td>
                                     </tr>
@@ -454,11 +499,11 @@ function UserList() {
                                         <p className="text-sm text-gray-600">{user.customerName}</p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <StatusBadge status={user.accountStatus} />
+                                        <RoleBadge role={user.UserRole} /> {/* 👈 Role Badge for Mobile */}
                                         {expandedRows[user.id] ? (
                                             <FaTimes className="text-red-500 w-5 h-5" />
                                         ) : (
-                                            <FaBars className="text-indigo-500 w-5 h-5" />
+                                            <FaBars className="text-red-500 w-5 h-5" />
                                         )}
                                     </div>
                                 </div>
@@ -484,52 +529,61 @@ function UserList() {
                                                 </span>
                                             </div>
                                         )}
+                                        
+                                        {/* Mobile Action Buttons Group */}
+                                        <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
+                                             {/* SuperAdmin Action 1: Promote to Admin (Only for Users) */}
+                                            {user.UserRole === "User" && (
+                                                <button
+                                                    onClick={() => handlePromoteToAdmin(user.Id)}
+                                                    className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1"
+                                                    title="Promote to Admin"
+                                                >
+                                                    <FaUserShield /> Promote to Admin
+                                                </button>
+                                            )}
 
-                                        {/* Action Buttons Group */}
-                                        <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-2 justify-center">
-                                            {/* DB, Queries, Purchases */}
-                                            <Link
-                                                to={`/profile/${user.id}`}
-                                                state={{ keepFilters: true }}
-                                                className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded-full hover:bg-indigo-700 text-sm"
-                                                title="Set Database"
-                                            >
+                                            {/* SuperAdmin Action 2: Assign Admin (Only for Users) */}
+                                            {user.UserRole === "User" && availableAdmins.length > 0 && (
+                                                <div className="flex gap-1">
+                                                    <select
+                                                        className="flex-grow py-1 px-2 border border-gray-300 rounded-lg text-xs"
+                                                        onChange={(e) => setSelectedAdminId(e.target.value)}
+                                                        value={user.AssignedAdminId || selectedAdminId || ""}
+                                                    >
+                                                        <option value="">{user.AssignedAdminId ? 'Re-assign Admin' : 'Select Admin'}</option>
+                                                        {availableAdmins.map(admin => (
+                                                            <option key={admin.Id} value={admin.Id}>
+                                                                {admin.CompanyName || admin.CustomerName}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        onClick={() => handleAssignAdmin(user.Id)}
+                                                        className="p-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
+                                                        title="Confirm Assignment"
+                                                    >
+                                                        <FaArrowRight className="w-4 h-4"/>
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* General Actions */}
+                                            <Link to={`/profile/${user.Id}`} className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 mt-1">
                                                 <FaDatabase /> DB Setup
                                             </Link>
-                                            <Link
-                                                to={`/user/${user.id}/modules`}
-                                                state={{ keepFilters: true }}
-                                                className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-full hover:bg-purple-700 text-sm"
-                                                title="Set Queries"
-                                            >
-                                                <FaChartPie /> Queries
-                                            </Link>
-                                            <button
-                                                onClick={() => handleShowPurchases(user.id)}
-                                                className="flex items-center gap-1 bg-yellow-600 text-white px-3 py-1.5 rounded-full hover:bg-yellow-700 text-sm"
-                                                title="View Purchases"
-                                            >
-                                                <FaReceipt /> Purchases
-                                            </button>
 
-                                            {/* Activate/Deactivate */}
+                                            {/* Status Toggles */}
                                             {user.accountStatus === "Active" ? (
-                                                <button
-                                                    onClick={() => handleDeactivate(user.id)}
-                                                    className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded-full hover:bg-red-700 text-sm"
-                                                    title="Deactivate Account"
-                                                >
+                                                <button onClick={() => handleDeactivate(user.Id)} className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1">
                                                     <FaLock /> Deactivate
                                                 </button>
                                             ) : (user.accountStatus === "Blocked" && (
-                                                <button
-                                                    onClick={() => handleReactivate(user.id)}
-                                                    className="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-full hover:bg-green-700 text-sm"
-                                                    title="Reactivate Account"
-                                                >
+                                                <button onClick={() => handleReactivate(user.Id)} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs font-medium w-full flex items-center justify-center gap-1">
                                                     <FaUnlock /> Reactivate
                                                 </button>
                                             ))}
+
                                         </div>
                                     </div>
                                 )}
@@ -542,7 +596,7 @@ function UserList() {
                         )}
                     </div>
 
-                    {/* Pagination Controls */}
+                    {/* Pagination Controls (Keep existing logic) */}
                     {totalPages > 1 && (
                         <div className="flex justify-center items-center mt-6 gap-3">
                             <button
@@ -565,62 +619,61 @@ function UserList() {
                         </div>
                     )}
                 </div>
-            </div >
-
-            {/* Purchases Modal (Redesigned for Clarity) */}
-            {showPurchases && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-full lg:max-w-4xl w-full max-h-[90vh] overflow-y-auto border-t-4 border-yellow-500">
-                        <h3 className="text-2xl font-bold mb-4 text-gray-800">
-                            Purchases for User ID: {selectedUser}
-                        </h3>
-                        {purchases.length > 0 ? (
-                            <div className="overflow-x-auto border rounded-lg">
-                                <table className="min-w-full text-sm divide-y divide-gray-200">
-                                    <thead className="bg-gray-50 whitespace-nowrap">
-                                        <tr>
-                                            <th className="p-3 text-left">Invoice #</th>
-                                            <th className="p-3 text-left">Plan Name</th>
-                                            <th className="p-3 text-center">Price (₹)</th>
-                                            <th className="p-3 text-center">Status</th>
-                                            <th className="p-3 text-center">Start Date</th>
-                                            <th className="p-3 text-center">End Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {purchases.map((p, i) => (
-                                            <tr key={i} className="hover:bg-yellow-50">
-                                                <td className="p-3 font-mono">{p.invoiceNumber}</td>
-                                                <td className="p-3 font-medium">{p.planName}</td>
-                                                <td className="p-3 text-center font-semibold text-green-700">₹{p.price}</td>
-                                                <td className="p-3 text-center">
-                                                    <StatusBadge status={p.status} isSubscription />
-                                                </td>
-                                                <td className="p-3 text-center">{new Date(p.startDate).toLocaleDateString("en-GB")}</td>
-                                                <td className="p-3 text-center">{new Date(p.endDate).toLocaleDateString("en-GB")}</td>
+                {/* ... (Purchases Modal - Keep existing logic) ... */}
+                {showPurchases && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-full lg:max-w-4xl w-full max-h-[90vh] overflow-y-auto border-t-4 border-yellow-500">
+                            <h3 className="text-2xl font-bold mb-4 text-gray-800">
+                                Purchases for User ID: {selectedUser}
+                            </h3>
+                            {purchases.length > 0 ? (
+                                <div className="overflow-x-auto border rounded-lg">
+                                    <table className="min-w-full text-sm divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 whitespace-nowrap">
+                                            <tr>
+                                                <th className="p-3 text-left">Invoice #</th>
+                                                <th className="p-3 text-left">Plan Name</th>
+                                                <th className="p-3 text-center">Price (₹)</th>
+                                                <th className="p-3 text-center">Status</th>
+                                                <th className="p-3 text-center">Start Date</th>
+                                                <th className="p-3 text-center">End Date</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {purchases.map((p, i) => (
+                                                <tr key={i} className="hover:bg-yellow-50">
+                                                    <td className="p-3 font-mono">{p.invoiceNumber}</td>
+                                                    <td className="p-3 font-medium">{p.planName}</td>
+                                                    <td className="p-3 text-center font-semibold text-green-700">₹{p.price}</td>
+                                                    <td className="p-3 text-center">
+                                                        <StatusBadge status={p.status} isSubscription />
+                                                    </td>
+                                                    <td className="p-3 text-center">{new Date(p.startDate).toLocaleDateString("en-GB")}</td>
+                                                    <td className="p-3 text-center">{new Date(p.endDate).toLocaleDateString("en-GB")}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500 p-6 border rounded-lg bg-gray-50">
+                                    No purchase history found for this user.
+                                </p>
+                            )}
+                            <div className="flex justify-end mt-6">
+                                <button
+                                    onClick={() => setShowPurchases(false)}
+                                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium shadow-md"
+                                >
+                                    Close
+                                </button>
                             </div>
-                        ) : (
-                            <p className="text-center text-gray-500 p-6 border rounded-lg bg-gray-50">
-                                No purchase history found for this user.
-                            </p>
-                        )}
-                        <div className="flex justify-end mt-6">
-                            <button
-                                onClick={() => setShowPurchases(false)}
-                                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium shadow-md"
-                            >
-                                Close
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div >
+                )}
+            </div >
+        </div>
     );
 }
 
-export default UserList;
+export default SuperAdminUserList;

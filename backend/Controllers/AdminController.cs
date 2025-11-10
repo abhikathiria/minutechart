@@ -429,56 +429,91 @@ namespace minutechart.Controllers
         // ------------------ OTHER ENDPOINTS (No log needed for read-only/DTO helper) ------------------
 
         [HttpGet("users")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
         public async Task<IActionResult> GetUsers()
         {
-            // LOG: Admin accessed the user list (logged in previous AdminController full update, retained here for context)
-            await _activityLogger.LogAsync("viewed the full list of", "Users", "all");
-            // ... (rest of logic remains) ...
-            var users = await _db.Users
-                .Include(u => u.UserProfile)
-                .ToListAsync();
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentRoles = await _userManager.GetRolesAsync(currentUser);
 
-            var nonAdminUsers = new List<object>();
+            // Determine the current user's specific roles for logic branching
+            bool isSuperAdmin = currentRoles.Contains("SuperAdmin");
+            bool isStandardAdmin = currentRoles.Contains("Admin") && !isSuperAdmin;
+
+            await _activityLogger.LogAsync("viewed the list of", "Users", isSuperAdmin ? "all" : "filtered by assignment");
+
+            IQueryable<AppUser> query = _db.Users.Include(u => u.UserProfile);
+
+            // 🧠 SuperAdmin sees all, Standard Admin sees only assigned users
+            if (isStandardAdmin) // Only apply filter if the user is *only* a standard Admin
+            {
+                query = query.Where(u => u.AssignedAdminId == currentUser.Id);
+            }
+            // If SuperAdmin, no WHERE clause is added here, so the query defaults to all users.
+
+            var users = await query.ToListAsync();
+            var userList = new List<object>();
 
             foreach (var user in users)
             {
-                var roles = await _userManager.GetRolesAsync(user);
-                if (!roles.Contains("Admin") && user.EmailConfirmed)
+                var userRoles = await _userManager.GetRolesAsync(user);
+
+                // Skip users with the 'SuperAdmin' role.
+                if (userRoles.Contains("SuperAdmin"))
                 {
-                    int trialDaysLeft = 0;
-                    if (user.IsTrialActive && user.TrialEndDate.HasValue)
-                    {
-                        trialDaysLeft = (user.TrialEndDate.Value - DateTimeHelper.GetIndianTime()).Days;
-                        if (trialDaysLeft < 0) trialDaysLeft = 0;
-                    }
-
-                    string subscriptionStatus = "None";
-                    if (user.IsTrialActive) subscriptionStatus = "Trial";
-                    else if (user.IsPaidSubscriptionActive) subscriptionStatus = "Active";
-                    else if (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate < DateTimeHelper.GetIndianTime())
-                        subscriptionStatus = "Expired";
-
-                    nonAdminUsers.Add(new
-                    {
-                        user.Id,
-                        user.Email,
-                        user.CompanyName,
-                        user.CustomerName,
-                        user.PhoneNumber,
-                        user.AccountStatus,
-                        ProfileConfigured = user.UserProfile != null,
-                        SubscriptionStatus = subscriptionStatus,
-                        TrialDaysLeft = trialDaysLeft,
-                        TrialStartDate = user.TrialStartDate,
-                        TrialEndDate = user.TrialEndDate,
-                        SubscriptionStartDate = user.SubscriptionStartDate,
-                        SubscriptionEndDate = user.SubscriptionEndDate
-                    });
+                    continue;
                 }
+
+                // Skip any user that is NOT confirmed
+                if (!user.EmailConfirmed)
+                {
+                    continue;
+                }
+
+                bool isUserAdmin = userRoles.Contains("Admin");
+
+                // 🛑 EXCLUSION LOGIC for Standard Admin View:
+                // If the current viewer is a Standard Admin, they CANNOT see other Admins.
+                if (isStandardAdmin && isUserAdmin)
+                {
+                    continue; // Skip this user because a Standard Admin shouldn't see them.
+                }
+
+                // --- Safe Projection ---
+                int trialDaysLeft = 0;
+                if (user.IsTrialActive && user.TrialEndDate.HasValue)
+                {
+                    trialDaysLeft = (user.TrialEndDate.Value - DateTimeHelper.GetIndianTime()).Days;
+                    if (trialDaysLeft < 0) trialDaysLeft = 0;
+                }
+
+                string subscriptionStatus = "None";
+                if (user.IsTrialActive) subscriptionStatus = "Trial";
+                else if (user.IsPaidSubscriptionActive) subscriptionStatus = "Active";
+                else if (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate < DateTimeHelper.GetIndianTime())
+                    subscriptionStatus = "Expired";
+
+                userList.Add(new
+                {
+                    user.Id,
+                    user.Email,
+                    user.CompanyName,
+                    user.CustomerName,
+                    user.PhoneNumber,
+                    user.AccountStatus,
+                    ProfileConfigured = user.UserProfile != null,
+                    SubscriptionStatus = subscriptionStatus,
+                    TrialDaysLeft = trialDaysLeft,
+                    TrialStartDate = user.TrialStartDate,
+                    TrialEndDate = user.TrialEndDate,
+                    SubscriptionStartDate = user.SubscriptionStartDate,
+                    SubscriptionEndDate = user.SubscriptionEndDate,
+                    AssignedAdminId = user.AssignedAdminId
+                });
             }
 
-            return Ok(nonAdminUsers);
+            return Ok(userList);
         }
+
 
         [HttpGet("user/{id}/purchases")]
         public async Task<IActionResult> GetUserPurchases(string id)
@@ -1536,13 +1571,57 @@ Nchart Team";
             public string Action { get; set; } = "check"; // check, replace, ignore, cancel
         }
 
+        // [HttpGet("module-suggestions")]
+        // public async Task<IActionResult> GetModuleSuggestions()
+        // {
+        //     var suggestions = await _db.ModuleSuggestions
+        //         .Include(s => s.AppUser)
+        //         .OrderByDescending(s => s.CreatedAt)
+        //         .ToListAsync();
+        //     return Ok(suggestions);
+        // }
+
+        public class ModuleSuggestionDto
+        {
+            public int Id { get; set; }
+            public string Suggestion { get; set; }
+            public string Status { get; set; }
+            public string AdminResponse { get; set; }
+            public DateTime CreatedAt { get; set; }
+            // Nested DTO for the user data you need
+            public UserSummaryDto User { get; set; }
+        }
+
+        public class UserSummaryDto
+        {
+            public string Id { get; set; }
+            public string CompanyName { get; set; }
+            public string CustomerName { get; set; }
+            public string Email { get; set; }
+        }
         [HttpGet("module-suggestions")]
         public async Task<IActionResult> GetModuleSuggestions()
         {
             var suggestions = await _db.ModuleSuggestions
                 .Include(s => s.AppUser)
                 .OrderByDescending(s => s.CreatedAt)
+                .Select(s => new ModuleSuggestionDto
+                {
+                    Id = s.Id,
+                    Suggestion = s.SuggestionText,
+                    Status = s.Status,
+                    AdminResponse = s.AdminResponse,
+                    CreatedAt = s.CreatedAt,
+                    User = new UserSummaryDto
+                    {
+                        Id = s.AppUser.Id,
+                        CompanyName = s.AppUser.CompanyName,
+                        CustomerName = s.AppUser.CustomerName,
+                        Email = s.AppUser.UserName
+                    }
+                })
                 .ToListAsync();
+
             return Ok(suggestions);
         }
 

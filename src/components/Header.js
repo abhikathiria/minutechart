@@ -654,9 +654,17 @@ function Header({ user, onLogout }) {
     const navRef = useRef(null);
     const navToggleButtonRef = useRef(null);
 
-    const isAdmin = user?.roles?.includes("Admin");
-    const userName = isAdmin ? (user?.adminName || "Admin") : (user?.companyName || user?.customerName || "User");
+    const roles = user?.roles || [];
+    const isSuperAdmin = roles.includes("SuperAdmin");
+    const isAdmin = roles.includes("Admin");
+    const isAnyAdmin = isSuperAdmin || isAdmin;
 
+    const userName = isSuperAdmin
+        ? (user?.adminName || "SuperAdmin")
+        : isAdmin
+            ? (user?.adminName || "Admin")
+            : (user?.companyName || user?.customerName || "User");
+            
     // Click outside handler (UNMODIFIED)
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -716,13 +724,25 @@ function Header({ user, onLogout }) {
             onClick={(e) => e.stopPropagation()}
             className="absolute top-20 right-0 bg-white shadow-2xl rounded-lg w-64 z-60 border border-gray-200 origin-top"
         >
-            <AdminDropdownItem to="/admin/users" icon={<FaUsers className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
-            <AdminDropdownItem to="/admin/emailsettings" icon={<FaAt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Email Settings</AdminDropdownItem>
-            <AdminDropdownItem to="/admin/invoicesettings" icon={<FaFileInvoice className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Invoice Settings</AdminDropdownItem>
-            <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
-            <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
-            <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
-
+            {/* SUPERADMIN Links: Inherits ALL old Admin links */}
+            {isSuperAdmin && (
+                <>
+                    <AdminDropdownItem to="/superadmin/user-management" icon={<FaUsers className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/emailsettings" icon={<FaAt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Email Settings</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/invoicesettings" icon={<FaFileInvoice className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Invoice Settings</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
+                </>
+            )}
+            
+            {/* ADMIN Links: Keep existing links MINUS the four specified */}
+            {isAdmin && !isSuperAdmin && (
+                <>
+                    <AdminDropdownItem to="/admin/users" icon={<FaUsers className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
+                </>
+            )}
         </motion.div>
     );
 
@@ -778,7 +798,7 @@ function Header({ user, onLogout }) {
                             <NavLinkDesktop to="/">Home</NavLinkDesktop>
 
                             {/* **DESKTOP ORDER FIX:** Admin Tools placed between Home and Subscriptions */}
-                            {isAdmin && (
+                            {(isSuperAdmin || isAdmin) && (
                                 <div className="relative h-full flex items-center">
                                     <button
                                         ref={adminSettingsButtonRef}
@@ -799,7 +819,7 @@ function Header({ user, onLogout }) {
                                 </div>
                             )}
 
-                            {!isAdmin && <NavLinkDesktop to="/dashboard">Dashboard</NavLinkDesktop>}
+                            {!isAnyAdmin && <NavLinkDesktop to="/dashboard">Dashboard</NavLinkDesktop>}
 
                             <NavLinkDesktop to="/subscription/buy">Subscriptions</NavLinkDesktop>
 
@@ -824,7 +844,7 @@ function Header({ user, onLogout }) {
                                         aria-expanded={profileOpen}
                                         aria-haspopup="true"
                                     >
-                                        {isAdmin ? (
+                                        {isAnyAdmin ? (
                                             <FaUserShield className="text-2xl text-red-400" />
                                         ) : (
                                             <FaUserCircle className="text-2xl" />
@@ -890,26 +910,46 @@ function Header({ user, onLogout }) {
                                 <FaHome className="inline mr-2" /> Home
                             </Link>
 
-                            {isAdmin && <Link to="/admin/users" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaUsers className="inline mr-2" /> User Management
-                            </Link>}
-                            {isAdmin && <Link to="/admin/emailsettings" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaAt className="inline mr-2" /> Email Settings
-                            </Link>}
-                            {isAdmin && <Link to="/admin/invoicesettings" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaFileInvoice className="inline mr-2" /> Invoice Settings
-                            </Link>}
-                            {isAdmin && <Link to="/admin/complaintsmanagement" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaClipboardList className="inline mr-2" /> Complaints Management
-                            </Link>}
-                            {isAdmin && <Link to="/admin/admindashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaTachometerAlt className="inline mr-2" /> Admin Dashboard
-                            </Link>}
-                            {isAdmin && <Link to="/admin/activitylogs" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaHistory className="inline mr-2" /> Activity Log
-                            </Link>}
+                            {/* ADMIN/SUPERADMIN Links (Mobile) */}
+                            {(isSuperAdmin || isAdmin) && (
+                                <>
+                                    {isSuperAdmin && (
+                                        <>
+                                            <Link to="/admin/users" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaUsers className="inline mr-2" /> User Management
+                                            </Link>
+                                            <Link to="/admin/emailsettings" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaAt className="inline mr-2" /> Email Settings
+                                            </Link>
+                                            <Link to="/admin/invoicesettings" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaFileInvoice className="inline mr-2" /> Invoice Settings
+                                            </Link>
+                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaClipboardList className="inline mr-2" /> Complaints Management
+                                            </Link>
+                                            <Link to="/admin/admindashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaTachometerAlt className="inline mr-2" /> Admin Dashboard
+                                            </Link>
+                                            <Link to="/admin/activitylogs" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaHistory className="inline mr-2" /> Activity Log
+                                            </Link>
+                                        </>
+                                    )}
+                                    {isAdmin && !isSuperAdmin && (
+                                        <>
+                                            <Link to="/admin/users" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaUsers className="inline mr-2" /> User Management
+                                            </Link>
+                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+                                                <FaClipboardList className="inline mr-2" /> Complaints Management
+                                            </Link>
+                                        </>
+                                    )}
+                                </>
+                            )}
 
-                            {!isAdmin && <Link to="/dashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
+
+                            {!isAnyAdmin && <Link to="/dashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
                                 <FaChartArea className="inline mr-2" /> Dashboard
                             </Link>}
 
@@ -917,16 +957,16 @@ function Header({ user, onLogout }) {
                                 <FaTags className="inline mr-2" /> Subscriptions
                             </Link>
 
-                            {/* User Profile Links & Logout - MOVED TO BOTTOM AND ADDED ICONS */}
+                            {/* User Profile Links & Logout (Mobile Only) */}
                             {user ? (
                                 <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <UserDisplay user={user} isAdmin={isAdmin} />
+                                    <UserDisplay user={user} isAdmin={isAnyAdmin} />
 
                                     {/* User Links (Mobile Only) */}
-                                    {!isAdmin && <Link to="/my-profile" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaUserCircle className="text-cyan-400 w-4" /> My Profile</Link>}
-                                    {!isAdmin && <Link to="/purchase-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaHistory className="text-cyan-400 w-4" /> Purchase History</Link>}
-                                    {!isAdmin && <Link to="/complaints" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-4" /> My Complaints</Link>}
-                                    {!isAdmin && <Link to="/suggestions-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-4" /> Suggestions History</Link>}
+                                    {!isAnyAdmin && <Link to="/my-profile" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaUserCircle className="text-cyan-400 w-4" /> My Profile</Link>}
+                                    {!isAnyAdmin && <Link to="/purchase-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaHistory className="text-cyan-400 w-4" /> Purchase History</Link>}
+                                    {!isAnyAdmin && <Link to="/complaints" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-4" /> My Complaints</Link>}
+                                    {!isAnyAdmin && <Link to="/suggestions-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-4" /> Suggestions History</Link>}
                                     <Link to="/change-password" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaLock className="text-cyan-400 w-4" /> Change Password</Link>
 
                                     <button

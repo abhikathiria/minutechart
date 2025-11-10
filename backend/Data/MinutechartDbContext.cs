@@ -38,6 +38,12 @@ namespace minutechart.Data
             base.OnModelCreating(builder);
 
             builder.Entity<AppUser>()
+                .HasOne(u => u.AssignedAdmin)
+                .WithMany()
+                .HasForeignKey(u => u.AssignedAdminId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<AppUser>()
                 .HasOne(u => u.UserProfile)
                 .WithOne(p => p.AppUser)
                 .HasForeignKey<UserProfile>(p => p.AppUserId)

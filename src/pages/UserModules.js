@@ -142,7 +142,7 @@
 //             }));
 
 //             setSuggestions(normalizedSuggestions);
-            
+
 //             // If suggestionDetails is open, update its content (for live updates)
 //             if (suggestionDetails) {
 //                  const updatedDetails = normalizedSuggestions.find(s => s.id === suggestionDetails.id);
@@ -225,13 +225,13 @@
 
 //             if (res.status === 200 || res.status === 201) {
 //                 showMessages("success", successMessage);
-                
+
 //                 // Immediately update the status before reloading for a "live" feel
 //                 setSuggestionDetails(prev => ({ ...prev, status: action === 'create' ? 'Created' : 'Rejected' }));
-                
+
 //                 // Reload data shortly after to ensure full sync
 //                 setTimeout(() => loadUserSuggestions(), 500);
-                
+
 //                 setActionToConfirm(null);
 //                 // We leave setSuggestionDetails open so the admin can see the result, but close the modal
 //             } else {
@@ -963,7 +963,7 @@
 //                             {actionToConfirm === 'reject'
 //                                 ? `Are you sure you want to mark this suggestion as 'Rejected'? A reason is expected in the Admin Response box.`
 //                                 : `Are you sure you want to mark this suggestion as 'Created'?`}
-                            
+
 //                             {/* Warning if no rejection reason is provided */}
 //                             {actionToConfirm === 'reject' && (!suggestionDetails?.adminResponse || !suggestionDetails.adminResponse.trim()) && (
 //                                 <span className="block mt-2 text-red-600 font-semibold">⚠️ Warning: The Admin Response field is currently empty.</span>
@@ -1001,7 +1001,7 @@ export default function UserModules() {
     const { id } = useParams();
     const [modules, setModules] = useState([]);
     const [companyName, setCompanyName] = useState("");
-    const [customerName, setCustomerName, ] = useState("");
+    const [customerName, setCustomerName,] = useState("");
     const [selectedModule, setSelectedModule] = useState(null);
     const [formOpen, setFormOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -1135,13 +1135,13 @@ export default function UserModules() {
             }));
 
             setSuggestions(normalizedSuggestions);
-            
+
             // If suggestionDetails is open, update its content (for live updates)
             if (suggestionDetails) {
-                 const updatedDetails = normalizedSuggestions.find(s => s.id === suggestionDetails.id);
-                 if (updatedDetails) {
-                   setSuggestionDetails(updatedDetails);
-                 }
+                const updatedDetails = normalizedSuggestions.find(s => s.id === suggestionDetails.id);
+                if (updatedDetails) {
+                    setSuggestionDetails(updatedDetails);
+                }
             }
 
         } catch (err) {
@@ -1219,13 +1219,13 @@ export default function UserModules() {
 
             if (res.status === 200 || res.status === 201) {
                 showMessages("success", successMessage);
-                
+
                 // Immediately update the status before reloading for a "live" feel
                 setSuggestionDetails(prev => ({ ...prev, status: action === 'create' ? 'Created' : 'Rejected' }));
-                
+
                 // Reload data shortly after to ensure full sync
                 setTimeout(() => loadUserSuggestions(), 500);
-                
+
                 setActionToConfirm(null);
                 // We leave setSuggestionDetails open so the admin can see the result, but close the modal
             } else {
@@ -1447,7 +1447,7 @@ export default function UserModules() {
 
             {/* Content Area: Split into two main columns (33.3% / 66.7% for lg screens) */}
             <div className="flex flex-1 flex-col lg:flex-row max-w-7xl mx-auto w-full p-4 sm:p-6 gap-6">
-                
+
                 {/* Left Column: Module List & Management (33.3%) */}
                 <section className="flex-1 lg:w-4/12 flex flex-col space-y-6">
                     {/* --- Module List Content --- */}
@@ -1513,11 +1513,16 @@ export default function UserModules() {
                                                     {m.title || "Untitled Module"}
                                                 </div>
                                                 <div className="text-xs text-gray-500 mt-1">
-                                                    Type: <span className="font-semibold text-blue-700">{m.visualizationType.toUpperCase()}</span> | 
-                                                    Created: {formatDate(m.createdAt).substring(0, 10)}
+                                                    Type: <span className="font-semibold text-blue-700">{m.visualizationType.toUpperCase()}</span>
+                                                    <div className="mt-0.5">
+                                                        Created: <span className="font-medium">{formatDate(m.createdAt).substring(0, 10)}</span>
+                                                    </div>
+                                                    <div>
+                                                        Updated: <span className="font-medium">{formatDate(m.updatedAt).substring(0, 10)}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Checkbox for Batch Transfer */}
                                             <input
                                                 type="checkbox"
@@ -1575,7 +1580,7 @@ export default function UserModules() {
                 <aside className="lg:w-8/12 flex flex-col space-y-6">
                     {/* --- 💡 Customer Suggestions Section --- */}
                     <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                        <div 
+                        <div
                             className="flex justify-between items-center mb-4 border-b pb-2 cursor-pointer"
                             onClick={() => setSuggestionsOpen(!suggestionsOpen)} // Toggle logic here
                         >
@@ -1615,7 +1620,7 @@ export default function UserModules() {
                                                 {suggestionDetails.status}
                                             </span>
                                         </p>
-                                        
+
                                         <div className="border p-3 rounded-lg bg-gray-50">
                                             <label className="block text-xs font-semibold uppercase mb-1 text-gray-600">Suggestion Details</label>
                                             <p className="whitespace-pre-wrap text-sm text-gray-800">{suggestionDetails.description}</p>
@@ -1665,7 +1670,7 @@ export default function UserModules() {
                                                 key={s.id}
                                                 className={`p-3 rounded-lg shadow-sm transition border cursor-pointer 
                                                 ${s.status === 'Pending' ? 'bg-orange-50 hover:bg-orange-100 border-orange-200' :
-                                                    s.status === 'Created' ? 'bg-green-50 hover:bg-green-100 border-green-200' : 'bg-red-50 hover:bg-red-100 border-red-200'}`}
+                                                        s.status === 'Created' ? 'bg-green-50 hover:bg-green-100 border-green-200' : 'bg-red-50 hover:bg-red-100 border-red-200'}`}
                                                 onClick={() => handleSelectSuggestion(s)}
                                             >
                                                 <div className="font-semibold text-gray-800 flex justify-between items-center">
@@ -1693,7 +1698,7 @@ export default function UserModules() {
                         <h2 className="text-xl font-bold text-indigo-700 mb-4 border-b pb-2 flex items-center gap-2">
                             <FaCog className="text-indigo-600" /> {formOpen ? (formData.id ? "Edit Module" : "Add Module") : (selectedModule ? "Module Details" : "Action Panel")}
                         </h2>
-                        
+
                         {/* --- Form View --- */}
                         {formOpen ? (
                             <div className="space-y-4">
@@ -1747,7 +1752,7 @@ export default function UserModules() {
                                     <option value="heatmap">Heat Map</option>
                                     <option value="map">Map</option>
                                 </select>
-                                
+
                                 {/* Approval Module Checkbox */}
                                 <div className="flex items-center gap-2 mt-4 p-2 bg-gray-50 rounded border">
                                     <input
@@ -1764,7 +1769,7 @@ export default function UserModules() {
                                         <input type="text" placeholder="ID Column Name" value={formData.approvalIdColumn} onChange={(e) => setFormData({ ...formData, approvalIdColumn: e.target.value })} className="w-full p-2 border rounded text-xs" />
                                     </div>
                                 )}
-                                
+
                                 {/* Form Actions */}
                                 <div className="flex justify-end gap-3 pt-3 border-t">
                                     <button onClick={() => setFormOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors text-sm">
@@ -1809,7 +1814,7 @@ export default function UserModules() {
                                 <p className="text-sm text-gray-500">
                                     Last Updated: {formatDate(selectedModule.updatedAt)}
                                 </p>
-                                
+
                                 <div className="border p-3 rounded-lg bg-gray-50">
                                     <label className="block text-xs font-semibold uppercase mb-1 text-gray-600">SQL Query</label>
                                     <div className="relative">
@@ -1824,7 +1829,7 @@ export default function UserModules() {
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 <p className="text-gray-700 text-sm">
                                     <strong>Visualization:</strong> {selectedModule.visualizationType.charAt(0).toUpperCase() + selectedModule.visualizationType.slice(1)}
                                 </p>
@@ -1835,7 +1840,7 @@ export default function UserModules() {
                                         <p className="text-xs break-all">ID Column: {selectedModule.approvalIdColumn}</p>
                                     </div>
                                 )}
-                                
+
                                 <div className="flex gap-3 pt-3 border-t">
                                     <button
                                         onClick={() => handleEdit(selectedModule)}
@@ -1878,9 +1883,9 @@ export default function UserModules() {
             {deleteModalOpen && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 border-t-4 border-red-500">
-                        <h4 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2"><FaTrashAlt className="text-red-500"/> Confirm Deletion</h4>
+                        <h4 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2"><FaTrashAlt className="text-red-500" /> Confirm Deletion</h4>
                         <p className="text-gray-700 mb-6">
-                            Are you sure you want to permanently delete the module: <br/>
+                            Are you sure you want to permanently delete the module: <br />
                             <strong className="text-lg block mt-2 text-gray-900">"{moduleToDelete?.title}"</strong>
                         </p>
                         <div className="flex justify-end gap-3">
@@ -1900,12 +1905,12 @@ export default function UserModules() {
                     </div>
                 </div>
             )}
-            
+
             {/* Transfer User List Modal */}
             {showUserList && (
                 <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl border-t-4 border-blue-500">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><FaUsers className="text-blue-500"/> Transfer Modules</h3>
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><FaUsers className="text-blue-500" /> Transfer Modules</h3>
                         <p className="text-sm text-gray-600 mb-3">Transfer {selectedModules.length} selected module(s) from current user to:</p>
                         <select
                             className="w-full border-2 border-gray-300 rounded-lg p-3 mb-6 text-base focus:ring-blue-500 focus:border-blue-500"
@@ -1921,8 +1926,8 @@ export default function UserModules() {
                         </select>
                         <div className="flex justify-end gap-3">
                             <button onClick={() => setShowUserList(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
-                            <button 
-                                onClick={handleTransferCheck} 
+                            <button
+                                onClick={handleTransferCheck}
                                 disabled={!targetUser}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
                             >
@@ -1940,7 +1945,7 @@ export default function UserModules() {
                         <h3 className="text-xl font-bold mb-3 text-yellow-700">⚠️ Module Transfer Conflict</h3>
                         <p className="text-gray-700 mb-3">The following module(s) already exist in the target user's list and must be resolved:</p>
                         <ul className="mb-5 p-3 bg-yellow-50 rounded border border-yellow-200 max-h-40 overflow-y-auto text-sm">
-                            {duplicates.map((d) => <li key={d.userQueryId} className="flex items-center gap-2"><FaRegCopy className="text-yellow-600"/> {d.userTitle}</li>)}
+                            {duplicates.map((d) => <li key={d.userQueryId} className="flex items-center gap-2"><FaRegCopy className="text-yellow-600" /> {d.userTitle}</li>)}
                         </ul>
                         <div className="flex justify-end gap-3 flex-wrap">
                             <button onClick={() => handleDuplicateAction("cancel")} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors text-sm">Cancel Transfer</button>
