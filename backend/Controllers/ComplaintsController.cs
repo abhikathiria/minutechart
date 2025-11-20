@@ -53,7 +53,7 @@ namespace minutechart.Controllers.Api
                 AppUserId = user.Id,
                 UserAttachmentUrls = attachmentUrls.Any() ? string.Join(",", attachmentUrls) : null,
                 // Default status is usually 'Open' or 'Submitted'
-                Status = "Open", 
+                Status = "Open",
                 CreatedAt = DateTimeHelper.GetIndianTime(),
                 UpdatedAt = DateTimeHelper.GetIndianTime()
             };
@@ -102,21 +102,41 @@ namespace minutechart.Controllers.Api
                     .ToArray() ?? new string[0]
             }));
         }
-        
+
         // -------------------- ADMIN ACTIONS --------------------
 
         // Updated GetAllComplaints (Read-only, no log needed)
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllComplaints()
         {
-            var complaints = await _db.Complaints
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null) return Unauthorized();
+
+            var roles = await _userManager.GetRolesAsync(currentUser);
+            bool isSuperAdmin = roles.Contains("SuperAdmin");
+
+            IQueryable<Complaint> query = _db.Complaints
                 .Include(c => c.AppUser)
-                    .ThenInclude(u => u.UserProfile)  // Include UserProfile for CustomerCode
-                .OrderByDescending(c => c.CreatedAt)
-                .ToListAsync();
+                    .ThenInclude(u => u.UserProfile)
+                .OrderByDescending(c => c.CreatedAt);
+
+            // 🌟 SUPERADMIN — sees everything
+            if (!isSuperAdmin)
+            {
+                // 🌟 ADMIN — only see complaints for their assigned users
+                var assignedUserIds = await _db.Users
+                    .Where(u => u.AssignedAdminId == currentUser.Id)
+                    .Select(u => u.Id)
+                    .ToListAsync();
+
+                query = query.Where(c => assignedUserIds.Contains(c.AppUserId));
+            }
+
+            var complaints = await query.ToListAsync();
 
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
+
             return Ok(complaints.Select(c => new
             {
                 c.Id,
@@ -129,7 +149,7 @@ namespace minutechart.Controllers.Api
                 c.UpdatedAt,
                 UserName = c.AppUser?.CustomerName ?? c.AppUser?.UserName,
                 UserEmail = c.AppUser?.Email,
-                CustomerCode = c.AppUser?.UserProfile?.CustomerCode ?? "N/A",  // Add CustomerCode
+                CustomerCode = c.AppUser?.UserProfile?.CustomerCode ?? "N/A",
                 UserAttachmentUrls = c.UserAttachmentUrls?.Split(',', StringSplitOptions.RemoveEmptyEntries)
                     .Select(url => url.StartsWith("http") ? url : $"{baseUrl}{url.Trim()}")
                     .ToArray() ?? new string[0],
@@ -139,15 +159,16 @@ namespace minutechart.Controllers.Api
             }));
         }
 
+
         // Admin updates a complaint (construct full URLs)
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateComplaint(int id, [FromForm] UpdateComplaintDto dto)
         {
             var complaint = await _db.Complaints
                 .Include(c => c.AppUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
-            
+
             if (complaint == null) return NotFound();
 
             // Capture old status for logging comparison
@@ -156,16 +177,16 @@ namespace minutechart.Controllers.Api
 
             var adminAttachmentUrls = await SaveFiles(dto.AdminAttachments, Request);
             bool responseUpdated = dto.AdminResponse != null && complaint.AdminResponse != dto.AdminResponse;
-            
+
             // --- Apply Updates ---
             if (!string.IsNullOrEmpty(dto.Status)) complaint.Status = dto.Status;
             if (dto.AdminResponse != null) complaint.AdminResponse = dto.AdminResponse;
-            if (adminAttachmentUrls.Any()) 
+            if (adminAttachmentUrls.Any())
             {
                 // Append new attachments
                 var existingUrls = complaint.AdminAttachmentUrls?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
                 existingUrls.AddRange(adminAttachmentUrls);
-                complaint.AdminAttachmentUrls = string.Join(",", existingUrls); 
+                complaint.AdminAttachmentUrls = string.Join(",", existingUrls);
             }
             complaint.UpdatedAt = DateTimeHelper.GetIndianTime();
 
@@ -189,7 +210,7 @@ namespace minutechart.Controllers.Api
 
             _db.Complaints.Update(complaint);
             await _db.SaveChangesAsync();
-            
+
             // LOG: Admin updated complaint
             await _activityLogger.LogAsync(action, "Complaint", complaint.Title, targetUserName);
 
@@ -198,14 +219,14 @@ namespace minutechart.Controllers.Api
         }
 
         // Admin deletes a complaint
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin, SuperAdmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteComplaint(int id)
         {
             var complaint = await _db.Complaints
                 .Include(c => c.AppUser)
                 .FirstOrDefaultAsync(c => c.Id == id);
-            
+
             if (complaint == null) return NotFound();
 
             var targetUserName = complaint.AppUser?.UserName ?? complaint.AppUser?.Email ?? "N/A";
@@ -221,7 +242,7 @@ namespace minutechart.Controllers.Api
         }
 
         // -------------------- DTOs and Helpers --------------------
-        
+
         // Helper: Save files and return relative URLs
         private async Task<List<string>> SaveFiles(IFormFileCollection files, HttpRequest request)
         {

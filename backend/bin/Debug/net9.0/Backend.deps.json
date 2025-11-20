@@ -25,6 +25,7 @@
           "Pomelo.EntityFrameworkCore.MySql": "8.0.3",
           "PuppeteerSharp": "20.2.2",
           "QuestPDF": "2025.7.1",
+          "Razorpay": "3.3.2",
           "SendGrid": "9.29.3",
           "Stripe.net": "48.5.0",
           "Swashbuckle.AspNetCore": "9.0.3",
@@ -1190,6 +1191,14 @@
           }
         }
       },
+      "Portable.BouncyCastle/1.9.0": {
+        "runtime": {
+          "lib/netstandard2.0/BouncyCastle.Crypto.dll": {
+            "assemblyVersion": "1.9.0.0",
+            "fileVersion": "1.9.0.1"
+          }
+        }
+      },
       "PuppeteerSharp/20.2.2": {
         "dependencies": {
           "Microsoft.Extensions.Logging": "9.0.8"
@@ -1318,6 +1327,18 @@
             "rid": "win-x86",
             "assetType": "native",
             "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "Razorpay/3.3.2": {
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Portable.BouncyCastle": "1.9.0"
+        },
+        "runtime": {
+          "lib/net8.0/Razorpay.dll": {
+            "assemblyVersion": "3.3.2.0",
+            "fileVersion": "3.3.2.0"
           }
         }
       },
@@ -2808,6 +2829,13 @@
       "path": "pomelo.entityframeworkcore.mysql/8.0.3",
       "hashPath": "pomelo.entityframeworkcore.mysql.8.0.3.nupkg.sha512"
     },
+    "Portable.BouncyCastle/1.9.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-eZZBCABzVOek+id9Xy04HhmgykF0wZg9wpByzrWN7q8qEI0Qen9b7tfd7w8VA3dOeesumMG7C5ZPy0jk7PSRHw==",
+      "path": "portable.bouncycastle/1.9.0",
+      "hashPath": "portable.bouncycastle.1.9.0.nupkg.sha512"
+    },
     "PuppeteerSharp/20.2.2": {
       "type": "package",
       "serviceable": true,
@@ -2821,6 +2849,13 @@
       "sha512": "sha512-WSSStmqSEidOqQqAmS7GmItgDe87IVzmmQEZZ2qH03PWyKJt9l1f6M65VQwIh6CZvNt7lc14ryVv7YOM2DCVqg==",
       "path": "questpdf/2025.7.1",
       "hashPath": "questpdf.2025.7.1.nupkg.sha512"
+    },
+    "Razorpay/3.3.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-t/BFZKYuCZI/if927DrG122ARokL3lAlRhf0PVUjhNFGqjbXc0o32zTOUPF+1Fz9izBoTMdoYn8wVL91Z76Mjg==",
+      "path": "razorpay/3.3.2",
+      "hashPath": "razorpay.3.3.2.nupkg.sha512"
     },
     "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl/4.3.2": {
       "type": "package",

@@ -2,33 +2,34 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Lock, XCircle, Loader, IndianRupee, Zap } from "lucide-react";
+import { CheckCircle2, Lock, XCircle, Loader, IndianRupee, Zap, Clock, TrendingUp, DollarSign } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { FaCalendarAlt, FaHistory, FaChevronDown, FaChevronUp, FaLock, FaCheck, FaTimes } from "react-icons/fa";
 
-// --- Helper Component: Plan Card (Redesigned for clarity and impact) ---
+// --- Helper Component: Plan Card (Redesigned for premium dark theme) ---
 const PlanCard = ({ plan, index, prevPlan, getDiscountNote, handleChoose }) => {
     const discountNote = getDiscountNote(plan, prevPlan);
+    // Determine the highest value plan for the Teal accent
     const isBest = plan.highlight === "Best Value";
-    const isPopular = plan.highlight === "Popular Choice";
+    const isPopular = plan.highlight === "Popular";
 
-    // Define classes robustly for Tailwind safety and visual impact
+    // Define classes for Dark Theme consistency
     const cardStyle = isBest ? {
-        bg: "bg-gradient-to-br from-teal-50 to-white border-teal-500",
-        tag: "bg-teal-500",
-        price: "text-teal-600",
-        button: "bg-teal-500 hover:bg-teal-600 shadow-lg shadow-teal-500/40",
+        bg: "bg-teal-900/40 border-teal-500/50 hover:border-teal-500",
+        tag: "bg-teal-600 shadow-lg shadow-teal-500/30",
+        price: "text-teal-400",
+        button: "bg-teal-500 text-gray-900 hover:bg-teal-400 shadow-lg shadow-teal-500/40",
     } : isPopular ? {
-        bg: "bg-gradient-to-br from-indigo-50 to-white border-indigo-500",
-        tag: "bg-indigo-600",
-        price: "text-indigo-600",
-        button: "bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/40",
+        bg: "bg-indigo-900/40 border-indigo-500/50 hover:border-indigo-500",
+        tag: "bg-indigo-600 shadow-lg shadow-indigo-600/30",
+        price: "text-indigo-400",
+        button: "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/40",
     } : {
-        bg: "bg-white border-gray-200",
-        tag: "bg-gray-700",
-        price: "text-gray-800",
-        button: "bg-gray-700 hover:bg-gray-900",
+        bg: "bg-gray-800/50 border-gray-700 hover:border-gray-500",
+        tag: "bg-gray-600",
+        price: "text-gray-300",
+        button: "bg-gray-600 text-white hover:bg-gray-700",
     };
 
     return (
@@ -36,14 +37,14 @@ const PlanCard = ({ plan, index, prevPlan, getDiscountNote, handleChoose }) => {
             key={plan.id}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: index * 0.1 }}
-            whileHover={{ scale: 1.03, boxShadow: "0 15px 20px rgba(0,0,0,0.15)" }}
-            className={`relative flex flex-col p-8 rounded-2xl border-2 shadow-xl overflow-hidden transition duration-300 ${cardStyle.bg} h-full`}
+            transition={{ duration: 0.5, delay: index * 0.15 }}
+            whileHover={{ scale: 1.03, boxShadow: "0 15px 30px rgba(0,0,0,0.5)" }}
+            className={`relative flex flex-col p-8 rounded-2xl border-2 shadow-2xl backdrop-blur-sm overflow-hidden transition duration-300 ${cardStyle.bg} h-full`}
         >
             {/* Highlight Tag */}
             {(isBest || isPopular) && (
                 <div
-                    className={`absolute top-6 right-0 py-1 px-10 -mr-10 rotate-45 text-white text-sm font-bold shadow-md ${cardStyle.tag}`}
+                    className={`absolute top-6 right-0 py-1 px-10 -mr-10 rotate-45 text-white text-sm font-bold tracking-wider ${cardStyle.tag}`}
                 >
                     {plan.highlight}
                 </div>
@@ -51,46 +52,49 @@ const PlanCard = ({ plan, index, prevPlan, getDiscountNote, handleChoose }) => {
 
             {/* Pricing Details */}
             <div className="mb-6 text-center">
-                <h4 className="text-3xl font-extrabold text-gray-900">{plan.name}</h4>
-                <p className={`mt-4 text-5xl font-extrabold ${cardStyle.price} flex items-center justify-center`}>
-                    <IndianRupee className="w-8 h-8 mr-1 inline" />
+                <h4 className="text-3xl font-extrabold text-white tracking-tight">{plan.name}</h4>
+                <p className={`mt-4 text-6xl font-black ${cardStyle.price} flex items-center justify-center`}>
+                    <IndianRupee className="w-10 h-10 mr-1 inline" />
                     {plan.price}
-                    <span className="text-xl font-normal text-gray-500 ml-2"> / {plan.durationDays} days</span>
+                    <span className="text-xl font-light text-gray-400 ml-2"> / {plan.durationDays} days</span>
                 </p>
                 {discountNote && (
-                    <p className="mt-4 text-sm font-bold text-green-600 flex items-center justify-center gap-1">
+                    <p className="mt-4 text-sm font-bold text-green-400 flex items-center justify-center gap-1">
                         <Zap className="w-4 h-4" /> {discountNote}
                     </p>
                 )}
             </div>
 
             {/* Features (Flex Grow) */}
-            <div className="flex-grow border-t pt-6">
-                <ul className="space-y-3 text-gray-700 text-left">
+            <div className="flex-grow border-t border-gray-700 pt-6">
+                <ul className="space-y-3 text-gray-300 text-left">
                     <li className="flex items-center gap-3 font-medium">
-                        <FaCheck className="text-green-600 w-4 h-4 flex-shrink-0" /> Full Dashboard Access
+                        <FaCheck className="text-teal-400 w-4 h-4 flex-shrink-0" /> Full Dashboard Access
                     </li>
                     <li className="flex items-center gap-3 font-medium">
-                        <FaCheck className="text-green-600 w-4 h-4 flex-shrink-0" /> Custom Module Support
+                        <FaCheck className="text-teal-400 w-4 h-4 flex-shrink-0" /> Custom Module Support
                     </li>
                     {plan.durationDays >= 180 ? (
-                        <li className="flex items-center gap-3 font-medium text-purple-700">
-                            <FaCheck className="text-purple-600 w-4 h-4 flex-shrink-0" /> Dedicated Priority Support
+                        <li className="flex items-center gap-3 font-medium text-purple-400">
+                            <FaCheck className="text-purple-400 w-4 h-4 flex-shrink-0" /> Dedicated Priority Support
                         </li>
                     ) : (
-                        <li className="flex items-center gap-3 text-gray-400">
+                        <li className="flex items-center gap-3 text-gray-500">
                             <FaTimes className="w-4 h-4 flex-shrink-0" /> Priority Support (Add-on)
                         </li>
                     )}
+                    <li className="flex items-center gap-3 text-gray-500">
+                        <FaTimes className="w-4 h-4 flex-shrink-0" /> Custom Query Upload (Admin Only)
+                    </li>
                 </ul>
             </div>
 
-            {/* Button (Fixed to bottom via h-full and flex-grow) */}
+            {/* Button */}
             <button
                 onClick={() => handleChoose(plan)}
-                className={`mt-8 w-full py-3 px-4 rounded-xl font-bold text-lg shadow-md text-white transition ${cardStyle.button}`}
+                className={`mt-10 w-full py-3.5 px-4 rounded-xl font-extrabold text-lg transition ${cardStyle.button}`}
             >
-                {isBest ? "Choose Plan" : "Choose Plan"}
+                Start Subscription
             </button>
 
             <div className="flex items-center justify-center mt-3 text-xs text-gray-500">
@@ -109,9 +113,8 @@ export default function SubscriptionPage() {
     const [showHistory, setShowHistory] = useState(false);
     const navigate = useNavigate();
 
-    const user = JSON.parse(localStorage.getItem("user"));
+    // Removed direct user parsing here as it's handled in handleChoose for security
 
-    
     // --- Data Fetching ---
     useEffect(() => {
         const fetchPlans = async () => {
@@ -139,6 +142,7 @@ export default function SubscriptionPage() {
         fetchStatus();
     }, []);
     
+    // Logic Preserved
     const getDiscountNote = (plan, prevPlan) => {
         if (!prevPlan) return null;
         const prevDaily = prevPlan.price / prevPlan.durationDays;
@@ -150,142 +154,143 @@ export default function SubscriptionPage() {
         return null;
     };
 
+    // Custom Toasts adapted to dark theme success/error concept (logic preserved)
     const showSuccessToast = () => {
-    toast.custom(
-      (t) => (
-        <div
-          className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 border-green-500`}
-        >
-          <div className="flex-1 w-0 p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0 pt-0.5">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-black">
-                  Payment Verified Successfully
-                </p>
-                <p className="mt-1 text-sm text-black">
-                  Your subscription is now active. An invoice has been emailed and
-                  is also available in your Purchase History.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ),
-      { duration: 8000 }
-    );
-  };
+        toast.custom(
+            (t) => (
+                <div
+                    className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-gray-800 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-white/10 border-l-4 border-green-500`}
+                >
+                    <div className="flex-1 w-0 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0 pt-0.5">
+                                <CheckCircle2 className="h-6 w-6 text-green-400" />
+                            </div>
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-white">
+                                    Payment Verified Successfully
+                                </p>
+                                <p className="mt-1 text-sm text-gray-400">
+                                    Your subscription is now active. Check your Purchase History for the invoice.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ),
+            { duration: 8000 }
+        );
+    };
 
-  const showErrorToast = () => {
-    toast.custom(
-      (t) => (
-        <div
-          className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border-l-4 border-red-500`}
-        >
-          <div className="flex-1 w-0 p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0 pt-0.5">
-                <XCircle className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-black">
-                  Payment Verification Failed
-                </p>
-                <p className="mt-1 text-sm text-black">
-                  We couldn’t verify your payment. Please try again or contact
-                  support.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ),
-      { duration: 8000 }
-    );
-  };
+    const showErrorToast = () => {
+        toast.custom(
+            (t) => (
+                <div
+                    className={`transition-opacity duration-300 ${t.visible ? "opacity-100" : "opacity-0"} max-w-md w-full bg-gray-800 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-white/10 border-l-4 border-red-500`}
+                >
+                    <div className="flex-1 w-0 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0 pt-0.5">
+                                <XCircle className="h-6 w-6 text-red-400" />
+                            </div>
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-white">
+                                    Payment Verification Failed
+                                </p>
+                                <p className="mt-1 text-sm text-gray-400">
+                                    We couldn’t verify your payment. Please try again or contact support.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ),
+            { duration: 8000 }
+        );
+    };
 
-const handleChoose = async (plan) => {
-  let user = null;
-  try {
-    const storedUser = localStorage.getItem("user");
-    user = storedUser ? JSON.parse(storedUser) : null;
-  } catch (error) {
-    console.error("Error parsing user from localStorage:", error);
-    user = null;
-  }
+    // Payment/Auth Logic Preserved
+    const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+            if (window.Razorpay) return resolve(true);
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
 
-  if (!user) {
-    // Fallback: Quick API check to verify auth (optional but recommended)
-    try {
-      await api.get("/user/subscription-status"); // Or any protected endpoint
-      // If this succeeds, user is authenticated—proceed
-    } catch (err) {
-      toast.error("⚠️ Please log in to subscribe to a plan.");
-      navigate("/login", { state: { from: "/subscription/buy" } });
-      return;
-    }
-  }
+    const handleChoose = async (plan) => {
+        let user = null;
+        try {
+            const storedUser = localStorage.getItem("user");
+            user = storedUser ? JSON.parse(storedUser) : null;
+        } catch (error) {
+            console.error("Error parsing user from localStorage:", error);
+            user = null;
+        }
 
-  // Proceed with payment logic...
-  try {
-    const createResp = await api.post("/subscription/create-order", { planId: plan.id });
-      const { orderId, amount, currency, key } = createResp.data;
+        if (!user) {
+            try {
+                await api.get("/user/subscription-status");
+            } catch (err) {
+                toast.error("⚠️ Please log in to subscribe to a plan.");
+                navigate("/login", { state: { from: "/subscription/buy" } });
+                return;
+            }
+        }
 
-      const loaded = await loadRazorpayScript();
-      if (!loaded) {
-        toast.error("Failed to load payment SDK");
-        return;
-      }
+        try {
+            const createResp = await api.post("/subscription/create-order", { planId: plan.id });
+            const { orderId, amount, currency, key } = createResp.data;
 
-      const options = {
-        key,
-        amount,
-        currency,
-        name: "minutechart",
-        description: `${plan.name} plan`,
-        order_id: orderId,
-        handler: async (response) => {
-          setVerifying(true);
-          try {
-            await api.post("/subscription/verify", {
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-            });
+            const loaded = await loadRazorpayScript();
+            if (!loaded) {
+                toast.error("Failed to load payment SDK");
+                return;
+            }
 
-            showSuccessToast();
-            setTimeout(() => setVerifying(false), 500);
-          } catch (verifyErr) {
-            console.error("Verification failed", verifyErr);
-            showErrorToast();
-            setTimeout(() => setVerifying(false), 500);
-          }
-        },
-        theme: { color: "#6d28d9" },
-      };
+            const options = {
+                key,
+                amount,
+                currency,
+                name: "NGraph",
+                description: `${plan.name} plan`,
+                order_id: orderId,
+                handler: async (response) => {
+                    setVerifying(true);
+                    try {
+                        await api.post("/subscription/verify", {
+                            orderId: response.razorpay_order_id,
+                            paymentId: response.razorpay_payment_id,
+                            signature: response.razorpay_signature,
+                        });
 
-      new window.Razorpay(options).open();
-    } catch (err) {
-      console.error("Error in handleChoose", err);
-      toast.error("Failed to start payment");
-    }
-  };
+                        showSuccessToast();
+                        // Refresh data after successful verification
+                        const subRes = await api.get("/user/subscription-status");
+                        setSubscriptionStatus(subRes.data);
+                        
+                        setTimeout(() => setVerifying(false), 500);
+                    } catch (verifyErr) {
+                        console.error("Verification failed", verifyErr);
+                        showErrorToast();
+                        setTimeout(() => setVerifying(false), 500);
+                    }
+                },
+                theme: { color: "#4c1d95" }, // Adjusted theme color to Indigo
+            };
+
+            new window.Razorpay(options).open();
+        } catch (err) {
+            console.error("Error in handleChoose", err);
+            toast.error("Failed to start payment");
+        }
+    };
 
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-    // --- Data Filtering for Display ---
+    // --- Data Filtering for Display (Logic Preserved) ---
     const allPlans = subscriptionStatus?.activePlans || [];
 
     // Filter currently active plans (remainingDays > 0)
@@ -300,120 +305,29 @@ const handleChoose = async (plan) => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-xl text-indigo-600 font-medium flex items-center gap-2">
-                    <Loader className="animate-spin w-6 h-6" /> Loading Subscription Plans...
+            <div className="min-h-screen flex items-center justify-center bg-[#030712]">
+                <div className="text-xl text-teal-400 font-medium flex items-center gap-2">
+                    <Loader className="animate-spin w-6 h-6" /> Loading Premium Plans...
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-[#030712] text-white py-12 px-4 sm:px-6 lg:px-8">
 
             {/* --- Page Header --- */}
             <div className="max-w-6xl mx-auto text-center mb-16">
-                <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight">
-                    Flexible Plans, Transparent Pricing
+                <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
+                    <DollarSign className="inline w-8 h-8 text-teal-400 mr-2" /> Flexible Plans, Transparent Pricing
                 </h1>
-                <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto">
-                    Choose a subscription duration that fits your needs. Purchasing longer plans gives you the best daily value.
+                <p className="mt-4 text-xl text-gray-400 max-w-3xl mx-auto font-light">
+                    Choose a subscription duration that fits your needs. Purchasing longer plans gives you the **best daily value**.
                 </p>
             </div>
 
-            {/* --- Active Subscription Status Block --- */}
-            {subscriptionStatus?.hasActivePlan && hasVisibleActivePlans && (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 bg-white/90 backdrop-blur rounded-2xl shadow-2xl border-t-4 border-teal-500"
-                >
-                    {/* Summary Header */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-4 border-teal-200">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
-                            <CheckCircle2 className="text-teal-500 w-8 h-8" /> Your Current Active Subscription
-                        </h2>
-                        <div className="mt-3 sm:mt-0 bg-teal-500 text-white px-4 py-2 rounded-xl shadow-md">
-                            <span className="text-xl font-extrabold">Total Days Remaining: {subscriptionStatus.totalDaysRemaining}</span>
-                        </div>
-                    </div>
-
-                    {/* List of Active Plans */}
-                    <div className="max-h-64 overflow-y-auto pr-3">
-                        <ul className="space-y-4">
-                            {activePlansFiltered
-                                .sort((a, b) => new Date(a.subscriptionEnd) - new Date(b.subscriptionEnd))
-                                .map((plan, idx) => {
-                                    const total = plan.totalDays;
-                                    const remaining = plan.remainingDays;
-                                    const percentElapsed = Math.min((1 - (remaining / total)) * 100, 100);
-
-                                    return (
-                                        <li key={idx} className="p-4 rounded-xl bg-teal-50 shadow-sm border border-teal-200">
-                                            <div className="flex justify-between text-base font-semibold text-gray-800">
-                                                <span className="flex items-center gap-2">
-                                                    <span className="font-bold">{plan.name}</span>
-                                                </span>
-                                                <span>{remaining} {remaining === 1 ? "day" : "days"} left</span>
-                                            </div>
-                                            <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                                                <FaCalendarAlt size={12} className="text-teal-400" /> Ends {new Date(plan.subscriptionEnd).toLocaleDateString()}
-                                            </p>
-                                            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3">
-                                                <div
-                                                    className="bg-teal-500 h-2.5 rounded-full"
-                                                    style={{ width: `${percentElapsed}%` }}
-                                                />
-                                            </div>
-                                            <p className="text-xs text-right text-gray-500 mt-1">Time Elapsed</p>
-                                        </li>
-                                    );
-                                })}
-                        </ul>
-                    </div>
-
-                    {/* History Toggle */}
-                    <div className="mt-8">
-                        <button
-                            onClick={() => setShowHistory(p => !p)}
-                            className="w-full p-3 bg-indigo-600 rounded-xl text-white font-medium flex justify-center items-center gap-2 hover:bg-indigo-700 transition shadow-lg"
-                        >
-                            <FaHistory size={16} /> View Purchase History ({expiredPlans.length + futurePlans.length} records)
-                            {showHistory ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
-                        </button>
-
-                        <AnimatePresence>
-                            {showHistory && (
-                                <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    transition={{ duration: 0.3 }}
-                                    className="mt-4 p-4 bg-white border border-gray-200 rounded-xl shadow-inner space-y-3 max-h-96 overflow-y-auto"
-                                >
-                                    {futurePlans.length > 0 && (
-                                        <div className="border-b pb-2">
-                                            <h4 className="font-bold text-sm text-blue-600">Future Plans ({futurePlans.length})</h4>
-                                            {futurePlans.map(p => <p key={p.subscriptionStart} className="text-xs text-gray-600">Starts {new Date(p.subscriptionStart).toLocaleDateString()} - **{p.name}**</p>)}
-                                        </div>
-                                    )}
-                                    {expiredPlans.length > 0 && (
-                                        <div>
-                                            <h4 className="font-bold text-sm text-red-600">Expired Plans ({expiredPlans.length})</h4>
-                                            {expiredPlans.map(p => <p key={p.subscriptionEnd} className="text-xs text-gray-600">Ended {new Date(p.subscriptionEnd).toLocaleDateString()} - **{p.name}**</p>)}
-                                        </div>
-                                    )}
-                                    {expiredPlans.length === 0 && futurePlans.length === 0 && <p className="text-sm text-gray-500">No expired or future purchase records found.</p>}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                </motion.div>
-            )}
-
             {/* --- Plan Grid --- */}
-            <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="max-w-7xl mx-auto grid mb-10 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 {plans.map((plan, index) => {
                     const prevPlan = index > 0 ? plans[index - 1] : null;
 
@@ -430,25 +344,25 @@ const handleChoose = async (plan) => {
                 })}
             </div>
 
-            {/* Payment Verification Modal (Unchanged - assumes full Razorpay logic is implemented) */}
+            {/* Payment Verification Modal (Themed) */}
             <AnimatePresence>
                 {verifying && (
                     <motion.div
-                        className="fixed inset-0 flex items-center justify-center bg-black/30 z-50"
+                        className="fixed inset-0 flex items-center justify-center bg-black/70 z-50"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.4 }}
                     >
                         <motion.div
-                            className="bg-white p-6 rounded-xl shadow-2xl flex items-center gap-3"
+                            className="bg-gray-800 p-8 rounded-xl shadow-2xl flex flex-col items-center gap-4 border border-indigo-500/50"
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
                             transition={{ duration: 0.3 }}
                         >
                             <svg
-                                className="animate-spin h-6 w-6 text-purple-600"
+                                className="animate-spin h-10 w-10 text-purple-400"
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="none"
                                 viewBox="0 0 24 24"
@@ -456,11 +370,103 @@ const handleChoose = async (plan) => {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                             </svg>
-                            <span className="text-gray-700 font-medium">Verifying payment, please wait...</span>
+                            <span className="text-white font-medium text-lg">Verifying payment, please wait...</span>
+                            <p className="text-xs text-gray-500">Do not close this window.</p>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* --- Active Subscription Status Block (Glassy Dark Theme) --- */}
+            {subscriptionStatus?.hasActivePlan && hasVisibleActivePlans && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 bg-gray-800/70 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50"
+                >
+                    {/* Summary Header */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 border-teal-500/50">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 tracking-tight">
+                            <CheckCircle2 className="text-teal-400 w-8 h-8" /> Your Current Active Subscription
+                        </h2>
+                        <div className="mt-3 sm:mt-0 bg-teal-600 text-white px-4 py-2 rounded-xl shadow-lg shadow-teal-500/30">
+                            <span className="text-xl font-extrabold">Total Days Remaining: {subscriptionStatus.totalDaysRemaining}</span>
+                        </div>
+                    </div>
+
+                    {/* List of Active Plans */}
+                    <div className="max-h-64 overflow-y-auto pr-3 custom-scrollbar">
+                        <ul className="space-y-4">
+                            {activePlansFiltered
+                                .sort((a, b) => new Date(a.subscriptionEnd) - new Date(b.subscriptionEnd))
+                                .map((plan, idx) => {
+                                    const total = plan.totalDays;
+                                    const remaining = plan.remainingDays;
+                                    const percentElapsed = Math.min((1 - (remaining / total)) * 100, 100);
+
+                                    return (
+                                        <li key={idx} className="p-4 rounded-xl bg-gray-900/50 shadow-md border border-teal-600/30">
+                                            <div className="flex justify-between text-base font-semibold text-white">
+                                                <span className="flex items-center gap-2 text-teal-300">
+                                                    <span className="font-bold">{plan.name}</span>
+                                                </span>
+                                                <span>{remaining} {remaining === 1 ? "day" : "days"} left</span>
+                                            </div>
+                                            <p className="text-sm text-gray-400 mt-1 flex items-center gap-1">
+                                                <FaCalendarAlt size={12} className="text-teal-400" /> Ends {new Date(plan.subscriptionEnd).toLocaleDateString()}
+                                            </p>
+                                            <div className="w-full bg-gray-700 rounded-full h-2.5 mt-3">
+                                                <div
+                                                    className="bg-teal-500 h-2.5 rounded-full transition-all duration-1000"
+                                                    style={{ width: `${percentElapsed}%` }}
+                                                />
+                                            </div>
+                                            <p className="text-xs text-right text-gray-500 mt-1">Time Elapsed</p>
+                                        </li>
+                                    );
+                                })}
+                        </ul>
+                    </div>
+
+                    {/* History Toggle */}
+                    <div className="mt-8">
+                        <button
+                            onClick={() => setShowHistory(p => !p)}
+                            className="w-full p-3 bg-indigo-700 rounded-xl text-white font-bold flex justify-center items-center gap-2 hover:bg-indigo-800 transition shadow-lg shadow-indigo-600/40"
+                        >
+                            <FaHistory size={16} /> View Purchase History ({expiredPlans.length + futurePlans.length} records)
+                            {showHistory ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+                        </button>
+
+                        <AnimatePresence>
+                            {showHistory && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="mt-4 p-4 bg-gray-900/70 border border-gray-700 rounded-xl shadow-inner space-y-3 max-h-96 overflow-y-auto custom-scrollbar"
+                                >
+                                    {futurePlans.length > 0 && (
+                                        <div className="border-b border-gray-700 pb-2">
+                                            <h4 className="font-bold text-sm text-indigo-400">Future Plans ({futurePlans.length})</h4>
+                                            {futurePlans.map(p => <p key={p.subscriptionStart} className="text-xs text-gray-400">Starts {new Date(p.subscriptionStart).toLocaleDateString()} - <span className="font-semibold">{p.name}</span></p>)}
+                                        </div>
+                                    )}
+                                    {expiredPlans.length > 0 && (
+                                        <div>
+                                            <h4 className="font-bold text-sm text-red-400">Expired Plans ({expiredPlans.length})</h4>
+                                            {expiredPlans.map(p => <p key={p.subscriptionEnd} className="text-xs text-gray-400">Ended {new Date(p.subscriptionEnd).toLocaleDateString()} - <span className="font-semibold">{p.name}</span></p>)}
+                                        </div>
+                                    )}
+                                    {expiredPlans.length === 0 && futurePlans.length === 0 && <p className="text-sm text-gray-500">No expired or future purchase records found.</p>}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                </motion.div>
+            )}
         </div>
     );
 }

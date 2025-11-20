@@ -19,6 +19,7 @@ namespace minutechart.Models
         public DateTime? SubscriptionEndDate { get; set; }
         public string? AssignedAdminId { get; set; }
         public virtual AppUser? AssignedAdmin { get; set; }
+        public decimal? CommissionPercentage { get; set; }
         public bool IsTrialActive =>
             TrialStartDate.HasValue &&
             TrialEndDate.HasValue &&

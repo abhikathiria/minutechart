@@ -32,6 +32,17 @@ namespace minutechart.Data
         public DbSet<ActiveSession> ActiveSessions { get; set; }
         public DbSet<ActivityLog> ActivityLogs { get; set; }
         public DbSet<ModuleSuggestion> ModuleSuggestions { get; set; }
+        public DbSet<CommissionBill> CommissionBills { get; set; }
+        public DbSet<CommissionBillItem> CommissionBillItems { get; set; }
+        public DbSet<ResellerPaymentDetail> ResellerPaymentDetails { get; set; }
+        public DbSet<Pricing> Pricings { get; set; }
+        public DbSet<PlannedSubscriptionChange> PlannedSubscriptionChanges { get; set; }
+        public DbSet<RazorpayPlanOrder> RazorpayPlanOrders { get; set; }
+        public DbSet<PlanInvoice> PlanInvoices { get; set; }
+        public DbSet<UserAddon> UserAddons { get; set; }
+        public DbSet<AddonInvoice> AddonInvoices { get; set; }
+        public DbSet<RazorpayAddonOrder> RazorpayAddonOrders { get; set; }
+        
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

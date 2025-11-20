@@ -36,6 +36,7 @@ namespace minutechart.Models
 
         // ---------------- Terms & Conditions ----------------
         public string TermsAndConditions { get; set; } = string.Empty;
+        public string AddonTermsAndConditions { get; set; } = string.Empty;
 
         // ---------------- Toggles / Options ----------------
         public bool ShowGst { get; set; } = true;
@@ -44,6 +45,7 @@ namespace minutechart.Models
         public bool ShowSignature { get; set; } = true;
         public bool ShowNotes { get; set; } = true;
         public bool ShowTermsAndConditions { get; set; } = true;
+        public bool ShowAddonTermsAndConditions { get; set; } = true;
 
         // ---------------- Invoice Columns ----------------
         public List<InvoiceColumnSetting> Columns { get; set; } = new List<InvoiceColumnSetting>();

@@ -5,6 +5,7 @@ namespace minutechart.Models
         public int Id { get; set; }
 
         public string? CustomerCode { get; set; }
+        public string? ProfilePhotoUrl { get; set; }
         public string? CustomerGST { get; set; }
         public string CompanyName { get; set; }
         public string ServerName { get; set; }

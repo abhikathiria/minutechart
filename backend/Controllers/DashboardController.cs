@@ -107,6 +107,39 @@ namespace minutechart.Controllers
             return Ok(plans);
         }
 
+        private async Task<(int refreshMinutes, bool excelExport)> GetPlanLimits(AppUser user)
+        {
+            var now = DateTimeHelper.GetIndianTime();
+
+            // TRIAL → uses Pro plan
+            if (user.IsTrialActive)
+            {
+                var pro = await _mainDb.Pricings.FirstOrDefaultAsync(p => p.TierOrder == 3);
+                return (pro?.RefreshRateMinutes ?? 0, pro?.ExcelExport ?? false);
+            }
+
+            // ACTIVE PAID PLAN
+            var invoices = await _mainDb.PlanInvoices
+                .Include(i => i.Plan)
+                .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
+                .OrderByDescending(i => i.PaymentDate)
+                .ToListAsync();
+
+            foreach (var inv in invoices)
+            {
+                var start = inv.PlanStartDate ?? inv.PaymentDate;
+                var end = inv.PlanEndDate ?? inv.PaymentDate.AddDays(30);
+
+                if (start <= now && now <= end)
+                {
+                    return (inv.Plan.RefreshRateMinutes, inv.Plan.ExcelExport);
+                }
+            }
+
+            return (0, false);
+        }
+
+
         [HttpPost("reorder-modules")]
         public async Task<IActionResult> ReorderModules([FromBody] ReorderModulesRequest request)
         {
@@ -294,13 +327,75 @@ namespace minutechart.Controllers
         [HttpPost("execute-query")]
         public async Task<IActionResult> ExecuteQuery([FromBody] ExecuteQueryRequest req)
         {
-            var sqlQuery = req.Sql;
-            if (string.IsNullOrWhiteSpace(sqlQuery) ||
-                !sqlQuery.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            var sqlQuery = req.Sql?.Trim();
+            if (string.IsNullOrEmpty(sqlQuery) || !sqlQuery.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequest(new { success = false, message = "Only SELECT queries are allowed." });
             }
 
+            // Get module entry (to track last refresh)
+            var module = await _mainDb.UserQueries
+                .FirstOrDefaultAsync(q => q.AppUserId == user.Id && q.UserQueryText == sqlQuery);
+
+            // Fallback for old modules
+            if (module == null)
+            {
+                module = new UserQuery
+                {
+                    AppUserId = user.Id,
+                    UserTitle = "Untitled",
+                    UserQueryText = sqlQuery,
+                    VisualizationType = "table",
+                    UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                    UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+                };
+                _mainDb.UserQueries.Add(module);
+                await _mainDb.SaveChangesAsync();
+            }
+
+            var now = DateTimeHelper.GetIndianTime();
+
+            // --- READ PLAN LIMITS ---
+            var (refreshMinutes, excelAllowed) = await GetPlanLimits(user);
+
+            // --- COOLDOWN CHECK ---
+            if (module.LastRefreshedAt != null)
+            {
+                var nextAllowed = module.LastRefreshedAt.Value.AddMinutes(refreshMinutes);
+
+                if (now < nextAllowed)
+                {
+                    // Return cached data (if available)
+                    if (!string.IsNullOrEmpty(module.CachedJsonData))
+                    {
+                        var cached = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(module.CachedJsonData);
+                        return Ok(new
+                        {
+                            success = true,
+                            data = cached,
+                            canRefresh = false,
+                            nextAllowedAt = nextAllowed,
+                            excelAllowed = excelAllowed
+                        });
+                    }
+
+                    // No cache? Return empty
+                    return Ok(new
+                    {
+                        success = true,
+                        data = new List<object>(),
+                        canRefresh = false,
+                        nextAllowedAt = nextAllowed,
+                        excelAllowed = excelAllowed
+                    });
+                }
+            }
+
+            // -------- RUN QUERY --------
             try
             {
                 var clientDb = await GetClientDbAsync();
@@ -328,15 +423,27 @@ namespace minutechart.Controllers
 
                 await reader.CloseAsync();
                 await db.CloseAsync();
-                // await _activityLogger.LogAsync("executed", "Custom SQL Query", "adhoc query");
 
-                return Ok(new { success = true, message = "Query executed successfully", data = table });
+                // ---- SAVE CACHE & TIMESTAMP ----
+                module.LastRefreshedAt = now;
+                module.CachedJsonData = System.Text.Json.JsonSerializer.Serialize(table);
+                await _mainDb.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    data = table,
+                    canRefresh = true,
+                    nextAllowedAt = now.AddMinutes(refreshMinutes),
+                    excelAllowed
+                });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
 
         [HttpDelete("delete-query/{id}")]
         public async Task<IActionResult> DeleteUserQuery(int id)

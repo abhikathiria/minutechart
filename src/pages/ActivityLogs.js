@@ -107,7 +107,7 @@ export default function ActivityLogs() {
     const loadLogs = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await api.get("/admin/activitylogs");
+            const res = await api.get("/adminDashboard/activitylogs");
             const sortedLogs = res.data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             setAllLogs(sortedLogs);
             setCurrentPage(1);

@@ -405,107 +405,100 @@ import {
   Line,
 } from "recharts";
 import { FaCrown, FaFileExcel } from "react-icons/fa";
-import { ComposableMap, Geographies, Geography } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 import { scaleLinear } from "d3-scale";
-import { Marker } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../api";
+import { motion } from "framer-motion";
 
 const indiaGeoUrl = "/india_state_geo.json";
+
+// --- Visual helpers (purely cosmetic, logic unchanged) ---
+const NEON = {
+  primary: "#00F0FF",
+  accent: "#9D4EDD",
+  deep: "#071016",
+};
+
+const containerFade = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.36, ease: "easeOut" } },
+};
 
 export default function ModuleChart({ data, type, isApprovalModule, approvalIdColumn, queryId, userId, onRefresh, limitHeight }) {
   // --- 1. ALL HOOKS MUST BE DEFINED HERE (TOP LEVEL) ---
   const [activeIndex, setActiveIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Kept for Pie Chart logic
   const [selectedFilter, setSelectedFilter] = useState("");
-
-  // Sorting State
   const [sortColumn, setSortColumn] = useState(null);
-  const [sortDirection, setSortDirection] = useState('asc');
-
-  // State to track which row IDs have been checked for approval
+  const [sortDirection, setSortDirection] = useState("asc");
   const [selectedApprovalIds, setSelectedApprovalIds] = useState([]);
 
   // --- Core Sorting Logic (useCallback) ---
-  const sortData = useCallback((data, column, direction) => {
-    if (!column || !direction) return data;
-
-    return [...data].sort((a, b) => {
+  const sortData = useCallback((d, column, direction) => {
+    if (!column || !direction) return d;
+    return [...d].sort((a, b) => {
       const valA = a[column];
       const valB = b[column];
       const isNumeric = !isNaN(Number(valA)) && !isNaN(Number(valB));
-
       let comparison = 0;
-
-      if (isNumeric) {
-        comparison = Number(valA) - Number(valB);
-      } else {
+      if (isNumeric) comparison = Number(valA) - Number(valB);
+      else {
         const strA = String(valA || "").toLowerCase();
         const strB = String(valB || "").toLowerCase();
-        if (strA > strB) {
-          comparison = 1;
-        } else if (strA < strB) {
-          comparison = -1;
-        }
+        comparison = strA > strB ? 1 : strA < strB ? -1 : 0;
       }
-
-      return direction === 'desc' ? comparison * -1 : comparison;
+      return direction === "desc" ? comparison * -1 : comparison;
     });
   }, []);
 
-  // Function to handle header click for sorting (useCallback)
   const handleSort = useCallback((key) => {
-    setSortColumn(prevCol => {
-      if (prevCol === key) {
-        setSortDirection(prevDir => {
-          if (prevDir === 'asc') return 'desc';
-          if (prevDir === 'desc') return null;
-          return 'asc';
+    setSortColumn((prev) => {
+      if (prev === key) {
+        setSortDirection((dir) => {
+          if (dir === "asc") return "desc";
+          if (dir === "desc") return null;
+          return "asc";
         });
-        return sortDirection === 'desc' ? null : prevCol;
-      } else {
-        setSortDirection('asc');
         return key;
       }
+      setSortDirection("asc");
+      return key;
     });
-  }, [sortDirection]);
+  }, []);
 
-  // --- Data Source for Table (useMemo) ---
+  // --- Memoized datasets ---
   const sortedAndFilteredData = useMemo(() => {
-    const searchFiltered = data.filter(row => {
-      return Object.values(row)
-        .some(val => String(val).toLowerCase().includes(searchTerm.toLowerCase()));
-    });
-
-    return sortData(searchFiltered, sortColumn, sortDirection);
-
+    const term = searchTerm.trim().toLowerCase();
+    const filtered = term
+      ? data.filter((row) => Object.values(row).some((v) => String(v).toLowerCase().includes(term)))
+      : data;
+    return sortData(filtered, sortColumn, sortDirection);
   }, [data, searchTerm, sortColumn, sortDirection, sortData]);
 
   const sortedAndFilteredHeatmapData = useMemo(() => {
-    // 1. Apply Search filter
-    const searchFiltered = data.filter(row => {
-      return Object.values(row)
-        .some(val => String(val).toLowerCase().includes(searchTerm.toLowerCase()));
-    });
-
-    // 2. Apply Sorting
-    return sortData(searchFiltered, sortColumn, sortDirection);
-
+    const term = searchTerm.trim().toLowerCase();
+    const filtered = term
+      ? data.filter((row) => Object.values(row).some((v) => String(v).toLowerCase().includes(term)))
+      : data;
+    return sortData(filtered, sortColumn, sortDirection);
   }, [data, searchTerm, sortColumn, sortDirection, sortData]);
 
   // --- 2. DATA VALIDATION AND EARLY RETURN (MUST BE AFTER ALL HOOKS) ---
   if (!data || data.length === 0) {
-    return <p className="text-center text-gray-500">No data to display</p>;
+    return (
+      <motion.div variants={containerFade} initial="hidden" animate="show" className="p-6 bg-[#071017] rounded-lg border border-[#0f1720] text-center">
+        <div className="text-sm text-slate-400">No data to display</div>
+      </motion.div>
+    );
   }
 
   const keys = Object.keys(data[0]);
   const COLORS = [
-    "#0000FF", "#4F46E5", "#A855F7", "#57167E", "#9B3192", "#EA5F89", "#2B0B3F", "#6366F1",
-    "#FBCF00", "#423C2E", "#822513", "#D3974E", "#C084FC", "#E9D5FF", "#152342FF"
+    "#00F0FF", "#4F46E5", "#A855F7", "#9D4EDD", "#EA5F89", "#2B0B3F", "#6366F1",
+    "#FBCF00", "#D3974E", "#C084FC", "#E9D5FF",
   ];
 
   // --- HANDLER FUNCTIONS (non-hook) ---
@@ -520,126 +513,89 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
   };
 
   const handleApproval = async (rowId) => {
-    setSelectedApprovalIds(prev =>
-      prev.includes(rowId) ? prev.filter(id => id !== rowId) : [...prev, rowId]
-    );
+    setSelectedApprovalIds((prev) => (prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]));
 
     try {
       await api.post(`/admin/approve-row/${userId}`, {
         QueryId: queryId,
         RowId: rowId,
       });
-
-      setSelectedApprovalIds(prev => prev.filter(id => id !== rowId));
+      setSelectedApprovalIds((prev) => prev.filter((id) => id !== rowId));
       if (onRefresh) onRefresh();
-
     } catch (err) {
-      alert("Approval failed: " + err.response?.data?.message);
-      setSelectedApprovalIds(prev => prev.filter(id => id !== rowId));
+      // keep original behavior (alert) but styled fallback
+      // eslint-disable-next-line no-alert
+      alert("Approval failed: " + (err.response?.data?.message || err.message));
+      setSelectedApprovalIds((prev) => prev.filter((id) => id !== rowId));
     }
   };
 
-
+  // --- RENDER SWITCH ---
   switch (type) {
     case "table":
       return (
-        <div className="mt-2 border rounded overflow-hidden">
-          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-gray-100 border-b">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="border px-3 py-2 rounded w-60"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-2 border rounded-lg overflow-hidden bg-[#041018]/60 backdrop-blur p-0 border-[#0b1620]">
+          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-[#061624]/60 border-b border-[#0b1620]">
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="Search..."
+                className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {/* <button onClick={handleExportTable} className="px-3 py-2 bg-[#9D4EDD] text-black rounded hover:scale-[1.02] transition">Export</button> */}
+            </div>
+            <div className="text-sm text-slate-400">Columns: {keys.length}</div>
           </div>
-          <div className={`overflow-x-auto ${limitHeight ? 'max-h-[400px] overflow-y-auto' : ''}`}>
-            <table className="border-collapse border w-full min-w-max text-sm">
-              <thead className="bg-[#152342FF] sticky top-0 z-10">
+
+          <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
+            <table className="border-collapse border w-full min-w-max text-sm bg-transparent">
+              <thead className="sticky top-0 z-10 bg-[#0a2345]">
                 <tr>
-                  {isApprovalModule && <th className="border px-3 py-2 font-semibold text-white">Approve</th>}
+                  {isApprovalModule && <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>}
                   {keys.map((k) => {
-                    // Check against data[0] is safe because we checked if data.length > 0 above.
                     const isNumeric = !isNaN(Number(data[0]?.[k]));
-                    // Show the icon based on the current sort direction
-                    const activeDirectionIcon = sortDirection === 'asc' ? '▲' : '▼';
-
-                    // Show a neutral, permanent icon for unsorted columns
-                    const defaultIcon = '↕';
-
+                    const activeDirectionIcon = sortDirection === "asc" ? "▲" : "▼";
+                    const defaultIcon = "↕";
                     return (
                       <th
                         key={k}
                         onClick={() => handleSort(k)}
-                        className={`border px-3 py-2 font-semibold text-white cursor-pointer select-none 
-                                                ${isNumeric ? "text-right" : "text-left"} 
-                                                hover:bg-[#20305BFF] transition-colors duration-150`}
+                        className={`border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none ${isNumeric ? "text-right" : "text-left"} hover:bg-[#3b2f8a]/80 transition-colors duration-150`}
                       >
-                        <span className="flex items-center gap-1 justify-between">
-                          {k}
-                          {/* PERMANENTLY VISIBLE SORT INDICATOR LOGIC */}
-                          <span
-                            className={`ml-1 text-xs transition-opacity duration-200 
-                                                    ${sortColumn === k
-                                ? 'opacity-100' // Fully visible if sorting this column
-                                : 'opacity-50 text-gray-300' // Lightly visible if not sorting
-                              }`
-                            }
-                          >
-                            {sortColumn === k
-                              ? activeDirectionIcon // Show actual direction
-                              : defaultIcon // Show neutral icon
-                            }
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate">{k}</span>
+                          <span className={`ml-2 text-xs ${sortColumn === k ? "opacity-100 text-slate-200" : "opacity-50 text-slate-500"}`}>
+                            {sortColumn === k ? activeDirectionIcon : defaultIcon}
                           </span>
-                        </span>
+                        </div>
                       </th>
                     );
                   })}
                 </tr>
               </thead>
               <tbody>
-                {/* Uses the memoized, sorted, and filtered data */}
                 {sortedAndFilteredData.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
-
-                  const isTotalRow = Object.values(row).some(
-                    (val) => typeof val === "string" && String(val).toLowerCase().includes("total")
-                  );
-
+                  const isTotalRow = Object.values(row).some((val) => typeof val === "string" && String(val).toLowerCase().includes("total"));
                   return (
-                    <tr
-                      key={rowId || i}
-                      className={isTotalRow ? "bg-[#152342FF] text-white font-semibold" : "hover:bg-gray-50"}
-                    >
+                    <tr key={rowId || i} className={`${isTotalRow ? "bg-[#0b2140] text-white font-semibold" : "hover:bg-[#3b2f8a]/80"}`}>
                       {isApprovalModule && (
                         <td className="border px-3 py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isRowSelected}
-                            onChange={() => handleApproval(rowId)}
-                            className="w-4 h-4 accent-indigo-600"
-                          />
+                          <input type="checkbox" checked={isRowSelected} onChange={() => handleApproval(rowId)} className="w-4 h-4 accent-[#00F0FF]" />
                         </td>
                       )}
                       {keys.map((k, j) => {
                         const cellValue = row[k];
                         const isNumeric = !isNaN(Number(cellValue));
                         const isTotalColumn = k && String(k).toLowerCase().includes("total");
-
                         let cellClasses = `border px-3 py-2 ${isNumeric ? "text-right" : "text-left"}`;
-
-                        if (isTotalRow || isTotalColumn) {
-                          cellClasses += " bg-[#152342FF] text-white font-semibold";
-                        } else if (sortColumn === k) {
-                          cellClasses += " bg-indigo-50/50";
-                        }
-
+                        if (isTotalRow || isTotalColumn) cellClasses += " bg-[#0b2140] text-white font-semibold";
+                        else if (sortColumn === k) cellClasses += " bg-[#022a4a]/30";
                         return (
-                          <td
-                            key={j}
-                            className={cellClasses}
-                          >
+                          <td key={j} className={cellClasses}>
                             {cellValue}
                           </td>
                         );
@@ -650,7 +606,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
 
                 {sortedAndFilteredData.length === 0 && (
                   <tr>
-                    <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-gray-500">
+                    <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-slate-500">
                       No results found.
                     </td>
                   </tr>
@@ -658,76 +614,50 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
               </tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
       );
 
-    // --- PIE CHART CASE (Filtering Logic Restored) ---
     case "pie": {
       const allColumns = keys || [];
-
       let filterColumn = null;
       let xCol = "";
       let yCol = "";
+      if (allColumns.length === 2) [xCol, yCol] = allColumns;
+      else if (allColumns.length >= 3) [filterColumn, xCol, yCol] = allColumns;
 
-      if (allColumns.length === 2) {
-        [xCol, yCol] = allColumns;
-      } else if (allColumns.length >= 3) {
-        [filterColumn, xCol, yCol] = allColumns;
-      }
+      const filterOptions = filterColumn ? [...new Set(data.map((d) => d[filterColumn]))].filter(Boolean) : [];
 
-      const filterOptions = filterColumn
-        ? [...new Set(data.map((d) => d[filterColumn]))].filter(Boolean)
-        : [];
-
-      const chartFilteredData = filterColumn && selectedFilter
-        ? data.filter((d) => String(d[filterColumn]) === String(selectedFilter))
-        : data;
+      const chartFilteredData = filterColumn && selectedFilter ? data.filter((d) => String(d[filterColumn]) === String(selectedFilter)) : data;
 
       const chartData = chartFilteredData
         .filter((item) => item[xCol] && !isNaN(Number(item[yCol])))
-        .map((item) => ({
-          name: item[xCol],
-          value: Number(item[yCol]),
-        }));
+        .map((item) => ({ name: item[xCol], value: Number(item[yCol]) }));
+
       const sortedData = [...chartData].sort((a, b) => b.value - a.value);
       const topName = sortedData[0]?.name;
 
       if (chartData.length === 0) {
         return (
-          <div className="p-4 border rounded text-center text-gray-500">
-            No data available for this selection.
-          </div>
+          <div className="p-4 border rounded text-center text-slate-400 bg-[#041018]">No data available for this selection.</div>
         );
       }
 
       const renderActiveShape = (props) => {
         const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-        return (
-          <Sector
-            cx={cx}
-            cy={cy}
-            innerRadius={innerRadius}
-            outerRadius={outerRadius + 10}
-            startAngle={startAngle}
-            endAngle={endAngle}
-            fill={fill}
-          />
-        );
+        return <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 12} startAngle={startAngle} endAngle={endAngle} fill={fill} />;
       };
 
       const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
           const item = payload[0].payload;
           const isTop = item.name === topName;
-          // const label = keys[1].charAt(0).toUpperCase() + keys[1].slice(1);
-
           return (
-            <div className="bg-white border border-gray-300 rounded shadow px-3 py-2 text-sm font-semibold">
-              <div className="flex items-center gap-1 text-gray-800 font-bold text-lg">
-                {isTop && <FaCrown className="text-yellow-500 text-lg" />}
+            <div className="bg-white border border-[#e6eef9] rounded shadow px-3 py-2 text-sm font-semibold">
+              <div className="flex items-center gap-2 text-gray-800 font-bold">
+                {isTop && <FaCrown className="text-yellow-500" />}
                 <span>{item.name}</span>
               </div>
-              <div>{keys[1]}: {item.value.toLocaleString()}</div>
+              <div className="text-slate-600">{yCol}: {item.value.toLocaleString()}</div>
             </div>
           );
         }
@@ -735,26 +665,13 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
       };
 
       const renderLegend = () => (
-        <div className="border-t border-gray-700">
-          {/* Clear Heading for Legend Data */}
-          <h4 className="text-sm font-semibold text-gray-600 mt-2 mb-2">
-            {xCol}
-          </h4>
-
-          {/* Organized Multi-Column Layout */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1 max-h-40 overflow-y-auto">
+        <div className="border-t border-[#0b1620] mt-3 pt-3">
+          <h4 className="text-sm font-semibold text-slate-400 mb-2">{xCol}</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
             {chartData.map((entry, index) => (
-              // Use a more stable key if possible, but index is safe if data order is stable
-              <div key={`legend-${index}-${entry.name}`} className="flex items-center text-sm text-gray-700">
-                {/* Color Swatch */}
-                <span
-                  className="w-2 h-2 rounded-sm mr-2 flex-shrink-0"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                />
-                {/* Legend Label - Use full label for distinction if needed, otherwise use name */}
-                <span title={entry.name} className="leading-tight">
-                  {entry.name}
-                </span>
+              <div key={`legend-${index}-${entry.name}`} className="flex items-center text-sm text-slate-300 gap-2">
+                <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                <span className="truncate" title={entry.name}>{entry.name}</span>
               </div>
             ))}
           </div>
@@ -762,165 +679,117 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
       );
 
       return (
-        <div className="h-96 w-full">
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="h-96 w-full p-3 bg-[#041018]/60 rounded-lg border border-[#0f1720]">
           {filterColumn && (
-            <div className="flex justify-start mb-3 items-center gap-2">
-              <span className="text-sm font-semibold text-gray-700">
-                Filter by {filterColumn}:
-              </span>
-              <select
-                value={selectedFilter}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="border px-3 py-1 rounded text-sm"
-              >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm text-slate-300">Filter by {filterColumn}:</span>
+              <select value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} className="border px-3 py-1 rounded text-sm bg-[#021016] text-slate-200">
                 <option value="">All {filterColumn}</option>
                 {filterOptions.map((opt, i) => (
-                  <option key={i} value={opt}>
-                    {opt}
-                  </option>
+                  <option key={i} value={opt}>{opt}</option>
                 ))}
               </select>
             </div>
           )}
 
-          <ResponsiveContainer width="100%" height="90%">
+          <ResponsiveContainer width="100%" height="80%">
             <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={120}
-                activeIndex={activeIndex}
-                activeShape={renderActiveShape}
-                onClick={(_, index) => setActiveIndex(index === activeIndex ? null : index)}
-                isAnimationActive={true}
-                animationDuration={400}
-              >
-                {chartData.map((_, index) => (
-                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                ))}
+              <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} activeIndex={activeIndex} activeShape={renderActiveShape} onClick={(_, idx) => setActiveIndex(idx === activeIndex ? null : idx)} isAnimationActive animationDuration={450}>
+                {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
               <ReTooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
           {renderLegend()}
-        </div>
+        </motion.div>
       );
     }
 
     case "bar":
       return (
-        <div className="mt-4 h-80 w-full overflow-x-auto">
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 h-80 w-full p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={keys[0]} />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
+              <XAxis dataKey={keys[0]} stroke="#9fb7c9" />
+              <YAxis stroke="#9fb7c9" />
               <ReTooltip />
-              <Bar dataKey={keys[1]} fill="#0000ff" />
+              <Bar dataKey={keys[1]} fill={NEON.primary} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </motion.div>
       );
 
     case "area":
       return (
-        <div className="mt-4 h-80 w-full overflow-x-auto">
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 h-80 w-full p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={keys[0]} />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
+              <XAxis dataKey={keys[0]} stroke="#9fb7c9" />
+              <YAxis stroke="#9fb7c9" />
               <ReTooltip />
-              <Area type="monotone" dataKey={keys[1]} stroke="#0000ff" fill="#0000ff" />
+              <Area type="monotone" dataKey={keys[1]} stroke="#9D4EDD" fill="url(#gradArea)" />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
+        </motion.div>
       );
 
     case "line":
       return (
-        <div className="mt-4 h-80 w-full overflow-x-auto">
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 h-80 w-full p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={keys[0]} />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
+              <XAxis dataKey={keys[0]} stroke="#9fb7c9" />
+              <YAxis stroke="#9fb7c9" />
               <ReTooltip />
-              <Line type="monotone" dataKey={keys[1]} stroke="#8884d8" strokeWidth={2} />
+              <Line type="monotone" dataKey={keys[1]} stroke="#9D4EDD" strokeWidth={2} dot />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </motion.div>
       );
 
-    case "kpi":
-      const totalValue = data.reduce((sum, item) => sum + Number(item[keys[0]]), 0);
+    case "kpi": {
+      const totalValue = data.reduce((sum, item) => sum + Number(item[keys[0]] || 0), 0);
       return (
-        <div className="mt-4 p-6 bg-blue-600 text-white rounded-lg text-center shadow-lg">
-          <p className="text-3xl font-bold">{totalValue.toLocaleString()}</p>
-        </div>
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 p-6 bg-gradient-to-r from-[#00F0FF]/20 via-[#9D4EDD]/14 to-[#ffffff]/4 text-white rounded-lg text-center border border-[#0f1720] shadow-[0_10px_40px_rgba(157,78,221,0.06)]">
+          {/* <div className="text-xs tracking-widest text-slate-300">KEY METRIC</div> */}
+          <p className="text-4xl font-extrabold mt-2" style={{ color: NEON.primary }}>{totalValue.toLocaleString()}</p>
+        </motion.div>
       );
+    }
 
-    case "heatmap":
+    case "heatmap": {
       const finalHeatmapData = sortedAndFilteredHeatmapData;
-
-      // Note: The min/max calculation must use the final filtered and sorted data
       const hasData = finalHeatmapData.length > 0;
-      const numericKeys = hasData ? keys.filter(k => !isNaN(Number(data[0][k]))) : [];
-
-      const allValues = finalHeatmapData.flatMap(row => numericKeys.map(k => Number(row[k])));
-      const minValue = Math.min(...allValues.filter(v => isFinite(v)));
-      const maxValue = Math.max(...allValues.filter(v => isFinite(v)));
+      const numericKeys = hasData ? keys.filter((k) => !isNaN(Number(data[0][k]))) : [];
+      const allValues = finalHeatmapData.flatMap((row) => numericKeys.map((k) => Number(row[k])));
+      const minValue = Math.min(...allValues.filter((v) => isFinite(v)));
+      const maxValue = Math.max(...allValues.filter((v) => isFinite(v)));
 
       return (
-        <div className="mt-4 border rounded overflow-hidden">
-          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-gray-100 border-b">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="border px-3 py-2 rounded w-60"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 border rounded-lg overflow-hidden bg-[#041018]/60">
+          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-[#061624]/60 border-b border-[#0b1620]">
+            <input type="text" placeholder="Search..." className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <div className="text-sm text-slate-400">Heatmap Preview</div>
           </div>
-          <div className={`overflow-x-auto ${limitHeight ? 'max-h-[400px] overflow-y-auto' : ''}`}>
-            <table className="border-collapse border w-full min-w-max text-sm">
-              <thead className="bg-[#152342FF] sticky top-0 z-10">
+
+          <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
+            <table className="border-collapse border w-full min-w-max text-sm bg-transparent">
+              <thead className="sticky top-0 z-10  bg-[#0a2345]">
                 <tr>
-                  {/* Approval Column for Heatmap */}
-                  {isApprovalModule && <th className="border px-3 py-2 font-semibold text-white">Approve</th>}
+                  {isApprovalModule && <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>}
                   {keys.map((k) => {
                     const isNumeric = hasData && !isNaN(Number(data[0][k]));
-                    const activeDirectionIcon = sortDirection === 'asc' ? '▲' : '▼';
-                    const defaultIcon = '↕';
-
+                    const activeDirectionIcon = sortDirection === "asc" ? "▲" : "▼";
+                    const defaultIcon = "↕";
                     return (
-                      <th
-                        key={k}
-                        onClick={() => handleSort(k)}
-                        className={`border px-3 py-2 font-semibold text-white cursor-pointer select-none 
-                                                ${isNumeric ? "text-right" : "text-left"} 
-                                                hover:bg-[#20305BFF] transition-colors duration-150`}
-                      >
-                        <span className="flex items-center gap-1 justify-between">
-                          {k}
-                          {/* PERMANENTLY VISIBLE SORT INDICATOR LOGIC (Restored) */}
-                          <span
-                            className={`ml-1 text-xs transition-opacity duration-200 
-                                                        ${sortColumn === k
-                                ? 'opacity-100'
-                                : 'opacity-50 text-gray-300'
-                              }`
-                            }
-                          >
-                            {sortColumn === k
-                              ? activeDirectionIcon
-                              : defaultIcon
-                            }
-                          </span>
-                        </span>
+                      <th key={k} onClick={() => handleSort(k)} className={`border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none hover:bg-[#3b2f8a]/80 ${isNumeric ? "text-right" : "text-left"}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{k}</span>
+                          <span className={`ml-2 text-xs ${sortColumn === k ? "opacity-100 text-slate-200" : "opacity-50 text-slate-500"}`}>{sortColumn === k ? activeDirectionIcon : defaultIcon}</span>
+                        </div>
                       </th>
                     );
                   })}
@@ -930,38 +799,21 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                 {finalHeatmapData.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
-
                   return (
-                    <tr key={rowId || i}>
-                      {/* Approval Checkbox for Heatmap */}
+                    <tr key={rowId || i} className="hover:bg-[#3b2f8a]/80">
                       {isApprovalModule && (
                         <td className="border px-3 py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isRowSelected}
-                            onChange={() => handleApproval(rowId)}
-                            className="w-4 h-4 accent-indigo-600"
-                          />
+                          <input type="checkbox" checked={isRowSelected} onChange={() => handleApproval(rowId)} className="w-4 h-4 accent-[#9D4EDD]" />
                         </td>
                       )}
                       {keys.map((k, j) => {
                         const value = Number(row[k]);
-                        if (isNaN(value) || !isFinite(value)) {
-                          return (
-                            <td key={j} className="border px-3 py-2 text-center">{row[k]}</td>
-                          );
-                        }
+                        if (isNaN(value) || !isFinite(value)) return <td key={j} className="border px-3 py-2 text-center">{row[k]}</td>;
                         const range = maxValue - minValue;
                         const intensity = range > 0 ? (value - minValue) / range : 0.5;
-                        const colorValue = Math.floor(255 - intensity * 200);
+                        const colorValue = Math.floor(255 - intensity * 160);
                         return (
-                          <td
-                            key={j}
-                            className="border px-3 py-2 font-semibold text-right"
-                            style={{ backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)` }}
-                          >
-                            {value.toLocaleString()}
-                          </td>
+                          <td key={j} className="border px-3 py-2 font-bold text-black text-right" style={{ backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)` }}>{value.toLocaleString()}</td>
                         );
                       })}
                     </tr>
@@ -969,81 +821,52 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                 })}
                 {finalHeatmapData.length === 0 && (
                   <tr>
-                    <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-gray-500">
-                      No results found.
-                    </td>
+                    <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-slate-500">No results found.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
       );
+    }
 
-    case "map":
+    case "map": {
       const regionKey = keys[0];
       const valueKey = keys[1];
-
       const regionData = {};
-      data.forEach(d => {
-        regionData[d[regionKey]] = Number(d[valueKey]);
-      });
+      data.forEach((d) => { regionData[d[regionKey]] = Number(d[valueKey]); });
+      const values = Object.values(regionData); const min = Math.min(...values); const max = Math.max(...values);
+      const sizeScale = scaleLinear().domain([min, max]).range([5, 40]);
 
-      const values = Object.values(regionData);
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-
-      const sizeScale = scaleLinear()
-        .domain([min, max])
-        .range([5, 40]);
       return (
-        <div className="mt-4 w-full overflow-x-auto">
-          <ComposableMap
-            projection="geoMercator"
-            projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }}
-          >
+        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 w-full overflow-x-auto p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
+          <ComposableMap projection="geoMercator" projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }}>
             <Geographies geography={indiaGeoUrl}>
-              {({ geographies }) =>
-                geographies.map(geo => {
-                  const stateName = geo.properties.NAME_1;
-                  const value = regionData[stateName] || 0;
-                  const centroid = geoCentroid(geo);
-
-                  return (
-                    <React.Fragment key={geo.rsmKey}>
-                      <Geography
-                        geography={geo}
-                        fill="#ffff"
-                        stroke="#444"
-                        style={{
-                          default: { outline: "none" },
-                          hover: { outline: "none" },
-                          pressed: { outline: "none" },
-                        }}
-                      />
-
-                      {value > 0 && (
-                        <Marker coordinates={centroid}>
-                          <circle
-                            r={sizeScale(value)}
-                            fill="red"
-                            opacity={0.9}
-                            stroke="#fff"
-                            strokeWidth={1}
-                          />
-                          <title>{`${stateName}: ${value}`}</title>
-                        </Marker>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              }
+              {({ geographies }) => geographies.map((geo) => {
+                const stateName = geo.properties.NAME_1;
+                const value = regionData[stateName] || 0;
+                const centroid = geoCentroid(geo);
+                return (
+                  <React.Fragment key={geo.rsmKey}>
+                    <Geography geography={geo} fill="#0b1220" stroke="#17354a" style={{ default: { outline: "none" }, hover: { outline: "none" }, pressed: { outline: "none" } }} />
+                    {value > 0 && (
+                      <Marker coordinates={centroid}>
+                        <circle r={sizeScale(value)} fill="#00F0FF" opacity={0.9} stroke="#071017" strokeWidth={1} />
+                        <title>{`${stateName}: ${value}`}</title>
+                      </Marker>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </Geographies>
           </ComposableMap>
-        </div>
+        </motion.div>
       );
+    }
 
     default:
-      return <p className="mt-4 text-gray-500">Unsupported visualization type</p>;
+      return <p className="mt-4 text-slate-400">Unsupported visualization type</p>;
   }
 }
+

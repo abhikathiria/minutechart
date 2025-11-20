@@ -1,247 +1,12 @@
-// import React, { useState, useEffect, useRef } from "react";
-// import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
-// import { FaArrowRight, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe } from "react-icons/fa";
-// import ProductDashboard from "./pages/ProductDashboard";
-// import HRDashboard from "./pages/HRDashboard";
-// import AnalysisDashboard from "./pages/AnalysisDashboard";
-// import HomeContent from "./pages/HomeContent";
-// import ScrollToTop from "./ScrollToTop";
-// import Login from "./pages/Login";
-// import Register from "./pages/Register";
-// import Profile from "./pages/Profile";
-// import MyProfile from "./pages/MyProfile";
-// import UserList from "./pages/UserList";
-// import Dashboard from "./pages/Dashboard";
-// import api from "./api";
-// import ChangePassword from "./pages/ChangePassword";
-// import ResetPassword from "./pages/ResetPassword";
-// import UserModules from "./pages/UserModules";
-// import TransferModules from "./pages/TransferModules";
-// import PlanPage from "./pages/PlanPage";
-// import SubscriptionPage from "./pages/SubscriptionPage";
-// import PurchaseHistory from "./pages/PurchaseHistory";
-// import InvoicePrintable from "./pages/InvoicePrintable";
-// import EmailSettings from "./pages/EmailSettings";
-// import InvoiceSettingsPage from "./pages/InvoiceSettingsPage";
-// import Information from "./pages/Information";
-// import Header from "./components/Header";
-// import Complaints from "./pages/Complaints";
-// import ComplaintsManagement from "./pages/ComplaintsManagement";
-// import { Toaster } from "react-hot-toast";
-
-// function Footer() {
-//     const [user, setUser] = useState(null);
-//     const currentYear = new Date().getFullYear();
-
-//     useEffect(() => {
-//         // Fetch user data for conditional links
-//         api.get("/account/me")
-//             .then((response) => setUser(response.data))
-//             .catch(() => setUser(null));
-//     }, []);
-
-//     // Determine links based on user role
-//     const getQuickLinks = (user) => {
-//         const isAdmin = user?.roles?.includes("Admin");
-//         const baseLinks = [
-//             { to: "/", label: "Home" },
-//             { to: "/dashboard", label: "Dashboard", adminOnly: false },
-//             { to: "/subscription/buy", label: "Plans & Pricing" },
-//             { to: "/information", label: "Information" },
-//         ];
-
-//         const adminLinks = [
-//             { to: "/admin/users", label: "User Settings" },
-//             { to: "/admin/emailsettings", label: "Email Settings" },
-//             { to: "/admin/invoicesettings", label: "Invoice Settings" },
-//             { to: "/admin/complaintsmanagement", label: "Complaints Management" },
-//         ];
-        
-//         if (isAdmin) {
-//             return [...baseLinks.slice(0, 1), ...adminLinks, ...baseLinks.slice(2)];
-//         }
-//         return baseLinks.filter(link => !link.adminOnly);
-//     };
-    
-//     const quickLinks = getQuickLinks(user);
-
-//     return (
-//         // Use id for FAB alignment adjustment (if needed by other components)
-//         <footer id="app-footer" className="bg-[#151D33] text-gray-300 border-t border-indigo-900 py-12 sm:py-16 px-4 sm:px-6">
-//             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10 sm:gap-16">
-                
-//                 {/* Column 1: Branding and Description */}
-//                 <div className="flex flex-col md:col-span-1 lg:col-span-2 max-w-lg text-center sm:text-left">
-//                     <img src="/Group 22.png" alt="NGraph Logo" className="h-16 sm:h-20 w-auto mx-auto sm:mx-0 mb-4" />
-//                     <p className="text-base sm:text-lg leading-relaxed text-indigo-200/80">
-//                         Ngraph is a premium dashboard solution offering real-time insights with elegant visualizations.
-//                         Designed for clarity, speed, and scalability.
-//                     </p>
-//                     <p className="mt-6 text-sm text-indigo-400 font-semibold">
-//                         Ready to start visualizing your data?
-//                         <Link to="/register" className="text-cyan-400 hover:text-cyan-300 ml-2 underline flex items-center justify-center sm:justify-start">
-//                             Register Today <FaArrowRight className="ml-1 text-xs"/>
-//                         </Link>
-//                     </p>
-//                 </div>
-
-//                 {/* Column 2: Quick Links (Responsive List) */}
-//                 <div className="flex flex-col text-center sm:text-left">
-//                     <h4 className="text-white font-extrabold mb-4 text-xl border-b border-indigo-700 pb-2">Navigation</h4>
-//                     <ul className="space-y-3">
-//                         {quickLinks.map((item, index) => (
-//                             <li key={index}>
-//                                 <Link 
-//                                     to={item.to} 
-//                                     className="text-indigo-300 hover:text-cyan-400 transition text-base block"
-//                                 >
-//                                     {item.label}
-//                                 </Link>
-//                             </li>
-//                         ))}
-//                     </ul>
-//                 </div>
-
-//                 {/* Column 3: Contact & Social */}
-//                 <div className="flex flex-col text-center sm:text-left">
-//                     <h4 className="text-white font-extrabold mb-4 text-xl border-b border-indigo-700 pb-2">Reach Us</h4>
-//                     <address className="not-italic text-base space-y-3">
-//                         <p className="text-indigo-300">
-//                             Email: <a href="mailto:info@ntillp.com" className="hover:text-cyan-400">info@ntillp.com</a>
-//                         </p>
-//                         <p className="text-indigo-300">
-//                             Contact: <a href="tel:+919978278879" className="hover:text-cyan-400">+91 99782 78879</a>
-//                         </p>
-//                     </address>
-                    
-//                     {/* Social Icons (Larger targets on mobile) */}
-//                     <div className="flex justify-center sm:justify-start space-x-5 mt-6 text-indigo-400">
-//                         <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 p-2 rounded-full hover:bg-indigo-700 transition" aria-label="Website">
-//                             <FaGlobe className="h-6 w-6" />
-//                         </a>
-//                         <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 p-2 rounded-full hover:bg-indigo-700 transition" aria-label="LinkedIn">
-//                             <FaLinkedin className="h-6 w-6" />
-//                         </a>
-//                         <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Ngraph" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 p-2 rounded-full hover:bg-indigo-700 transition" aria-label="WhatsApp">
-//                             <FaWhatsapp className="h-6 w-6" />
-//                         </a>
-//                     </div>
-//                 </div>
-//             </div>
-            
-//             {/* Copyright Strip */}
-//             <div className="max-w-7xl mx-auto border-t border-indigo-800 mt-10 pt-6 text-center">
-//                 <p className="text-xs sm:text-sm text-indigo-400">
-//                     &copy; {currentYear} Ngraph. All rights reserved. Built by New Tech Infosol.
-//                 </p>
-//             </div>
-//         </footer>
-//     );
-// }
-
-// // --- AppContent and App Wrapper (Remains Unchanged) ---
-
-// function AppContent() {
-//     // ... (rest of AppContent remains the same) ...
-//     const [dashboardOpen, setDashboardOpen] = useState(false);
-//     const [user, setUser] = useState(null);
-//     const [companies, setCompanies] = useState([]);
-//     const navigate = useNavigate();
-//     const dashboardButtonRef = useRef(null);
-  
-//     const PublicRoute = ({ children }) => children;
-  
-//     const PrivateRoute = ({ children }) => {
-//       if (!user) return <Navigate to="/login" replace />;
-//       return children;
-//     };
-  
-//     const AdminRoute = ({ children }) => {
-//       if (!user) return <Navigate to="/login" replace />;
-//       if (!user.roles?.includes("Admin")) return <Navigate to="/" replace />;
-//       return children;
-//     };
-  
-//     useEffect(() => {
-//       api.get("/account/me")
-//         .then((response) => setUser(response.data))
-//         .catch(() => setUser(null));
-//     }, []);
-  
-//     useEffect(() => {
-//       if (user?.roles?.includes("Admin")) {
-//         api.get("/admin/users")
-//           .then((response) => setCompanies(response.data))
-//           .catch(() => setCompanies([]));
-//       }
-//     }, [user]);
-  
-//     const handleLogout = () => {
-//       api.post("/account/logout", {})
-//         .then(() => {
-//           setUser(null);
-//           navigate("/");
-//         });
-//     };
-  
-//     return (
-//       <>
-//         <ScrollToTop />
-//         <Header user={user} onLogout={handleLogout} />
-  
-//         <Routes>
-//           {/* Public routes */}
-//           <Route path="/" element={<PublicRoute><HomeContent /></PublicRoute>} />
-//           <Route path="/login" element={<PublicRoute><Login onLogin={setUser} /></PublicRoute>} />
-//           <Route path="/register" element={<PublicRoute><Register onRegister={setUser} /></PublicRoute>} />
-//           <Route path="/dashboard" element={<PublicRoute><Dashboard /></PublicRoute>} />
-//           <Route path="/plan" element={<PublicRoute><PlanPage /></PublicRoute>} />
-//           <Route path="/subscription/buy" element={<PublicRoute><SubscriptionPage /></PublicRoute>} />
-//           <Route path="/information" element={<PublicRoute><Information /></PublicRoute>} />
-  
-//           {/* Admin routes */}
-//           <Route path="/profile/:id" element={<AdminRoute><Profile /></AdminRoute>} />
-//           <Route path="/admin/users" element={<AdminRoute><UserList /></AdminRoute>} />
-//           <Route path="/user/:id/modules" element={<AdminRoute><UserModules /></AdminRoute>} />
-//           <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
-//           <Route path="/admin/emailsettings" element={<AdminRoute><EmailSettings /></AdminRoute>} />
-//           <Route path="/admin/invoicesettings" element={<AdminRoute><InvoiceSettingsPage /></AdminRoute>} />
-//           <Route path="/admin/complaintsmanagement" element={<AdminRoute><ComplaintsManagement /></AdminRoute>} />
-  
-//           {/* Private routes (logged-in users) */}
-//           <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
-//           <Route path="/purchase-history" element={<PrivateRoute><PurchaseHistory /></PrivateRoute>} />
-//           <Route path="/reset-password" element={<PrivateRoute><ResetPassword /></PrivateRoute>} />
-//           <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
-//           <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
-  
-//           {/* Catch-all */}
-//           <Route path="*" element={<Navigate to="/" replace />} />
-//         </Routes>
-  
-//         <Footer />
-//       </>
-//     );
-//   }
-  
-//   function App() {
-//     return (
-//       <Router>
-//         <AppContent />
-//         <Toaster position="top-right" />
-//       </Router>
-//     );
-//   }
-  
-//   export default App;
-
 import React, { useState, useEffect, memo, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
-import { FaArrowRight, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe, FaHome, FaChartArea, FaTags, FaInfoCircle, FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaEnvelope, FaPhone } from "react-icons/fa";
+import { FaArrowRight, FaPlay, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe, FaHome, FaChartArea, FaTags, FaInfoCircle, FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaEnvelope, FaPhone } from "react-icons/fa";
 import ProductDashboard from "./pages/ProductDashboard";
 import HRDashboard from "./pages/HRDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import HomeContent from "./pages/HomeContent";
+import AboutContent from "./pages/AboutContent";
+import ServiceContent from "./pages/ServiceContent";
 import ScrollToTop from "./ScrollToTop";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -268,128 +33,157 @@ import ModuleSuggestionsHistory from "./pages/ModuleSuggestionsHistory"
 import ActivityLogs from "./pages/ActivityLogs";
 import { Toaster } from "react-hot-toast";
 import SuperAdminUserList from "./pages/SuperAdminUserList";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import Pricing from "./pages/Pricing";
+import UserPricingPage from "./pages/UserPricingPage";
+import CommissionPage from "./pages/CommissionPage";
+import AdminCommissionPage from "./pages/AdminCommissionPage";
+import AdminPayoutDetails from "./pages/AdminPayoutDetails";
+import SubscriptionAddonPage from "./pages/SubscriptionAddonPage";
+
+const FooterLink = memo(({ to, label }) => (
+    <li className="mb-2">
+        <Link
+            to={to}
+            className="text-gray-400 hover:text-teal-400 transition text-base font-normal block"
+        >
+            {label}
+        </Link>
+    </li>
+));
+
+// --- Main Footer Component ---
 
 function Footer() {
-    const [user, setUser] = useState(null);
     const currentYear = new Date().getFullYear();
+    // Note: Removed user fetch logic as it's not strictly needed for static link rendering
 
-    // Memoize the Link component for cleaner JSX
-    const FooterLink = memo(({ to, label, icon: Icon }) => (
-        <li className="min-h-[40px] flex items-center justify-center sm:justify-start">
-            <Link
-                to={to}
-                className="text-gray-300 hover:text-cyan-400 transition text-base font-normal flex items-center gap-2"
-            >
-                {Icon && <Icon className="w-4 h-4 text-cyan-500/80 shrink-0" />} {label}
-            </Link>
-        </li>
-    ));
+    // Define link groups based on the image structure
+    const productLinks = [
+        // { to: "/service", label: "Features" },
+        { to: "/dashboard", label: "Dashboard" },
+        { to: "/information", label: "Information" },
+        { to: "/pricing", label: "Pricing" },
+        // { to: "/support", label: "Support" },
+    ];
 
-    useEffect(() => {
-        // Fetch user data for conditional links (only run once on mount)
-        api.get("/account/me")
-            .then((response) => setUser(response.data))
-            .catch(() => setUser(null));
-    }, []);
+    const companyLinks = [
+        { to: "/", label: "Home" },
+        // { to: "/about", label: "About" },
+        // { to: "/careers", label: "Careers" },
+        // { to: "/press", label: "Press" },
+        // { to: "/contact", label: "Contact" },
+        // { to: "/link-ten", label: "Link Ten" },
+    ];
 
-    // Determine links based on user role (Memoized for efficiency)
-    const getQuickLinks = (user) => {
-        const roles = user?.roles || [];
-        const isSuperAdmin = roles.includes("SuperAdmin");
-        const isAdmin = roles.includes("Admin");
-
-        const baseLinks = [
-            { to: "/", label: "Home", icon: FaHome },
-            { to: "/dashboard", label: "Dashboard", icon: FaChartArea },
-            { to: "/subscription/buy", label: "Plans & Pricing", icon: FaTags },
-            { to: "/information", label: "Information", icon: FaInfoCircle },
-            // { to: "/admin/admindashboard", label: "Admin Dashboard", icon: FaInfoCircle },
-            // { to: "/admin/activitylogs", label: "Activity Logs", icon: FaInfoCircle },
-        ];
-
-        // const adminLinks = [
-        //     { to: "/admin/users", label: "User Management", icon: FaUsers },
-        //     { to: "/admin/emailsettings", label: "Email Settings", icon: FaAt },
-        //     { to: "/admin/invoicesettings", label: "Invoice Settings", icon: FaFileInvoice },
-        //     { to: "/admin/complaintsmanagement", label: "Complaints Management", icon: FaClipboardList },
-        // ];
-        
-        // if (isAdmin) {
-        //     // Admin gets Home + Admin Links + Plans/Info
-        //     return [baseLinks[0], ...adminLinks, baseLinks[2], baseLinks[3]];
-        // }
-        // Standard user gets all non-admin base links
-        return baseLinks;
+    // Placeholder handler for the subscription form
+    const handleSubscribe = (e) => {
+        e.preventDefault();
+        const email = e.target.elements.email.value;
+        if (email) {
+            // alert(`Subscribing ${email}... (API integration needed)`);
+            alert(`This feature is currently under development.`);
+            e.target.elements.email.value = '';
+        }
     };
-    
-    const quickLinks = getQuickLinks(user);
 
     return (
-        <footer id="app-footer" className="bg-[#0F172A] text-gray-300 border-t border-indigo-900 py-12 sm:py-16 px-4">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 sm:gap-16">
-                <div className="flex flex-col md:col-span-2 max-w-lg text-center sm:text-left mx-auto md:mx-0 w-full">
-                    <img src="/Group 22.png" alt="NGraph Logo" className="h-16 sm:h-20 w-auto mx-auto sm:mx-0 mb-4 object-contain" />
-                        <p className="text-base sm:text-lg leading-relaxed text-gray-400">
-                            <strong className="text-white italic">NGraph</strong> provides a premium dashboard solution, transforming your raw data into real-time, elegant visualizations designed for clarity, speed, and scalability.
+        <footer id="app-footer" className="bg-[#0b0d10] text-gray-300 border-t border-indigo-900 py-12 sm:py-16 px-4">
+            <div className="max-w-7xl mx-auto">
+                <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-6 lg:gap-12">
+
+                    {/* Column 1: Logo (Wider column on mobile) */}
+                    <div className="col-span-2 sm:col-span-3 lg:col-span-2 flex flex-col items-center sm:items-start text-center sm:text-left">
+                        {/* Placeholder for NGraph Logo (use the logo you defined in Header) */}
+                        <img src="/Group 22.png" alt="NGraph Logo" className="h-12 sm:h-16 w-auto mb-6" />
+                        <p className="text-base text-teal-500 font-semibold">
+                            Ready to start visualizing your data?
+                            <Link to="/register" className="text-teal-500 hover:text-white mt-1 underline flex items-center justify-center sm:justify-start transition">
+                                Register Today <FaArrowRight className="ml-2 text-sm" />
+                            </Link>
                         </p>
-                    <p className="mt-6 text-base text-cyan-400 font-semibold">
-                        Ready to start visualizing your data?
-                        <Link to="/register" className="text-cyan-400 hover:text-white mt-1 underline flex items-center justify-center sm:justify-start transition">
-                            Register Today <FaArrowRight className="ml-2 text-sm"/>
-                        </Link>
-                    </p>
+                    </div>
+
+                    {/* Column 2: Product */}
+                    <div className="flex flex-col text-center sm:text-left">
+                        <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Product</h4>
+                        <ul className="space-y-1">
+                            {productLinks.map((item, index) => (
+                                <FooterLink key={index} to={item.to} label={item.label} />
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Column 3: Company */}
+                    <div className="flex flex-col text-center sm:text-left">
+                        <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Company</h4>
+                        <ul className="space-y-1">
+                            {companyLinks.map((item, index) => (
+                                <FooterLink key={index} to={item.to} label={item.label} />
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Column 5: Subscribe (Takes remaining space on lg screens) */}
+                    <div className="col-span-2 lg:col-span-2 flex flex-col text-center sm:text-left">
+                        <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Subscribe</h4>
+                        <p className="text-gray-400 text-sm mb-4">
+                            Stay ahead with insights on data visualization and business intelligence trends.
+                        </p>
+                        <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2">
+                            <input
+                                type="email"
+                                name="email"
+                                placeholder="Enter email address"
+                                className="w-full p-2 border border-gray-600 rounded-lg bg-gray-900 text-white placeholder-gray-500 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 transition"
+                                required
+                            />
+                            <button
+                                type="submit"
+                                className="px-4 py-2 bg-teal-500 text-black font-semibold rounded-lg hover:bg-teal-400 transition flex-shrink-0"
+                            >
+                                Submit
+                            </button>
+                        </form>
+                        <p className="text-xs text-gray-500 mt-2">
+                            By subscribing, you agree to our privacy policy and email communications.
+                        </p>
+                    </div>
                 </div>
 
-                <div className="flex flex-col text-center sm:text-left">
-                    <h4 className="text-white font-extrabold mb-5 text-xl border-b-2 border-cyan-500/50 pb-2">Navigation</h4>
-                    <ul className="space-y-2">
-                        {quickLinks.map((item, index) => (
-                            <FooterLink key={index} to={item.to} label={item.label} icon={item.icon} />
-                        ))}
-                    </ul>
-                </div>
+                {/* --- Bottom Footer Strip --- */}
+                <div className="max-w-full mx-auto border-t border-gray-700 mt-12 pt-6 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
 
-                {/* Column 3: Contact & Social */}
-                {/* ... (rest of the contact column remains the same) ... */}
-                <div className="flex flex-col text-center sm:text-left">
-                    <h4 className="text-white font-extrabold mb-5 text-xl border-b-2 border-cyan-500/50 pb-2">Get In Touch</h4>
-                    <address className="not-italic text-base space-y-3">
-                        {/* Email */}
-                        <div className="flex items-center gap-3 justify-center sm:justify-start">
-                            <FaEnvelope className="w-5 h-5 text-cyan-500 shrink-0" />
-                            <a href="mailto:info@ntillp.com" className="text-gray-300 hover:text-cyan-400 transition">info@ntillp.com</a>
+                    {/* Copyright & Legal Links */}
+                    <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                        <p className="text-sm text-gray-500 font-medium">
+                            &copy; {currentYear} NGraph. All rights reserved.
+                        </p>
+                        <div className="flex space-x-3 text-sm font-medium">
+                            {/* <a href="/privacy-policy" className="text-gray-400 hover:text-white transition">Privacy policy</a> */}
+                            {/* <a href="/terms-of-service" className="text-gray-400 hover:text-white transition">Terms of service</a> */}
+                            {/* <a href="/cookies-settings" className="text-gray-400 hover:text-white transition">Cookies settings</a> */}
                         </div>
-                        
-                        {/* Phone */}
-                        {/* <div className="flex items-center gap-3 justify-center sm:justify-start">
-                            <FaPhone className="w-5 h-5 text-cyan-500 shrink-0" />
-                            <a href="tel:+919978278879" className="text-gray-300 hover:text-cyan-400 transition">+91 99782 78879</a>
-                        </div> */}
-                    </address>
-                    
-                    {/* Social Icons (Stylized and larger touch targets) */}
-                    <div className="flex justify-center sm:justify-start space-x-4 mt-8">
-                        {/* Website */}
-                        <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="text-white bg-indigo-700/50 hover:bg-cyan-500 p-3 rounded-full transition duration-300 shadow-lg" aria-label="Website">
-                            <FaGlobe className="h-6 w-6" />
-                        </a>
-                        {/* LinkedIn */}
-                        <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="text-white bg-indigo-700/50 hover:bg-cyan-500 p-3 rounded-full transition duration-300 shadow-lg" aria-label="LinkedIn">
+                    </div>
+
+                    {/* Social Icons (Adapted from current code but visually aligned to the image) */}
+                    <div className="flex justify-center space-x-4 mt-6 sm:mt-0">
+                        {/* LinkedIn (from imported icons) */}
+                        <a href="https://www.linkedin.com/company/new-tech-infosol---india/about/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-teal-400 transition" aria-label="LinkedIn">
                             <FaLinkedin className="h-6 w-6" />
                         </a>
-                        {/* WhatsApp */}
-                        <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20Ngraph" target="_blank" rel="noopener noreferrer" className="text-white bg-indigo-700/50 hover:bg-cyan-500 p-3 rounded-full transition duration-300 shadow-lg" aria-label="WhatsApp">
+                        {/* YouTube (Using FaPlay from imported icons) */}
+                        <a href="http://www.newtechinfosol.in/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-teal-400 transition" aria-label="Website">
+                            <FaGlobe className="h-6 w-6" />
+                        </a>
+                        {/* Twitter/X (Using a placeholder icon) */}
+                        <a href="https://wa.me/919978278879?text=Hi%20I%20am%20interested%20in%20NGraph" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-teal-400 transition" aria-label="WhatsApp">
+                            {/* FaTwitter */}
                             <FaWhatsapp className="h-6 w-6" />
                         </a>
                     </div>
                 </div>
-            </div>
-            
-            {/* Copyright Strip */}
-            <div className="max-w-7xl mx-auto border-t border-indigo-700 mt-12 pt-6 text-center">
-                <p className="text-sm text-gray-500 font-medium">
-                    &copy; {currentYear} **Ngraph**. All rights reserved. Built by New Tech Infosol.
-                </p>
             </div>
         </footer>
     );
@@ -405,27 +199,27 @@ function AppContent() {
     const PublicRoute = ({ children }) => children;
 
     const PrivateRoute = ({ children }) => {
-      if (!user) return <Navigate to="/login" replace />;
-      return children;
+        if (!user) return <Navigate to="/login" replace />;
+        return children;
     };
 
     // SuperAdminRoute: Only accessible by SuperAdmins
     const SuperAdminRoute = ({ children }) => {
-      if (!user) return <Navigate to="/login" replace />;
-      if (!user.roles?.includes("SuperAdmin")) return <Navigate to="/" replace />;
-      return children;
+        if (!user) return <Navigate to="/login" replace />;
+        if (!user.roles?.includes("SuperAdmin")) return <Navigate to="/" replace />;
+        return children;
     };
-    
+
     // AdminRoute: Accessible by both SuperAdmins and Admins (Union logic)
     const AdminRoute = ({ children }) => {
-      if (!user) return <Navigate to="/login" replace />;
-      const isSuperAdmin = user.roles?.includes("SuperAdmin");
-      const isAdmin = user.roles?.includes("Admin");
-      
-      // If the user is neither SuperAdmin nor Admin, redirect them.
-      if (!isSuperAdmin && !isAdmin) return <Navigate to="/" replace />;
-      
-      return children;
+        if (!user) return <Navigate to="/login" replace />;
+        const isSuperAdmin = user.roles?.includes("SuperAdmin");
+        const isAdmin = user.roles?.includes("Admin");
+
+        // If the user is neither SuperAdmin nor Admin, redirect them.
+        if (!isSuperAdmin && !isAdmin) return <Navigate to="/" replace />;
+
+        return children;
     };
 
     // AdminRestrictedRoute: Accessible by SuperAdmins only (for the routes you removed from standard Admin)
@@ -436,80 +230,91 @@ function AppContent() {
     };
 
     useEffect(() => {
-      api.get("/account/me")
-        .then((response) => setUser(response.data))
-        .catch(() => setUser(null));
+        api.get("/account/me")
+            .then((response) => setUser(response.data))
+            .catch(() => setUser(null));
     }, []);
 
     useEffect(() => {
-      // Check for SuperAdmin OR Admin when deciding whether to fetch user list
-      if (user?.roles?.includes("SuperAdmin") || user?.roles?.includes("Admin")) {
-        api.get("/admin/users")
-          .then((response) => setCompanies(response.data))
-          .catch(() => setCompanies([]));
-      }
+        // Check for SuperAdmin OR Admin when deciding whether to fetch user list
+        if (user?.roles?.includes("SuperAdmin") || user?.roles?.includes("Admin")) {
+            api.get("/admin/users")
+                .then((response) => setCompanies(response.data))
+                .catch(() => setCompanies([]));
+        }
     }, [user]);
 
     const handleLogout = () => {
-      api.post("/account/logout", {})
-        .then(() => {
-          setUser(null);
-          navigate("/");
-        });
+        api.post("/account/logout", {})
+            .then(() => {
+                setUser(null);
+                navigate("/");
+            });
     };
 
     return (
-      <>
-        <ScrollToTop />
-        <Header user={user} onLogout={handleLogout} />
+        <>
+            <ScrollToTop />
+            <Header user={user} onLogout={handleLogout} />
 
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<PublicRoute><HomeContent /></PublicRoute>} />
-          <Route path="/login" element={<PublicRoute><Login onLogin={setUser} /></PublicRoute>} />
-          <Route path="/register" element={<PublicRoute><Register onRegister={setUser} /></PublicRoute>} />
-          <Route path="/dashboard" element={<PublicRoute><Dashboard /></PublicRoute>} />
-          <Route path="/plan" element={<PublicRoute><PlanPage /></PublicRoute>} />
-          <Route path="/subscription/buy" element={<PublicRoute><SubscriptionPage /></PublicRoute>} />
-          <Route path="/information" element={<PublicRoute><Information /></PublicRoute>} />
+            <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<PublicRoute><HomeContent /></PublicRoute>} />
+                <Route path="/about" element={<PublicRoute><AboutContent /></PublicRoute>} />
+                <Route path="/service" element={<PublicRoute><ServiceContent /></PublicRoute>} />
+                <Route path="//privacy-policy" element={<PublicRoute><PrivacyPolicy /></PublicRoute>} />
+                <Route path="/terms-of-service" element={<PublicRoute><TermsOfService /></PublicRoute>} />
+                <Route path="/login" element={<PublicRoute><Login onLogin={setUser} /></PublicRoute>} />
+                <Route path="/register" element={<PublicRoute><Register onRegister={setUser} /></PublicRoute>} />
+                <Route path="/dashboard" element={<PublicRoute><Dashboard /></PublicRoute>} />
+                <Route path="/plan" element={<PublicRoute><PlanPage /></PublicRoute>} />
+                <Route path="/subscription/buy" element={<PublicRoute><SubscriptionPage /></PublicRoute>} />
+                <Route path="/pricing" element={<PublicRoute><UserPricingPage /></PublicRoute>} />
+                <Route path="/information" element={<PublicRoute><Information /></PublicRoute>} />
 
-          {/* Admin and SuperAdmin routes (Accessible by both roles) */}
-          <Route path="/profile/:id" element={<AdminRoute><Profile /></AdminRoute>} />
-          <Route path="/admin/users" element={<AdminRoute><UserList /></AdminRoute>} />
-          <Route path="/user/:id/modules" element={<AdminRoute><UserModules /></AdminRoute>} />
-          <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
-          <Route path="/admin/complaintsmanagement" element={<AdminRoute><ComplaintsManagement /></AdminRoute>} />
-          
-          {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
-          <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList /></AdminRestrictedRoute>} />
-          <Route path="/admin/admindashboard" element={<AdminRestrictedRoute><AdminDashboard /></AdminRestrictedRoute>} />
-          <Route path="/admin/emailsettings" element={<AdminRestrictedRoute><EmailSettings /></AdminRestrictedRoute>} />
-          <Route path="/admin/invoicesettings" element={<AdminRestrictedRoute><InvoiceSettingsPage /></AdminRestrictedRoute>} />
-          <Route path="/admin/activitylogs" element={<AdminRestrictedRoute><ActivityLogs /></AdminRestrictedRoute>} />
-          {/* Private routes (logged-in users) */}
-          <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
-          <Route path="/purchase-history" element={<PrivateRoute><PurchaseHistory /></PrivateRoute>} />
-          <Route path="/reset-password" element={<PrivateRoute><ResetPassword /></PrivateRoute>} />
-          <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
-          <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
-          <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
+                {/* Admin and SuperAdmin routes (Accessible by both roles) */}
+                <Route path="/profile/:id" element={<AdminRoute><Profile /></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute><UserList /></AdminRoute>} />
+                <Route path="/user/:id/modules" element={<AdminRoute><UserModules /></AdminRoute>} />
+                <Route path="/admin/transfer-modules" element={<AdminRoute><TransferModules /></AdminRoute>} />
+                <Route path="/admin/complaintsmanagement" element={<AdminRoute><ComplaintsManagement /></AdminRoute>} />
+                <Route path="/admin/admindashboard/:adminId?" element={<AdminRoute><AdminDashboard isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRoute>} />
+                <Route path="/admin/activitylogs" element={<AdminRoute><ActivityLogs isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRoute>} />
+                <Route path="/admin/my-commission" element={<AdminRoute><AdminCommissionPage /></AdminRoute>} />
+                <Route path="/admin/payout-details" element={<AdminRoute><AdminPayoutDetails /></AdminRoute>} />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+                {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
+                <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRestrictedRoute>} />
+                <Route path="/admin/emailsettings" element={<AdminRestrictedRoute><EmailSettings /></AdminRestrictedRoute>} />
+                <Route path="/admin/invoicesettings" element={<AdminRestrictedRoute><InvoiceSettingsPage /></AdminRestrictedRoute>} />
+                <Route path="/superadmin/pricing" element={<AdminRestrictedRoute><Pricing /></AdminRestrictedRoute>} />
+                <Route path="/superadmin/admin-commission" element={<AdminRestrictedRoute><CommissionPage /></AdminRestrictedRoute>} />
 
-        <Footer />
-      </>
+                {/* Private routes (logged-in users) */}
+                <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />
+                <Route path="/purchase-history" element={<PrivateRoute><PurchaseHistory /></PrivateRoute>} />
+                <Route path="/reset-password" element={<PrivateRoute><ResetPassword /></PrivateRoute>} />
+                <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
+                <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
+                <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
+                <Route path="/subscription/addon" element={<PrivateRoute><SubscriptionAddonPage /></PrivateRoute>} />
+
+                {/* Catch-all */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+
+            <Footer />
+        </>
     );
-  }
+}
 
-  function App() {
+function App() {
     return (
-      <Router>
-        <AppContent />
-        <Toaster position="top-right" />
-      </Router>
+        <Router>
+            <AppContent />
+            <Toaster position="top-right" />
+        </Router>
     );
-  }
+}
 
-  export default App;
+export default App;

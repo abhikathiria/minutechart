@@ -104,10 +104,17 @@ namespace minutechart
             builder.Services.AddSwaggerGen();
             builder.Services.AddAuthorization();
             builder.Services.AddDataProtection();
-
+            
+            builder.Services.AddScoped<CommissionService>();
             builder.Services.AddScoped<IClientDbContextFactory, ClientDbContextFactory>();
             builder.Services.AddScoped<DatabaseService>();
+            builder.Services.AddScoped<PlanInvoiceService>();
+            builder.Services.AddScoped<AddonInvoiceService>();
             builder.Services.AddScoped<UserActivityFilter>();
+            builder.Services.AddScoped<SubscriptionService>();
+            builder.Services.AddScoped<SubscriptionServiceV2>();
+            builder.Services.AddScoped<SubscriptionTimelineManager>();
+
             builder.Services.AddControllers(options =>
             {
                 // Apply the filter to all controllers (or you can apply it per-controller/per-action)

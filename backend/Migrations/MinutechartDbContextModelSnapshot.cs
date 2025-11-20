@@ -186,39 +186,30 @@ namespace Backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Action")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ActorId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ActorName")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ActorRole")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BrowserInfo")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IPAddress")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TargetEntity")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TargetName")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("Timestamp")
@@ -227,6 +218,66 @@ namespace Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ActivityLogs");
+                });
+
+            modelBuilder.Entity("minutechart.Models.AddonInvoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Dashboards")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PdfPath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PricingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RazorpayOrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RazorpayPaymentId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("PricingId");
+
+                    b.ToTable("AddonInvoices");
                 });
 
             modelBuilder.Entity("minutechart.Models.Agent", b =>
@@ -363,6 +414,9 @@ namespace Backend.Migrations
                     b.Property<string>("AssignedAdminId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<decimal?>("CommissionPercentage")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("CompanyName")
                         .HasColumnType("nvarchar(max)");
 
@@ -493,6 +547,106 @@ namespace Backend.Migrations
                     b.ToTable("CashMovements");
                 });
 
+            modelBuilder.Entity("minutechart.Models.CommissionBill", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FromDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PayoutId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PayoutMode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PayoutStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ToDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("TotalCommission")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.ToTable("CommissionBills");
+                });
+
+            modelBuilder.Entity("minutechart.Models.CommissionBillItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("AppUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("CommissionAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CommissionBillId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CommissionPercentage")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CompanyName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PlanName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PurchasedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("CommissionBillId");
+
+                    b.ToTable("CommissionBillItems");
+                });
+
             modelBuilder.Entity("minutechart.Models.CompanyInvoiceSetting", b =>
                 {
                     b.Property<int>("Id")
@@ -500,6 +654,10 @@ namespace Backend.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AddonTermsAndConditions")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BankAccountNumber")
                         .IsRequired()
@@ -569,6 +727,9 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("SgstPercent")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("ShowAddonTermsAndConditions")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("ShowBankDetails")
                         .HasColumnType("bit");
@@ -882,6 +1043,196 @@ namespace Backend.Migrations
                     b.ToTable("ModuleSuggestions");
                 });
 
+            modelBuilder.Entity("minutechart.Models.PlanInvoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BillingCycle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("NetAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PdfPath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PlanEndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PlanStartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ProrationCredit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RazorpayOrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RazorpayPaymentId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("PlanId");
+
+                    b.ToTable("PlanInvoices");
+                });
+
+            modelBuilder.Entity("minutechart.Models.PlannedSubscriptionChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BillingCycle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("NewPlanId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlannedSubscriptionChanges");
+                });
+
+            modelBuilder.Entity("minutechart.Models.Pricing", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AddonDashboards")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AddonPrice")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("AnnualPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("DashboardAddonEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("DashboardLimit")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ExcelExport")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MonthlyPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PrioritySupport")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RefreshRateMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TierOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Pricings");
+                });
+
+            modelBuilder.Entity("minutechart.Models.RazorpayAddonOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PricingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("PricingId");
+
+                    b.ToTable("RazorpayAddonOrders");
+                });
+
             modelBuilder.Entity("minutechart.Models.RazorpayOrder", b =>
                 {
                     b.Property<int>("Id")
@@ -922,6 +1273,99 @@ namespace Backend.Migrations
                     b.HasIndex("PlanId");
 
                     b.ToTable("RazorpayOrders");
+                });
+
+            modelBuilder.Entity("minutechart.Models.RazorpayPlanOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BillingCycle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Intent")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ProrationCredit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanId");
+
+                    b.ToTable("RazorpayPlanOrders");
+                });
+
+            modelBuilder.Entity("minutechart.Models.ResellerPaymentDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountHolderName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BankAccountNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IFSC")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RazorpayContactId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RazorpayFundAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpiId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.ToTable("ResellerPaymentDetails");
                 });
 
             modelBuilder.Entity("minutechart.Models.SchemaMapping", b =>
@@ -1103,6 +1547,42 @@ namespace Backend.Migrations
                     b.ToTable("TransactionDetails");
                 });
 
+            modelBuilder.Entity("minutechart.Models.UserAddon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AppUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Dashboards")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PricingId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("PricingId");
+
+                    b.ToTable("UserAddons");
+                });
+
             modelBuilder.Entity("minutechart.Models.UserProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -1135,6 +1615,9 @@ namespace Backend.Migrations
 
                     b.Property<string>("DbUsername")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProfilePhotoUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("RefreshTime")
@@ -1172,11 +1655,17 @@ namespace Backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CachedJsonData")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("HideQuery")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsApprovalModule")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastRefreshedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("Position")
                         .HasColumnType("int");
@@ -1272,6 +1761,25 @@ namespace Backend.Migrations
                     b.Navigation("AppUser");
                 });
 
+            modelBuilder.Entity("minutechart.Models.AddonInvoice", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("minutechart.Models.Pricing", "Pricing")
+                        .WithMany()
+                        .HasForeignKey("PricingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Pricing");
+                });
+
             modelBuilder.Entity("minutechart.Models.AppUser", b =>
                 {
                     b.HasOne("minutechart.Models.AppUser", "AssignedAdmin")
@@ -1280,6 +1788,34 @@ namespace Backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AssignedAdmin");
+                });
+
+            modelBuilder.Entity("minutechart.Models.CommissionBill", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "Admin")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Admin");
+                });
+
+            modelBuilder.Entity("minutechart.Models.CommissionBillItem", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("AppUserId");
+
+                    b.HasOne("minutechart.Models.CommissionBill", "CommissionBill")
+                        .WithMany("Items")
+                        .HasForeignKey("CommissionBillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CommissionBill");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("minutechart.Models.Complaint", b =>
@@ -1345,6 +1881,44 @@ namespace Backend.Migrations
                     b.Navigation("AppUser");
                 });
 
+            modelBuilder.Entity("minutechart.Models.PlanInvoice", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("minutechart.Models.Pricing", "Plan")
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Plan");
+                });
+
+            modelBuilder.Entity("minutechart.Models.RazorpayAddonOrder", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("minutechart.Models.Pricing", "Pricing")
+                        .WithMany()
+                        .HasForeignKey("PricingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Pricing");
+                });
+
             modelBuilder.Entity("minutechart.Models.RazorpayOrder", b =>
                 {
                     b.HasOne("minutechart.Models.SubscriptionPlan", "Plan")
@@ -1354,6 +1928,28 @@ namespace Backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Plan");
+                });
+
+            modelBuilder.Entity("minutechart.Models.RazorpayPlanOrder", b =>
+                {
+                    b.HasOne("minutechart.Models.Pricing", "Plan")
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+                });
+
+            modelBuilder.Entity("minutechart.Models.ResellerPaymentDetail", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("minutechart.Models.Transaction", b =>
@@ -1402,6 +1998,25 @@ namespace Backend.Migrations
                     b.Navigation("Transaction");
                 });
 
+            modelBuilder.Entity("minutechart.Models.UserAddon", b =>
+                {
+                    b.HasOne("minutechart.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("minutechart.Models.Pricing", "Pricing")
+                        .WithMany()
+                        .HasForeignKey("PricingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Pricing");
+                });
+
             modelBuilder.Entity("minutechart.Models.UserProfile", b =>
                 {
                     b.HasOne("minutechart.Models.AppUser", "AppUser")
@@ -1428,6 +2043,11 @@ namespace Backend.Migrations
                 {
                     b.Navigation("UserProfile")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("minutechart.Models.CommissionBill", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("minutechart.Models.CompanyInvoiceSetting", b =>

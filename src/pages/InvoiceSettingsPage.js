@@ -3,7 +3,7 @@ import api from "../api";
 import { FaGripVertical, FaSave } from "react-icons/fa";
 import { Reorder, AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-hot-toast";
-
+import { Clock } from "lucide-react";
 export default function InvoiceSettingsPage() {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,17 +43,17 @@ export default function InvoiceSettingsPage() {
       // 2. Normalize Paths for Settings State (Store only the relative path for saving)
       // This logic ensures the state only holds the relative path part for saving back to the DB,
       // regardless of whether the GET endpoint returned a relative or full path.
-      
+
       const baseUrlLength = api.defaults.baseURL.length;
-      
+
       const getNormalizedRelativePath = (path) => {
         if (!path) return "";
-        let relativePath = path.startsWith("http") 
+        let relativePath = path.startsWith("http")
           ? path.substring(baseUrlLength)
           : path;
-        
+
         // Strip a leading slash before saving. The C# code handles re-adding the leading slash if needed.
-        return relativePath.replace(/^\//, ''); 
+        return relativePath.replace(/^\//, '');
       }
 
       setSettings({
@@ -82,14 +82,14 @@ export default function InvoiceSettingsPage() {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-      
+
       // Upload endpoint is expected to return the FULL URL in res.data.path.
       const fullUrl = res.data.path;
       // Extract the RELATIVE PATH (e.g., /uploads/...) for state and saving.
       const relativePath = fullUrl.substring(api.defaults.baseURL.length);
-      
+
       // Strip leading slash before saving to match the normalization in loadSettings.
-      const normalizedRelativePath = relativePath.replace(/^\//, ''); 
+      const normalizedRelativePath = relativePath.replace(/^\//, '');
 
       if (type === "logo") {
         setLogoPreview(fullUrl);
@@ -176,7 +176,12 @@ export default function InvoiceSettingsPage() {
   }, [adjustFabForFooter]);
 
   if (loading) {
-    return <div className="p-6 text-gray-500">Loading settings...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-black">
+        <Clock className="w-6 h-6 animate-spin text-black" />
+        <span className="ml-3 text-lg">Loading Invoice Settings...</span>
+      </div>
+    );
   }
 
   return (
@@ -337,10 +342,21 @@ export default function InvoiceSettingsPage() {
             />
           </SectionCard>
 
+          <SectionCard title="📜 Addon Terms & Conditions">
+            <Textarea
+              label=""
+              name="addonTermsAndConditions"
+              value={settings.addonTermsAndConditions || ""}
+              onChange={handleChange}
+              placeholder="Enter terms & conditions..."
+              className="h-32"
+            />
+          </SectionCard>
+
           {/* Display Options */}
           <SectionCard title="🔧 Display Options">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {["showGst", "showBankDetails", "showWebsite", "showSignature", "showTermsAndConditions"].map((flag) => (
+              {["showGst", "showBankDetails", "showWebsite", "showSignature", "showTermsAndConditions", "showAddonTermsAndConditions"].map((flag) => (
                 <label key={flag} className="flex items-center gap-2 text-gray-800 font-medium">
                   <input
                     type="checkbox"
@@ -466,9 +482,8 @@ function Input({ label, name, value, onChange, type = "text", className = "", re
         value={value ?? ""}
         onChange={onChange}
         readOnly={readOnly}
-        className={`w-full rounded-lg px-3 py-2 border border-indigo-200 transition ${
-          readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-indigo-50 focus:border-orange-400 focus:ring-2 focus:ring-orange-300'
-        }`}
+        className={`w-full rounded-lg px-3 py-2 border border-indigo-200 transition ${readOnly ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-indigo-50 focus:border-orange-400 focus:ring-2 focus:ring-orange-300'
+          }`}
       />
     </div>
   );

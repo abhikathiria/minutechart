@@ -2,66 +2,99 @@
 import React, { useState, useEffect, memo } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { Building2, User, Phone, Mail, Lock, Eye, EyeOff, UserPlus, TrendingUp, DollarSign, Users, Briefcase } from "lucide-react";
+import {
+    Building2,
+    User,
+    Phone,
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    UserPlus,
+    TrendingUp,
+    DollarSign,
+    Users,
+    Briefcase,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
-// --- Memoized Feature Card Component to Prevent Re-Renders ---
-const FeatureCard = ({ Icon, title, description, color }) => (
+/* ---------- Motion Variants ---------- */
+const fadeUp = {
+    hidden: { opacity: 0, y: 18 },
+    visible: (delay = 0) => ({
+        opacity: 1,
+        y: 0,
+        transition: { delay, duration: 0.55, ease: "easeOut" },
+    }),
+};
+
+/* ---------- Left-column Feature Card ---------- */
+const FeatureCard = memo(({ Icon, title, description, gradient }) => (
     <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-start p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 shadow-lg"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={fadeUp}
+        className="flex items-start gap-4 p-4 rounded-2xl bg-white/3 border border-white/10 backdrop-blur-lg shadow-[0_8px_30px_rgba(8,10,25,0.6)]"
     >
-        <Icon className={`w-8 h-8 flex-shrink-0 mr-4 ${color}`} />
+        <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md`}>
+            <Icon className="w-5 h-5 text-white" />
+        </div>
         <div>
-            <h3 className="font-bold text-lg text-white">{title}</h3>
-            <p className="text-sm text-white/80">{description}</p>
+            <h4 className="text-white font-semibold">{title}</h4>
+            <p className="text-slate-300 text-sm mt-1">{description}</p>
         </div>
     </motion.div>
-);
+));
 
-// --- Memoized Left Column to Prevent Re-Rendering of Static Content ---
+/* ---------- Memoized Left Column ---------- */
 const MemoizedLeftColumn = memo(() => (
-    <div className="hidden lg:flex flex-col justify-center p-16 w-1/2 bg-gradient-to-br from-indigo-700 to-blue-900 shadow-2xl">
-        <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-        >
-            <h1 className="text-5xl font-extrabold text-white mb-4">
-                Join NGraph and Elevate Your Data.
-            </h1>
-            <p className="text-xl text-indigo-200 mb-12">
-                Sign up today to gain access to comprehensive dashboards and powerful reporting tools.
-            </p>
-        </motion.div>
-        
-        <div className="space-y-6">
-            <FeatureCard 
-                Icon={TrendingUp} 
-                title="Immediate Insights" 
-                description="Get started quickly with customizable, pre-built modules." 
-                color="text-green-300"
-            />
-            <FeatureCard 
-                Icon={DollarSign} 
-                title="Free Trial Access" 
-                description="Explore all premium features risk-free with our trial plan." 
-                color="text-yellow-300"
-            />
-            <FeatureCard 
-                Icon={Users} 
-                title="Dedicated Support" 
-                description="Our team is ready to help you visualize your business data." 
-                color="text-pink-300"
-            />
+    <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 overflow-hidden">
+        {/* Background gradients */}
+        <div className="absolute inset-0 -z-10">
+            <div className="absolute -left-32 -top-36 w-[48rem] h-[48rem] rounded-full bg-indigo-700/25 blur-[140px] animate-[float_9s_linear_infinite]" />
+            <div className="absolute -right-40 -bottom-40 w-[56rem] h-[56rem] rounded-full bg-teal-500/20 blur-[150px] animate-[float_11s_linear_infinite]" />
         </div>
+
+        <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="relative w-full max-w-lg p-8 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_40px_120px_rgba(16,18,40,0.7)]"
+        >
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 leading-tight">
+                Start Your NGraph Journey.
+            </h1>
+            <p className="text-slate-300 text-sm mb-8">
+                Register in minutes and unlock powerful SQL-driven dashboards, real-time analytics, and automated reporting.
+            </p>
+
+            <div className="grid gap-4">
+                <FeatureCard
+                    Icon={TrendingUp}
+                    title="Instant Activation"
+                    description="Begin your trial and start visualizing data immediately."
+                    gradient="from-indigo-600 to-violet-500"
+                />
+                <FeatureCard
+                    Icon={DollarSign}
+                    title="Free Trial Access"
+                    description="Explore premium analytics with zero commitment."
+                    gradient="from-amber-500 to-yellow-400"
+                />
+                <FeatureCard
+                    Icon={Users}
+                    title="Guided Onboarding"
+                    description="Our team supports your setup from day one."
+                    gradient="from-fuchsia-500 to-pink-500"
+                />
+            </div>
+        </motion.div>
     </div>
 ));
 
-
 export default function Register() {
+    /* ---------- States ---------- */
     const [formData, setFormData] = useState({
         CompanyName: "",
         CustomerName: "",
@@ -80,21 +113,21 @@ export default function Register() {
     const [isUnconfirmed, setIsUnConfirmed] = useState(false);
     const [cooldown, setCooldown] = useState(0);
 
-    // ⏳ cooldown countdown
+    /* ---------- Cooldown timer ---------- */
     useEffect(() => {
         if (cooldown > 0) {
-            const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
-            return () => clearTimeout(timer);
+            const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+            return () => clearTimeout(t);
         }
     }, [cooldown]);
 
+    /* ---------- Handlers ---------- */
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
 
-        // ❌ if user edits fields after registration, hide resend section
         if (registrationComplete || isUnconfirmed) {
             setRegistrationComplete(false);
-            setIsUnConfirmed(false); // New change: allow editing to clear this state too
+            setIsUnConfirmed(false);
             setResendMessage("");
             setCooldown(0);
         }
@@ -119,256 +152,280 @@ export default function Register() {
         try {
             const response = await api.post("/account/register", formData);
 
-            // Check if the server says this email is already registered but unconfirmed
             if (response.data.message?.includes("didn’t confirm your email")) {
                 setIsUnConfirmed(true);
-                setRegistrationComplete(false);
                 setCooldown(120);
-                setMessage("⚠️ Email previously registered but not confirmed. Check your email for a new link.");
+                setMessage("⚠️ Email previously registered but unconfirmed. A new link has been sent.");
             } else {
-                setIsUnConfirmed(false);
                 setRegistrationComplete(true);
                 setCooldown(120);
-                setMessage("✅ Registration successful! Please confirm your email to proceed.");
+                setMessage("✅ Registration successful! Please confirm your email.");
             }
         } catch (err) {
             const data = err.response?.data;
-            const errorMessages = [];
-            
-            // Centralized error handling logic
+            const errors = [];
+
             if (data?.message) {
-                errorMessages.push("❌ " + data.message);
+                errors.push("❌ " + data.message);
             } else if (Array.isArray(data?.errors)) {
-                data.errors.forEach(errObj => {
-                    errorMessages.push("❌ " + (errObj.description || "A field error occurred."));
-                });
-            } else if (data?.errors && typeof data.errors === "object") {
-                Object.values(data.errors).flat().forEach(msg => {
-                    errorMessages.push("❌ " + (msg.description || msg));
-                });
+                data.errors.forEach((x) => errors.push("❌ " + (x.description || "A field error occurred.")));
+            } else if (typeof data?.errors === "object") {
+                Object.values(data.errors).flat().forEach((msg) => errors.push("❌ " + msg));
             } else {
-                errorMessages.push("❌ An unknown error occurred. Please check your inputs.");
+                errors.push("❌ Unknown error. Check your inputs.");
             }
 
-            setMessage(errorMessages.join(" "));
+            setMessage(errors.join(" "));
         }
     };
 
     const handleResendConfirmation = async () => {
-        setResendMessage("");
         try {
             await api.post("/account/resend-confirmation", { email: formData.Email });
             setResendMessage("✅ A new confirmation email has been sent.");
             setCooldown(120);
         } catch {
-            setResendMessage("❌ Could not resend confirmation. Try again later.");
+            setResendMessage("❌ Failed to resend confirmation email.");
         }
     };
-    
-    // Determine if the form should be hidden (after successful registration/unconfirmed state)
+
     const showForm = !registrationComplete && !isUnconfirmed;
 
     return (
-        <div className="min-h-screen flex">
-            {/* Left Column: Visual/Marketing */}
+        <div className="min-h-screen bg-[#0b0d10] text-white flex items-stretch">
+            {/* Left section */}
             <MemoizedLeftColumn />
 
-            {/* Right Column: Register Form */}
-            <div className="flex flex-1 items-center justify-center p-6 sm:p-12 bg-gradient-to-br from-blue-50 via-white to-indigo-50 lg:w-1/2">
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
+            {/* Right section */}
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:w-1/2">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5 }}
-                    className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-2xl p-6 sm:p-10 w-full max-w-xl border border-indigo-200" // Increased max-w-xl for better form width
+                    transition={{ duration: 0.6 }}
+                    className="w-full max-w-xl p-6 sm:p-10 rounded-3xl bg-white/4 backdrop-blur-xl border border-white/10 shadow-[0_30px_100px_rgba(4,6,20,0.75)]"
                 >
-                    {/* Header Block */}
+                    {/* Top Accent */}
+                    <div className="w-20 h-1 bg-gradient-to-r from-indigo-500 to-teal-400 mb-6 rounded-full" />
+
+                    {/* Header */}
                     <div className="text-center mb-6">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 w-16 h-16 mx-auto flex items-center justify-center rounded-full shadow-lg">
-                            <UserPlus className="text-white w-8 h-8" />
+                        <div className="w-16 h-16 rounded-xl mx-auto bg-gradient-to-br from-indigo-600 to-teal-400 flex items-center justify-center shadow-lg">
+                            <UserPlus className="w-7 h-7 text-white" />
                         </div>
-                        <h2 className="mt-4 text-3xl font-extrabold text-gray-900">Create Your Account</h2>
-                        <p className="text-gray-600 text-base">Register your company and start visualizing your data.</p>
+
+                        <h2 className="mt-4 text-3xl font-extrabold">Create Your Account</h2>
+                        <p className="text-slate-300 mt-1">Register your details to begin your analytics journey.</p>
                     </div>
 
-                    {/* Notification Message Display */}
+                    {/* Messages */}
                     {message && (
-                        <div className={`text-sm text-center p-3 rounded-xl mb-4 font-medium border whitespace-pre-wrap ${message.includes("✅") || message.includes("⚠️") ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                        <div
+                            className={`p-3 mb-4 rounded-xl text-sm border ${message.includes("✅") || message.includes("⚠️")
+                                    ? "bg-green-900/30 border-green-700 text-green-200"
+                                    : "bg-red-900/30 border-red-700 text-red-200"
+                                }`}
+                        >
                             {message}
                         </div>
                     )}
-                    
-                    {/* --- Registration Confirmation Block --- */}
+
+                    {/* Confirmation state */}
                     {(registrationComplete || isUnconfirmed) && (
                         <motion.div
-                            initial={{ opacity: 0, y: 10 }}
+                            initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="text-center p-6 bg-indigo-50 rounded-xl space-y-4 border border-indigo-200"
+                            className="p-6 rounded-xl bg-white/5 border border-white/10 shadow-lg text-center space-y-4"
                         >
-                            <h3 className="text-xl font-bold text-indigo-700">Action Required!</h3>
-                            <p className="text-gray-700">
-                                Please check your email **({formData.Email})** to confirm your account registration. 
-                                After confirmation, an admin will review and activate your account.
+                            <h3 className="text-xl font-semibold text-indigo-300">Action Required</h3>
+
+                            <p className="text-slate-300">
+                                Please check your email <span className="font-semibold text-white">({formData.Email})</span> to verify your
+                                account. After confirmation, an admin will activate your access.
                             </p>
 
-                            {/* Resend Logic */}
                             {cooldown > 0 ? (
-                                <p className="text-sm font-medium text-gray-700">
-                                    You can resend in <span className="font-bold text-red-500">{cooldown}</span> seconds.
+                                <p className="text-sm text-slate-300">
+                                    You can resend in <span className="text-red-400 font-bold">{cooldown}</span> seconds.
                                 </p>
                             ) : (
                                 <button
                                     onClick={handleResendConfirmation}
-                                    className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition shadow-md"
+                                    className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-teal-400 text-black font-semibold rounded-xl shadow hover:opacity-90 transition"
                                 >
                                     Resend Confirmation Email
                                 </button>
                             )}
 
                             {resendMessage && (
-                                <p className={`text-sm ${resendMessage.includes("✅") ? 'text-green-600' : 'text-red-600'}`}>{resendMessage}</p>
+                                <p
+                                    className={`text-sm ${resendMessage.includes("✅") ? "text-green-300" : "text-red-300"
+                                        }`}
+                                >
+                                    {resendMessage}
+                                </p>
                             )}
-                            <Link to="/login" className="text-sm text-indigo-600 font-semibold hover:underline block pt-2">
+
+                            <Link to="/login" className="text-sm text-teal-300 hover:text-teal-200 font-medium block pt-2">
                                 Back to Login
                             </Link>
                         </motion.div>
                     )}
 
-                    {/* --- Registration Form --- */}
+                    {/* Registration Form */}
                     {showForm && (
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Input fields grouped slightly closer for better visual flow */}
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                            {/* First Row */}
+                            <div className="grid sm:grid-cols-2 gap-4">
                                 <div className="relative">
-                                    <Building2 className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                                    <Building2 className="absolute left-3 top-3 text-black" size={18} />
                                     <input
                                         name="CompanyName"
-                                        placeholder="Company Name"
+                                        required
                                         value={formData.CompanyName}
                                         onChange={handleChange}
-                                        required
-                                        className="w-full pl-11 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
+                                        placeholder="Company Name"
+                                        className="w-full pl-10 pr-3 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
                                     />
                                 </div>
+
                                 <div className="relative">
-                                    <User className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                                    <User className="absolute left-3 top-3 text-black" size={18} />
                                     <input
                                         name="CustomerName"
-                                        placeholder="Customer Name"
+                                        required
                                         value={formData.CustomerName}
                                         onChange={handleChange}
-                                        required
-                                        className="w-full pl-11 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-3.5 text-gray-400" size={20} />
-                                    <input
-                                        name="PhoneNumber"
-                                        type="tel"
-                                        placeholder="Phone Number"
-                                        value={formData.PhoneNumber}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full pl-11 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <Briefcase className="absolute left-3 top-3.5 text-gray-400" size={20} />
-                                    <input
-                                        name="GST"
-                                        placeholder="GST (Optional)"
-                                        value={formData.GST}
-                                        onChange={handleChange}
-                                        className="w-full pl-11 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
+                                        placeholder="Full Name"
+                                        className="w-full pl-10 pr-3 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
                                     />
                                 </div>
                             </div>
 
+                            {/* Second Row */}
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-3 text-black" size={18} />
+                                    <input
+                                        name="PhoneNumber"
+                                        required
+                                        value={formData.PhoneNumber}
+                                        onChange={handleChange}
+                                        placeholder="Phone Number"
+                                        className="w-full pl-10 pr-3 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <Briefcase className="absolute left-3 top-3 text-black" size={18} />
+                                    <input
+                                        name="GST"
+                                        value={formData.GST}
+                                        onChange={handleChange}
+                                        placeholder="GST (optional)"
+                                        className="w-full pl-10 pr-3 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Email */}
                             <div className="relative">
-                                <Mail className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                                <Mail className="absolute left-3 top-3 text-black" size={18} />
                                 <input
                                     name="Email"
                                     type="email"
-                                    placeholder="Email Address"
+                                    required
                                     value={formData.Email}
                                     onChange={handleChange}
-                                    required
-                                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
+                                    placeholder="Email Address"
+                                    className="w-full pl-10 pr-3 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Password Row */}
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                {/* Password */}
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                                    <Lock className="absolute left-3 top-3 text-black" size={18} />
                                     <input
                                         name="Password"
+                                        required
                                         type={showPassword ? "text" : "password"}
-                                        placeholder="Password"
                                         value={formData.Password}
                                         onChange={handleChange}
-                                        required
-                                        className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
+                                        placeholder="Password"
+                                        className="w-full pl-10 pr-10 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword((p) => !p)}
-                                        className="absolute right-3 top-3.5 text-gray-500 hover:text-indigo-600 transition"
-                                        title={showPassword ? "Hide password" : "Show password"}
+                                        className="absolute right-3 top-3 text-black hover:text-teal-900"
                                     >
-                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </button>
                                 </div>
+
+                                {/* Confirm Password */}
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                                    <Lock className="absolute left-3 top-3 text-black" size={18} />
                                     <input
                                         name="ConfirmPassword"
+                                        required
                                         type={showConfirmPassword ? "text" : "password"}
-                                        placeholder="Confirm Password"
                                         value={formData.ConfirmPassword}
                                         onChange={handleChange}
-                                        required
-                                        className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition duration-150 text-gray-800"
+                                        placeholder="Confirm Password"
+                                        className="w-full pl-10 pr-10 py-3 rounded-xl bg-white/6 border border-white/10 text-black placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-600/20 outline-none"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowConfirmPassword((p) => !p)}
-                                        className="absolute right-3 top-3.5 text-gray-500 hover:text-indigo-600 transition"
-                                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                                        className="absolute right-3 top-3 text-black hover:text-teal-900"
                                     >
-                                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </button>
                                 </div>
                             </div>
 
-
-                            {/* Register Button */}
+                            {/* Submit */}
                             <motion.button
                                 type="submit"
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-3 rounded-xl font-bold text-lg shadow-md hover:shadow-lg transition duration-150 mt-6"
+                                className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 shadow-lg text-black font-semibold transition"
                             >
-                                <div className="flex items-center justify-center">
-                                    <UserPlus size={20} className="mr-2" /> 
-                                    REGISTER ACCOUNT
+                                <div className="flex items-center justify-center gap-2">
+                                    <UserPlus className="w-5 h-5" />
+                                    Register Account
                                 </div>
                             </motion.button>
                         </form>
                     )}
 
-                    {/* Login Link */}
-                    <p className="mt-8 text-center text-base text-gray-600">
+                    {/* Bottom link */}
+                    <p className="mt-8 text-center text-sm text-slate-300">
                         Already have an account?{" "}
-                        <Link to="/login" className="text-indigo-700 font-bold hover:underline transition">
-                            Login Here
+                        <Link to="/login" className="text-teal-300 hover:text-teal-200 font-medium">
+                            Login here
                         </Link>
                     </p>
+
+                    {/* small footnote */}
+                    {/* <p className="mt-4 text-xs text-slate-500 text-center">
+                        By registering, you agree to our <Link to="/terms-of-service" className="underline">Terms</Link> and <Link to="/privacy-policy" className="underline">Privacy Policy</Link>.
+                    </p> */}
                 </motion.div>
             </div>
+
+            {/* Float animation */}
+            <style>{`
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+          100% { transform: translateY(0px); }
+        }
+        .animate-[float_9s_linear_infinite] { animation: float 9s linear infinite; }
+        .animate-[float_11s_linear_infinite] { animation: float 11s linear infinite; }
+      `}</style>
         </div>
     );
 }

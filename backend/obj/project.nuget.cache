@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "Mh48DJXlvUk=",
+  "dgSpecHash": "/Gl5An1GWOA=",
   "success": true,
   "projectFilePath": "C:\\Users\\ABHI\\Dropbox\\PC\\Downloads\\minutechart\\backend\\Backend.csproj",
   "expectedPackageFiles": [
@@ -78,8 +78,10 @@
     "C:\\Users\\ABHI\\.nuget\\packages\\netstandard.library\\1.6.1\\netstandard.library.1.6.1.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\pomelo.entityframeworkcore.mysql\\8.0.3\\pomelo.entityframeworkcore.mysql.8.0.3.nupkg.sha512",
+    "C:\\Users\\ABHI\\.nuget\\packages\\portable.bouncycastle\\1.9.0\\portable.bouncycastle.1.9.0.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\puppeteersharp\\20.2.2\\puppeteersharp.20.2.2.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\questpdf\\2025.7.1\\questpdf.2025.7.1.nupkg.sha512",
+    "C:\\Users\\ABHI\\.nuget\\packages\\razorpay\\3.3.2\\razorpay.3.3.2.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.debian.8-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.fedora.23-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",
     "C:\\Users\\ABHI\\.nuget\\packages\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.fedora.24-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",

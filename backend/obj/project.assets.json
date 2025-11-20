@@ -1585,6 +1585,19 @@
           }
         }
       },
+      "Portable.BouncyCastle/1.9.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/BouncyCastle.Crypto.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/BouncyCastle.Crypto.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "PuppeteerSharp/20.2.2": {
         "type": "package",
         "dependencies": {
@@ -1705,6 +1718,19 @@
             "assetType": "native",
             "rid": "win-x86"
           }
+        }
+      },
+      "Razorpay/3.3.2": {
+        "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Portable.BouncyCastle": "1.9.0"
+        },
+        "compile": {
+          "lib/net8.0/Razorpay.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Razorpay.dll": {}
         }
       },
       "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl/4.3.2": {
@@ -6543,6 +6569,21 @@
         "pomelo.entityframeworkcore.mysql.nuspec"
       ]
     },
+    "Portable.BouncyCastle/1.9.0": {
+      "sha512": "eZZBCABzVOek+id9Xy04HhmgykF0wZg9wpByzrWN7q8qEI0Qen9b7tfd7w8VA3dOeesumMG7C5ZPy0jk7PSRHw==",
+      "type": "package",
+      "path": "portable.bouncycastle/1.9.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net40/BouncyCastle.Crypto.dll",
+        "lib/net40/BouncyCastle.Crypto.xml",
+        "lib/netstandard2.0/BouncyCastle.Crypto.dll",
+        "lib/netstandard2.0/BouncyCastle.Crypto.xml",
+        "portable.bouncycastle.1.9.0.nupkg.sha512",
+        "portable.bouncycastle.nuspec"
+      ]
+    },
     "PuppeteerSharp/20.2.2": {
       "sha512": "66l7Uzh4mzTaFqRkkP62Jno/lh+ORNEHY2QjtevbQwqQ6TO1w80wZqNGeUR416aw8AEEFZs8vO9MOaJx8i9ySw==",
       "type": "package",
@@ -6638,6 +6679,23 @@
         "runtimes/win-x86/native/libwinpthread-1.dll",
         "runtimes/win-x86/native/qpdf.dll",
         "runtimes/win-x86/native/zlib1.dll"
+      ]
+    },
+    "Razorpay/3.3.2": {
+      "sha512": "t/BFZKYuCZI/if927DrG122ARokL3lAlRhf0PVUjhNFGqjbXc0o32zTOUPF+1Fz9izBoTMdoYn8wVL91Z76Mjg==",
+      "type": "package",
+      "path": "razorpay/3.3.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net47/Razorpay.dll",
+        "lib/net48/Razorpay.dll",
+        "lib/net6.0/Razorpay.dll",
+        "lib/net8.0/Razorpay.dll",
+        "lib/netstandard2.0/Razorpay.dll",
+        "razorpay.3.3.2.nupkg.sha512",
+        "razorpay.nuspec"
       ]
     },
     "runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl/4.3.2": {
@@ -11319,6 +11377,7 @@
       "Pomelo.EntityFrameworkCore.MySql >= 8.0.3",
       "PuppeteerSharp >= 20.2.2",
       "QuestPDF >= 2025.7.1",
+      "Razorpay >= 3.3.2",
       "SendGrid >= 9.29.3",
       "Stripe.net >= 48.5.0",
       "Swashbuckle.AspNetCore >= 9.0.3",
@@ -11449,6 +11508,10 @@
             "target": "Package",
             "version": "[2025.7.1, )"
           },
+          "Razorpay": {
+            "target": "Package",
+            "version": "[3.3.2, )"
+          },
           "SendGrid": {
             "target": "Package",
             "version": "[9.29.3, )"
@@ -11497,7 +11560,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.307/PortableRuntimeIdentifierGraph.json"
       }
     }
   },

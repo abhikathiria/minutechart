@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import {
   FaDatabase,
   FaServer,
@@ -40,9 +40,8 @@ const InputGroup = ({
       required={required}
       readOnly={readOnly}
       placeholder={placeholder}
-      className={`w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition duration-150 ${
-        readOnly ? "bg-gray-100 text-gray-600" : "bg-white"
-      }`}
+      className={`w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition duration-150 ${readOnly ? "bg-gray-100 text-gray-600" : "bg-white"
+        }`}
       {...props}
     />
     {info && <p className="text-xs text-gray-500 mt-1">{info}</p>}
@@ -74,6 +73,8 @@ export default function Profile() {
   const [tables, setTables] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [returnPath, setReturnPath] = useState("/admin/users");
+
   // --- Data Loading Effect ---
   useEffect(() => {
     async function loadProfile() {
@@ -85,9 +86,21 @@ export default function Profile() {
 
       setLoading(true);
       try {
-        // Fetch user data
+        // Fetch current viewer's role (Viewer is the logged-in user)
+        const viewerRes = await api.get("/account/me");
+        const viewerRoles = viewerRes.data?.roles || [];
+
+        // 🎯 FIX 1: Determine the correct return path based on the viewer's role
+        if (viewerRoles.includes("SuperAdmin")) {
+          setReturnPath("/superadmin/user-management");
+        } else {
+          setReturnPath("/admin/users");
+        }
+
+        // Fetch list of users (to get target user details)
         const userRes = await api.get("/admin/users");
         const users = userRes.data;
+        // Use user.id (lowercase) based on confirmed JSON structure
         const targetUser = users.find((u) => u.id === id);
 
         if (!targetUser) {
@@ -104,17 +117,18 @@ export default function Profile() {
           companyName: data.companyName || targetUser.companyName || "",
           customerName: data.customerName || targetUser.customerName || "",
           customerGST: data.customerGST || "",
+          profilePhotoUrl: data.profilePhotoUrl || "",
           customerCode: data.customerCode || targetUser.customerCode || "",
           serverName: data.serverName || "",
           databaseName: data.databaseName || "",
           dbUsername: data.dbUsername || "",
-          dbPassword: "", // Never pre-fill password
+          dbPassword: "",
           refreshTime: data.refreshTime ?? 60000,
         });
       } catch (err) {
         setError(
           "Failed to load profile: " +
-            (err.response?.data?.message || err.message)
+          (err.response?.data?.message || err.message)
         );
       } finally {
         setLoading(false);
@@ -167,7 +181,7 @@ export default function Profile() {
 
       // Redirect after success
       setTimeout(() => {
-        navigate("/admin/users", { state: { keepFilters: true } });
+        navigate(returnPath, { state: { keepFilters: true } });
       }, 1500);
     } catch (err) {
       const body = err.response?.data;
@@ -212,7 +226,8 @@ export default function Profile() {
               </p>
             </div>
             <Link
-              to="/admin/users"
+              // 🎯 FIX 3: Use the dynamic return path
+              to={returnPath}
               state={{ keepFilters: true }}
               className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition shadow-md"
             >
@@ -227,9 +242,21 @@ export default function Profile() {
           <div className="lg:col-span-1 space-y-6">
             {/* User Info */}
             <div className="bg-white rounded-xl shadow-xl p-6 border border-gray-200 text-center">
-              <div className="w-24 h-24 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-4xl font-bold mb-4 border-4 border-indigo-300 shadow-inner">
-                {form.companyName?.[0]?.toUpperCase() || "C"}
+              <div className="w-24 h-24 mx-auto rounded-full overflow-hidden bg-gray-200 border-4 border-indigo-300 shadow-inner">
+                {form.profilePhotoUrl ? (
+                  <img
+                    src={form.profilePhotoUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => (e.target.style.display = "none")} // fallback if broken
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-indigo-600 text-4xl font-bold">
+                    {form.companyName?.[0]?.toUpperCase() || "C"}
+                  </div>
+                )}
               </div>
+
               <h2 className="text-xl font-bold text-gray-800 break-words">
                 {form.companyName || "Company Name"}
               </h2>

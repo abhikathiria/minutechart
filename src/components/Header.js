@@ -1,629 +1,77 @@
-// import React, { useState, useEffect, useRef } from "react";
-// import { Link, useNavigate } from "react-router-dom";
-// import { FaUserCircle, FaSignInAlt, FaChevronDown, FaUserPlus, FaUserShield } from "react-icons/fa";
-// import api from "../api";
-
-// function Header({ user, onLogout }) {
-//     const [profileOpen, setProfileOpen] = useState(false);
-//     const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
-//     const navigate = useNavigate();
-//     const profileRef = useRef(null);
-//     const adminSettingsRef = useRef(null);
-//     const adminSettingsButtonRef = useRef(null);
-//     const profileButtonRef = useRef(null);
-
-//     useEffect(() => {
-//         const handleClickOutside = (event) => {
-//             if (
-//                 adminSettingsRef.current &&
-//                 !adminSettingsRef.current.contains(event.target) &&
-//                 adminSettingsButtonRef.current &&
-//                 !adminSettingsButtonRef.current.contains(event.target)
-//             ) {
-//                 setAdminSettingsOpen(false);
-//             }
-
-//             if (
-//                 profileRef.current &&
-//                 !profileRef.current.contains(event.target) &&
-//                 profileButtonRef.current &&
-//                 !profileButtonRef.current.contains(event.target)
-//             ) {
-//                 setProfileOpen(false);
-//             }
-//         };
-
-//         document.addEventListener("click", handleClickOutside);
-//         return () => {
-//             document.removeEventListener("click", handleClickOutside);
-//         };
-//     }, []);
-
-//     const handleLogout = () => {
-//         onLogout();
-//     };
-
-//     return (
-//         <header className="bg-[#0F172A] text-white shadow-md">
-//             <div className="w-full px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between h-auto md:h-24 py-4 md:py-0 gap-4 md:gap-0">
-//                 <Link to="/" className="flex items-center min-h-[44px]">
-//                     <img src="/Group 22.png" alt="NGraph Logo" className="h-12 sm:h-16 w-auto object-contain" />
-//                 </Link>
-
-//                 <nav className="flex flex-col md:flex-row items-center gap-4 md:gap-8 text-lg sm:text-xl font-medium">
-//                     <Link to="/" className="hover:text-cyan-400 min-h-[44px] flex items-center justify-center md:justify-start">Home</Link>
-
-//                     {user?.roles?.includes("Admin") ? (
-//                         <div className="relative">
-//                             <div
-//                                 ref={adminSettingsButtonRef}
-//                                 onClick={(event) => {
-//                                     event.preventDefault();
-//                                     event.stopPropagation();
-//                                     setAdminSettingsOpen(!adminSettingsOpen);
-//                                 }}
-//                                 className="flex items-center gap-1 hover:text-cyan-400 cursor-pointer min-h-[44px] px-2"
-//                                 aria-expanded={adminSettingsOpen}
-//                                 aria-haspopup="true"
-//                             >
-//                                 Admin Settings <FaChevronDown className="text-sm" />
-//                             </div>
-//                             {adminSettingsOpen && (
-//                                 <div
-//                                     ref={adminSettingsRef}
-//                                     onClick={(e) => e.stopPropagation()}
-//                                     className="absolute left-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-full sm:w-48 z-50"
-//                                 >
-//                                     <Link
-//                                         to="/admin/users"
-//                                         className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                         onClick={() => setAdminSettingsOpen(false)}
-//                                     >
-//                                         User Settings
-//                                     </Link>
-//                                     <Link
-//                                         to="/admin/emailsettings"
-//                                         className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                         onClick={() => setAdminSettingsOpen(false)}
-//                                     >
-//                                         Email Settings
-//                                     </Link>
-//                                     <Link
-//                                         to="/admin/invoicesettings"
-//                                         className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                         onClick={() => setAdminSettingsOpen(false)}
-//                                     >
-//                                         Invoice Settings
-//                                     </Link>
-//                                     <Link
-//                                         to="/admin/complaintsmanagement"
-//                                         className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                         onClick={() => setAdminSettingsOpen(false)}
-//                                     >
-//                                         Complaints Management
-//                                     </Link>
-//                                 </div>
-//                             )}
-//                         </div>
-//                     ) : (
-//                         <Link to="/dashboard" className="hover:text-cyan-400 min-h-[44px] flex items-center justify-center md:justify-start">
-//                             Dashboard
-//                         </Link>
-//                     )}
-//                     <Link to="/subscription/buy" className="hover:text-cyan-400 min-h-[44px] flex items-center justify-center md:justify-start">
-//                         Subscriptions
-//                     </Link>
-//                 </nav>
-
-//                 {user ? (
-//                     <div className="flex items-center gap-4 relative">
-//                         {user.roles?.includes("Admin") ? (
-//                             <div className="relative">
-//                                 <div
-//                                     ref={profileButtonRef}
-//                                     onClick={(event) => {
-//                                         event.preventDefault();
-//                                         event.stopPropagation();
-//                                         setProfileOpen(!profileOpen);
-//                                     }}
-//                                     className="flex items-center gap-2 hover:text-cyan-400 cursor-pointer min-h-[44px] px-2"
-//                                     aria-expanded={profileOpen}
-//                                     aria-haspopup="true"
-//                                 >
-//                                     <FaUserShield className="text-2xl sm:text-3xl" />
-//                                     <FaChevronDown className="text-sm" />
-//                                 </div>
-
-//                                 {profileOpen && (
-//                                     <div
-//                                         ref={profileRef}
-//                                         onClick={(e) => e.stopPropagation()}
-//                                         className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-full sm:w-48 z-50"
-//                                     >
-//                                         <div className="block w-full text-left px-4 py-2 min-h-[44px] flex flex-col justify-center">
-//                                             <span className="block text-sm sm:text-base font-bold">
-//                                                 {user.adminName || "Admin Name"}
-//                                             </span>
-//                                             {user.email && (
-//                                                 <span className="block text-xs sm:text-sm text-gray-500">{user.email}</span>
-//                                             )}
-//                                         </div>
-//                                         <button
-//                                             onClick={(event) => {
-//                                                 event.preventDefault();
-//                                                 event.stopPropagation();
-//                                                 setProfileOpen(false);
-//                                                 handleLogout();
-//                                             }}
-//                                             className="block w-full text-left px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                         >
-//                                             Logout
-//                                         </button>
-//                                     </div>
-//                                 )}
-//                             </div>
-//                         ) : (
-//                             <div className="relative">
-//                                 <div
-//                                     ref={profileButtonRef}
-//                                     onClick={(event) => {
-//                                         event.preventDefault();
-//                                         event.stopPropagation();
-//                                         setProfileOpen(!profileOpen);
-//                                     }}
-//                                     className="flex items-center gap-3 hover:text-cyan-400 cursor-pointer min-h-[44px] px-2"
-//                                     aria-expanded={profileOpen}
-//                                     aria-haspopup="true"
-//                                 >
-//                                     <div className="flex flex-col items-end text-right leading-tight">
-//                                         <span className="font-semibold text-sm sm:text-base">
-//                                             {user.companyName || user.customerName || "User"}
-//                                         </span>
-//                                         <span className="text-xs sm:text-sm text-gray-400 truncate max-w-[140px]">
-//                                             {user.email}
-//                                         </span>
-//                                     </div>
-//                                     <FaChevronDown className="text-sm" />
-//                                 </div>
-
-//                                 {profileOpen && (
-//                                     <div
-//                                         ref={profileRef}
-//                                         onClick={(e) => e.stopPropagation()}
-//                                         className="absolute right-0 mt-2 bg-white text-gray-900 shadow-lg rounded-md w-full sm:w-56 z-50"
-//                                     >
-//                                         <Link
-//                                             to="/my-profile"
-//                                             className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                             onClick={() => setProfileOpen(false)}
-//                                         >
-//                                             My Profile
-//                                         </Link>
-//                                         <Link
-//                                             to="/purchase-history"
-//                                             className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                             onClick={() => setProfileOpen(false)}
-//                                         >
-//                                             Purchase History
-//                                         </Link>
-//                                         <Link
-//                                             to="/complaints"
-//                                             className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                             onClick={() => setProfileOpen(false)}
-//                                         >
-//                                             Complaints
-//                                         </Link>
-//                                         <Link
-//                                             to="/change-password"
-//                                             className="block px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                             onClick={() => setProfileOpen(false)}
-//                                         >
-//                                             Change Password
-//                                         </Link>
-//                                         <button
-//                                             onClick={(event) => {
-//                                                 event.preventDefault();
-//                                                 event.stopPropagation();
-//                                                 setProfileOpen(false);
-//                                                 handleLogout();
-//                                             }}
-//                                             className="block w-full text-left px-4 py-2 hover:bg-gray-100 min-h-[44px] flex items-center"
-//                                         >
-//                                             Logout
-//                                         </button>
-//                                     </div>
-//                                 )}
-//                             </div>
-//                         )}
-//                     </div>
-//                 ) : (
-//                     <div className="flex flex-col sm:flex-row items-center gap-4">
-//                         <Link to="/login" className="hover:text-cyan-400 flex items-center gap-2 text-lg sm:text-xl min-h-[44px] px-2">
-//                             <FaSignInAlt className="text-lg sm:text-xl" /> Login
-//                         </Link>
-//                         <Link to="/register" className="hover:text-cyan-400 flex items-center gap-2 text-lg sm:text-xl min-h-[44px] px-2">
-//                             <FaUserPlus className="text-lg sm:text-xl" /> Register
-//                         </Link>
-//                     </div>
-//                 )}
-//             </div>
-//         </header>
-//     );
-// }
-
-// export default Header;
-
-
-// import React, { useState, useEffect, useRef, memo } from "react";
-// import { Link, useNavigate } from "react-router-dom";
-// import {
-//     FaUserCircle, FaSignOutAlt, FaSignInAlt, FaChevronDown, FaUserPlus, FaUserShield,
-//     FaBars, FaTimes, FaCog, FaChevronUp, FaChartArea, FaHome, FaTags, FaLock, FaHistory, FaEnvelope
-// } from "react-icons/fa";
-// import api from "../api";
-// import { motion, AnimatePresence } from "framer-motion";
-
-// // --- Helper Components & Logic ---
-
-// // Component for displaying user info in dropdowns (Memozied for performance)
-// const UserDisplay = memo(({ user, isAdmin }) => {
-//     const userName = isAdmin 
-//         ? (user?.adminName || "Admin") 
-//         : (user?.companyName || user?.customerName || "User");
-
-//     return (
-//         <div className="flex flex-col p-4 border-b border-gray-200 text-left bg-white">
-//             <div className={`font-extrabold text-lg flex items-center gap-2 ${isAdmin ? 'text-red-600' : 'text-blue-600'}`}>
-//                 {isAdmin ? <FaUserShield className="w-6 h-6" /> : <FaUserCircle className="w-6 h-6" />}
-//                 {userName}
-//             </div>
-//             <span className="text-sm text-gray-500 truncate">{user?.email}</span>
-//             {isAdmin && <span className="text-xs font-semibold text-red-500 mt-1">ADMIN ACCOUNT</span>}
-//         </div>
-//     );
-// });
-
-// // --- Header Component ---
-
-// function Header({ user, onLogout }) {
-//     const [profileOpen, setProfileOpen] = useState(false);
-//     const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
-//     const [navOpen, setNavOpen] = useState(false); // Mobile Nav State
-//     const navigate = useNavigate();
-
-//     // Refs for click outside logic
-//     const profileRef = useRef(null);
-//     const adminSettingsRef = useRef(null);
-//     const adminSettingsButtonRef = useRef(null);
-//     const profileButtonRef = useRef(null);
-//     const navRef = useRef(null);
-//     const navToggleButtonRef = useRef(null);
-
-//     const isAdmin = user?.roles?.includes("Admin");
-//     const userName = isAdmin ? (user?.adminName || "Admin") : (user?.companyName || user?.customerName || "User");
-
-//     // Click outside handler
-//     useEffect(() => {
-//         const handleClickOutside = (event) => {
-//             // Close Admin Settings Dropdown
-//             if (adminSettingsRef.current && !adminSettingsRef.current.contains(event.target) && adminSettingsButtonRef.current && !adminSettingsButtonRef.current.contains(event.target)) {
-//                 setAdminSettingsOpen(false);
-//             }
-//             // Close Profile Dropdown
-//             if (profileRef.current && !profileRef.current.contains(event.target) && profileButtonRef.current && !profileButtonRef.current.contains(event.target)) {
-//                 setProfileOpen(false);
-//             }
-//             // Close Mobile Navigation
-//             if (navOpen && navRef.current && !navRef.current.contains(event.target) && navToggleButtonRef.current && !navToggleButtonRef.current.contains(event.target)) {
-//                 setNavOpen(false);
-//             }
-//         };
-
-//         document.addEventListener("click", handleClickOutside);
-//         return () => {
-//             document.removeEventListener("click", handleClickOutside);
-//         };
-//     }, [navOpen]);
-
-//     const handleLogout = () => {
-//         onLogout();
-//         setProfileOpen(false);
-//         setNavOpen(false);
-//     };
-
-//     // Closes all menus and navigates if necessary
-//     const closeAllMenus = (callback) => {
-//         setProfileOpen(false);
-//         setAdminSettingsOpen(false);
-//         setNavOpen(false);
-//         if (callback) callback();
-//     };
-
-//     const NavLinkDesktop = ({ to, children }) => (
-//         <Link 
-//             to={to} 
-//             onClick={() => closeAllMenus()}
-//             className="text-white hover:text-cyan-400 transition-colors duration-200 px-3 py-2 text-xl font-medium min-h-[44px] flex items-center"
-//         >
-//             {children}
-//         </Link>
-//     );
-
-//     return (
-//         <header className="bg-[#0F172A] text-white shadow-lg sticky top-0 z-50">
-//             <div className="w-full">
-//                 {/* Main alignment container: Logo (left) <-> Nav (center) <-> Profile/Auth & Toggle (right) */}
-//                 <div className="flex items-center justify-between h-24 px-4 sm:px-6 lg:px-8">
-
-//                     {/* 1. Logo (Extreme Left) */}
-//                     <Link to="/" className="flex items-center flex-shrink-0">
-//                         <img src="/Group 22.png" alt="NGraph Logo" className="h-10 sm:h-16 w-auto object-contain" />
-//                     </Link>
-
-//                     {/* 2. Desktop Navigation (Centered) */}
-//                     <nav className="hidden md:flex items-center h-full flex-1 justify-center">
-//                         <div className="flex items-center space-x-1 lg:space-x-4 h-full">
-//                             <NavLinkDesktop to="/">Home</NavLinkDesktop>
-
-//                             {!isAdmin && <NavLinkDesktop to="/dashboard">Dashboard</NavLinkDesktop>}
-
-//                             <NavLinkDesktop to="/subscription/buy">Subscriptions</NavLinkDesktop>
-
-//                             {/* Admin Settings Dropdown (Desktop) */}
-//                             {isAdmin && (
-//                                 <div className="relative h-full flex items-center">
-//                                     <button
-//                                         ref={adminSettingsButtonRef}
-//                                         onClick={(e) => {
-//                                             e.preventDefault(); e.stopPropagation();
-//                                             setAdminSettingsOpen(p => !p);
-//                                             setProfileOpen(false);
-//                                         }}
-//                                         className="flex items-center gap-1 text-white hover:text-cyan-400 transition-colors duration-200 h-full px-3 py-2 text-base font-medium"
-//                                         aria-expanded={adminSettingsOpen}
-//                                     >
-//                                         Admin Tools <FaCog className="text-xl" /> 
-//                                         <FaChevronDown className={`text-xs ml-1 transition-transform duration-200 ${adminSettingsOpen ? 'rotate-180' : 'rotate-0'}`} />
-//                                     </button>
-//                                     <AnimatePresence>
-//                                         {adminSettingsOpen && (
-//                                             <motion.div
-//                                                 ref={adminSettingsRef}
-//                                                 initial={{ opacity: 0, y: 10 }}
-//                                                 animate={{ opacity: 1, y: 0 }}
-//                                                 exit={{ opacity: 0, y: 10 }}
-//                                                 transition={{ duration: 0.2 }}
-//                                                 onClick={(e) => e.stopPropagation()}
-//                                                 className="absolute left-1/2 transform -translate-x-1/2 mt-1 bg-white shadow-2xl rounded-lg w-56 z-50 ring-1 ring-gray-200"
-//                                             >
-//                                                 <Link to="/admin/users" className="block px-4 py-3 text-gray-700 hover:bg-cyan-50" onClick={closeAllMenus}>User Management</Link>
-//                                                 <Link to="/admin/emailsettings" className="block px-4 py-3 text-gray-700 hover:bg-cyan-50" onClick={closeAllMenus}>Email Settings</Link>
-//                                                 <Link to="/admin/invoicesettings" className="block px-4 py-3 text-gray-700 hover:bg-cyan-50" onClick={closeAllMenus}>Invoice Settings</Link>
-//                                                 <Link to="/admin/complaintsmanagement" className="block px-4 py-3 text-gray-700 hover:bg-cyan-50" onClick={closeAllMenus}>Complaints Management</Link>
-//                                             </motion.div>
-//                                         )}
-//                                     </AnimatePresence>
-//                                 </div>
-//                             )}
-//                         </div>
-//                     </nav>
-
-//                     {/* 3. Profile/Auth & Mobile Toggle (Right Side) */}
-//                     <div className="flex items-center gap-4">
-//                         {user ? (
-//                             <>
-//                                 {/* Profile Button (Visible on Desktop/Tablet, Hidden on Mobile) */}
-//                                 <div className="relative hidden md:block"> 
-//                                     <button
-//                                         ref={profileButtonRef}
-//                                         onClick={(event) => {
-//                                             event.preventDefault(); event.stopPropagation();
-//                                             setProfileOpen(!profileOpen);
-//                                             setAdminSettingsOpen(false);
-//                                         }}
-//                                         className="flex items-center gap-2 p-2 rounded-full hover:bg-[#2E3C57] transition-colors border border-transparent hover:border-cyan-400"
-//                                         aria-expanded={profileOpen}
-//                                         aria-haspopup="true"
-//                                     >
-//                                         {isAdmin ? (
-//                                             <FaUserShield className="text-2xl text-red-400" />
-//                                         ) : (
-//                                             <FaUserCircle className="text-2xl" />
-//                                         )}
-//                                         <div className="flex flex-col items-end text-right leading-tight hidden lg:block">
-//                                             <span className="font-semibold text-lg truncate max-w-[150px]">{userName}</span>
-//                                         </div>
-//                                         <FaChevronDown className={`text-sm transition-transform duration-200 ${profileOpen ? 'rotate-180' : 'rotate-0'}`} />
-//                                     </button>
-
-//                                     <AnimatePresence>
-//                                         {profileOpen && (
-//                                             <motion.div
-//                                                 ref={profileRef}
-//                                                 initial={{ opacity: 0, y: 10 }}
-//                                                 animate={{ opacity: 1, y: 0 }}
-//                                                 exit={{ opacity: 0, y: 10 }}
-//                                                 transition={{ duration: 0.2 }}
-//                                                 onClick={(e) => e.stopPropagation()}
-//                                                 className="absolute right-0 mt-1 bg-white shadow-2xl rounded-lg w-64 z-50 border border-gray-200"
-//                                             >
-//                                                 <UserDisplay user={user} isAdmin={isAdmin} />
-
-//                                                 {!isAdmin && ( // Standard User Links
-//                                                     <>
-//                                                         <Link to="/my-profile" className="block px-4 py-3 text-gray-700 hover:bg-gray-100" onClick={() => closeAllMenus()}>My Profile</Link>
-//                                                         <Link to="/purchase-history" className="block px-4 py-3 text-gray-700 hover:bg-gray-100" onClick={() => closeAllMenus()}>Purchase History</Link>
-//                                                         <Link to="/complaints" className="block px-4 py-3 text-gray-700 hover:bg-gray-100" onClick={() => closeAllMenus()}>Complaints</Link>
-//                                                     </>
-//                                                 )}
-//                                                 <Link to="/change-password" className="block px-4 py-3 text-gray-700 hover:bg-gray-100" onClick={() => closeAllMenus()}>Change Password</Link>
-
-//                                                 <button
-//                                                     onClick={() => closeAllMenus(handleLogout)}
-//                                                     className="block w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 font-semibold border-t border-gray-200"
-//                                                 >
-//                                                     Logout
-//                                                 </button>
-//                                             </motion.div>
-//                                         )}
-//                                     </AnimatePresence>
-//                                 </div>
-//                             </>
-//                         ) : (
-//                             // Auth Links (Desktop)
-// <div className="hidden md:flex items-center space-x-3">
-//     <Link to="/login" className="hover:text-cyan-400 flex items-center gap-2 text-lg sm:text-xl min-h-[44px] px-2">
-//         <FaSignInAlt className="text-lg sm:text-xl" /> Login
-//     </Link>
-//     <Link to="/register" className="hover:text-cyan-400 flex items-center gap-2 text-lg sm:text-xl min-h-[44px] px-2">
-//         <FaUserPlus className="text-lg sm:text-xl" /> Register
-//     </Link>
-// </div>
-//                         )}
-
-//                         {/* Mobile Menu Button (Far Right - Always visible on mobile) */}
-//                         <button
-//                             ref={navToggleButtonRef}
-//                             onClick={() => {
-//                                 setNavOpen(p => !p);
-//                                 setProfileOpen(false); // Close profile dropdown if open
-//                                 setAdminSettingsOpen(false);
-//                             }}
-//                             className="md:hidden p-2 text-white hover:text-cyan-400 transition-colors"
-//                             aria-expanded={navOpen}
-//                             aria-controls="main-mobile-menu"
-//                         >
-//                             {navOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-//                         </button>
-//                     </div>
-//                 </div>
-//             </div>
-
-//             {/* Mobile Overlay Menu (Sliding from Top) */}
-//             <AnimatePresence>
-//                 {navOpen && (
-//                     <motion.div
-//                         id="main-mobile-menu"
-//                         ref={navRef}
-//                         initial={{ opacity: 0, y: -20 }}
-//                         animate={{ opacity: 1, y: 0 }}
-//                         exit={{ opacity: 0, y: -20 }}
-//                         transition={{ duration: 0.2 }}
-//                         className="md:hidden bg-[#151D33] shadow-lg border-t-4 border-cyan-500"
-//                     >
-//                         <div className="px-2 pt-2 pb-4 space-y-1">
-//                             {/* Primary Links (Home, Dashboard, Subscriptions) */}
-//                             <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-//                                 <FaHome className="inline mr-2"/> Home
-//                             </Link>
-
-//                             {!isAdmin && <Link to="/dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-//                                 <FaChartArea className="inline mr-2"/> Dashboard
-//                             </Link>}
-
-//                             <Link to="/subscription/buy" className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-//                                 <FaTags className="inline mr-2"/> Subscriptions
-//                             </Link>
-
-//                             {user ? (
-//                                 <div className="mt-2 pt-2 border-t border-gray-700">
-//                                     <UserDisplay user={user} isAdmin={isAdmin} />
-
-//                                     {/* User Links (Mobile Only) */}
-//                                     {!isAdmin && <Link to="/my-profile" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md" onClick={() => closeAllMenus()}>My Profile</Link>}
-//                                     {!isAdmin && <Link to="/purchase-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md" onClick={() => closeAllMenus()}>Purchase History</Link>}
-//                                     {!isAdmin && <Link to="/complaints" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md" onClick={() => closeAllMenus()}>My Complaints</Link>}
-//                                     <Link to="/change-password" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md" onClick={() => closeAllMenus()}>Change Password</Link>
-
-//                                     {/* Admin Settings Toggle (Mobile Only) */}
-//                                     {isAdmin && (
-//                                         <div className="relative mt-1">
-//                                             <button
-//                                                 onClick={() => setAdminSettingsOpen(p => !p)}
-//                                                 className="w-full flex justify-between items-center px-3 py-2 text-base font-medium text-white hover:bg-[#2E3C57] transition-colors rounded-lg"
-//                                             >
-//                                                 Admin Tools <FaCog />
-//                                             </button>
-//                                             <AnimatePresence>
-//                                                 {adminSettingsOpen && (
-//                                                     <motion.div
-//                                                         initial={{ opacity: 0, height: 0 }}
-//                                                         animate={{ opacity: 1, height: 'auto' }}
-//                                                         exit={{ opacity: 0, height: 0 }}
-//                                                         transition={{ duration: 0.2 }}
-//                                                         className="bg-[#2E3C57] divide-y divide-gray-700 ml-4 rounded-md mt-1"
-//                                                     >
-//                                                         <Link to="/admin/users" className="block px-4 py-2 text-sm hover:bg-[#43526E]" onClick={() => closeAllMenus()}>User Management</Link>
-//                                                         <Link to="/admin/emailsettings" className="block px-4 py-2 text-sm hover:bg-[#43526E]" onClick={() => closeAllMenus()}>Email Settings</Link>
-//                                                         <Link to="/admin/invoicesettings" className="block px-4 py-2 text-sm hover:bg-[#43526E]" onClick={() => closeAllMenus()}>Invoice Settings</Link>
-//                                                         <Link to="/admin/complaintsmanagement" className="block px-4 py-3 text-sm hover:bg-[#43526E]" onClick={() => closeAllMenus()}>Complaints Management</Link>
-//                                                     </motion.div>
-//                                                 )}
-//                                             </AnimatePresence>
-//                                         </div>
-//                                     )}
-
-//                                     <button
-//                                         onClick={() => closeAllMenus(handleLogout)}
-//                                         className="w-full text-left px-3 py-3 text-red-400 hover:bg-red-800 font-bold transition-colors rounded-lg mt-2 flex items-center gap-2"
-//                                     >
-//                                         <FaSignOutAlt className="text-lg" /> Log Out
-//                                     </button>
-//                                 </div>
-//                             ) : (
-//                                 // Auth Actions (Not logged in)
-//                                 <div className="pt-2 border-t border-gray-700 flex flex-col gap-2">
-//                                     <Link to="/login" className="block text-center bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-semibold transition" onClick={() => closeAllMenus()}>Login</Link>
-//                                     <Link to="/register" className="block text-center bg-cyan-500 hover:bg-cyan-600 py-2 rounded-lg font-semibold transition" onClick={() => closeAllMenus()}>Register</Link>
-//                                 </div>
-//                             )}
-//                         </div>
-//                     </motion.div>
-//                 )}
-//             </AnimatePresence>
-//         </header>
-//     );
-// }
-
-// export default Header;
-
-
 import React, { useState, useEffect, useRef, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     FaUserCircle, FaSignOutAlt, FaSignInAlt, FaChevronDown, FaUserPlus, FaUserShield,
     FaBars, FaTimes, FaCog, FaChevronUp, FaChartArea, FaHome, FaTags, FaLock, FaHistory, FaEnvelope,
-    FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaTachometerAlt
+    FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaTachometerAlt, FaPlug
 } from "react-icons/fa";
+// Assuming 'api' is not needed directly in the component structure, keeping it imported for completeness
 import api from "../api";
 import { motion, AnimatePresence } from "framer-motion";
 
-const UserDisplay = memo(({ user, isAdmin }) => {
+// --- FUTURISTIC DESIGN VARIABLES & COMPONENTS ---
+
+// Primary Neon Colors
+const NEON_CYAN = "#00F0FF";
+const NEON_PURPLE = "#9D4EDD";
+const BG_DARK = "#080C16";
+const ACCENT_RED = "#FF6347"; // Used for Admin alerts/icons
+
+// Dropdown motion variants (Holographic reveal)
+const dropdownVariants = {
+    initial: { opacity: 0, y: -20, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: -20, scale: 0.95 },
+};
+
+// Mobile Nav motion variants (System slide down)
+const mobileNavVariants = {
+    initial: { opacity: 0, y: '-100%' },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: '-100%' },
+};
+
+// --- Helper Components ---
+
+// **FUTURISTIC COMPONENT 1: User Display Panel**
+// FIX: Added isSuperAdmin prop
+const UserDisplay = memo(({ user, isAdmin, isSuperAdmin }) => {
     const userName = isAdmin
         ? (user?.adminName || "Admin")
         : (user?.companyName || user?.customerName || "User");
 
+    // Determine the admin level text
+    const adminLevelText = isSuperAdmin ? 'I' : 'II';
+
     return (
-        // Redesigned User Display Card
-        <div className="flex flex-col px-4 py-3 border-b border-gray-100 text-left bg-gray-50">
-            <div className={`font-extrabold text-lg flex items-center gap-2 ${isAdmin ? 'text-red-700' : 'text-blue-700'}`}>
-                {isAdmin ? <FaUserShield className="w-5 h-5" /> : <FaUserCircle className="w-5 h-5" />}
-                {userName}
+        <div className={`flex flex-col px-4 py-3 border-b border-white/10 text-left bg-black/30 backdrop-blur-md`}>
+            <div className={`font-extrabold text-lg flex items-center gap-2 ${isAdmin ? 'text-red-400' : 'text-cyan-400'}`}>
+                {/* Subtle Breathing Glow for Icon */}
+                <motion.div
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    className="shrink-0"
+                >
+                    {isAdmin ? <FaUserShield className="w-5 h-5 drop-shadow-[0_0_5px_#FF6347]" /> : <FaUserCircle className="w-5 h-5 drop-shadow-[0_0_5px_#00F0FF]" />}
+                </motion.div>
+                <span className="truncate max-w-[calc(100%-2rem)] text-white">{userName}</span>
             </div>
-            <span className="text-sm text-gray-500 truncate">{user?.email}</span>
-            {isAdmin && <span className="text-xs font-semibold text-red-500 mt-1">ADMIN ACCOUNT</span>}
+            <span className="text-sm text-gray-400 truncate font-mono">{user?.email}</span>
         </div>
     );
 });
 
-// Helper component for styled dropdown links
+// **FUTURISTIC COMPONENT 2: Dropdown Item (Interactive Holo-Link)**
 const DropdownItem = ({ to, icon, children, onClick }) => (
     <Link
         to={to}
         onClick={onClick}
-        className="block px-4 py-3 text-gray-700 hover:bg-cyan-50 hover:text-cyan-700 transition-colors duration-150 text-base font-medium flex items-center gap-3 min-h-[44px]"
+        className="block px-4 py-3 text-white/80 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-150 text-base font-medium flex items-center gap-3 min-h-[44px] relative group overflow-hidden"
     >
-        {icon} {children}
+        {/* Animated Hover Bar */}
+        <div className="absolute left-0 top-0 h-full w-0.5 bg-cyan-400 opacity-0 group-hover:opacity-100 group-hover:w-1 transition-all duration-200" />
+        <span className="text-cyan-400 group-hover:text-cyan-300 transition-colors duration-150">{icon}</span>
+        {children}
     </Link>
 );
 
@@ -631,9 +79,29 @@ const AdminDropdownItem = ({ to, icon, children, onClick }) => (
     <Link
         to={to}
         onClick={onClick}
-        className="block px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors duration-150 text-lg font-medium flex items-center gap-3 min-h-[44px]"
+        className="block px-4 py-3 text-white/80 hover:bg-red-500/10 hover:text-red-400 transition-colors duration-150 text-base font-medium flex items-center gap-3 min-h-[44px] relative group overflow-hidden"
     >
-        {icon} {children}
+        {/* Animated Hover Bar */}
+        <div className="absolute left-0 top-0 h-full w-0.5 bg-red-400 opacity-0 group-hover:opacity-100 group-hover:w-1 transition-all duration-200" />
+        <span className="text-red-400 group-hover:text-red-300 transition-colors duration-150">{icon}</span>
+        {children}
+    </Link>
+);
+
+// **FUTURISTIC COMPONENT 3: Desktop Navigation Link (Animated Border)**
+const NavLinkDesktop = ({ to, children }) => (
+    <Link
+        to={to}
+        className="text-white/80 hover:text-cyan-400 transition-colors duration-300 px-3 py-2 text-lg font-medium min-h-[44px] flex items-center relative group"
+    >
+        {children}
+        {/* Animated Underline Effect (Cyber-Glow) */}
+        <motion.div
+            className="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400/0 group-hover:bg-cyan-400 drop-shadow-[0_0_5px_#00F0FF] transition-all duration-300"
+            initial={{ scaleX: 0 }}
+            whileHover={{ scaleX: 1 }}
+            transition={{ duration: 0.3 }}
+        />
     </Link>
 );
 
@@ -646,7 +114,7 @@ function Header({ user, onLogout }) {
     const [navOpen, setNavOpen] = useState(false); // Mobile Nav State
     const navigate = useNavigate();
 
-    // Refs for click outside logic
+    // Refs (KEEPING ALL EXISTING LOGIC)
     const profileRef = useRef(null);
     const adminSettingsRef = useRef(null);
     const adminSettingsButtonRef = useRef(null);
@@ -655,7 +123,7 @@ function Header({ user, onLogout }) {
     const navToggleButtonRef = useRef(null);
 
     const roles = user?.roles || [];
-    const isSuperAdmin = roles.includes("SuperAdmin");
+    const isSuperAdmin = roles.includes("SuperAdmin"); // DEFINED HERE
     const isAdmin = roles.includes("Admin");
     const isAnyAdmin = isSuperAdmin || isAdmin;
 
@@ -664,27 +132,28 @@ function Header({ user, onLogout }) {
         : isAdmin
             ? (user?.adminName || "Admin")
             : (user?.companyName || user?.customerName || "User");
-            
-    // Click outside handler (UNMODIFIED)
+
+    // Click outside handler - LOGIC KEPT INTACT
     useEffect(() => {
         const handleClickOutside = (event) => {
-            // Close Admin Settings Dropdown
-            if (adminSettingsRef.current && !adminSettingsRef.current.contains(event.target) && adminSettingsButtonRef.current && !adminSettingsButtonRef.current.contains(event.target)) {
+            const isClickOutside = (ref, buttonRef) =>
+                ref.current && !ref.current.contains(event.target) &&
+                buttonRef.current && !buttonRef.current.contains(event.target);
+
+            if (isClickOutside(adminSettingsRef, adminSettingsButtonRef)) {
                 setAdminSettingsOpen(false);
             }
-            // Close Profile Dropdown
-            if (profileRef.current && !profileRef.current.contains(event.target) && profileButtonRef.current && !profileButtonRef.current.contains(event.target)) {
+            if (isClickOutside(profileRef, profileButtonRef)) {
                 setProfileOpen(false);
             }
-            // Close Mobile Navigation
-            if (navOpen && navRef.current && !navRef.current.contains(event.target) && navToggleButtonRef.current && !navToggleButtonRef.current.contains(event.target)) {
+            if (navOpen && isClickOutside(navRef, navToggleButtonRef)) {
                 setNavOpen(false);
             }
         };
 
-        document.addEventListener("click", handleClickOutside);
+        document.addEventListener("mousedown", handleClickOutside);
         return () => {
-            document.removeEventListener("click", handleClickOutside);
+            document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [navOpen]);
 
@@ -694,7 +163,6 @@ function Header({ user, onLogout }) {
         setNavOpen(false);
     };
 
-    // Closes all menus and navigates if necessary
     const closeAllMenus = (callback) => {
         setProfileOpen(false);
         setAdminSettingsOpen(false);
@@ -702,285 +170,331 @@ function Header({ user, onLogout }) {
         if (callback) callback();
     };
 
-    const NavLinkDesktop = ({ to, children }) => (
-        <Link
-            to={to}
-            onClick={() => closeAllMenus()}
-            className="text-white hover:text-cyan-400 transition-colors duration-200 px-3 py-2 text-xl font-medium min-h-[44px] flex items-center"
-        >
-            {children}
-        </Link>
-    );
+    const toggleMobileNav = (event) => {
+        event.preventDefault(); event.stopPropagation();
+        setNavOpen(p => !p);
+        setProfileOpen(false);
+        setAdminSettingsOpen(false);
+    };
 
-
-    // --- Admin Dropdown Items (Desktop - MODIFIED) ---
-    const adminDesktopDropdown = (
-        <motion.div
-            ref={adminSettingsRef}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.2 }}
-            onClick={(e) => e.stopPropagation()}
-            className="absolute top-20 right-0 bg-white shadow-2xl rounded-lg w-64 z-60 border border-gray-200 origin-top"
-        >
-            {/* SUPERADMIN Links: Inherits ALL old Admin links */}
-            {isSuperAdmin && (
-                <>
-                    <AdminDropdownItem to="/superadmin/user-management" icon={<FaUsers className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/emailsettings" icon={<FaAt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Email Settings</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/invoicesettings" icon={<FaFileInvoice className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Invoice Settings</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
-                </>
-            )}
-            
-            {/* ADMIN Links: Keep existing links MINUS the four specified */}
-            {isAdmin && !isSuperAdmin && (
-                <>
-                    <AdminDropdownItem to="/admin/users" icon={<FaUsers className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="font extrabold text-red-700 w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
-                </>
-            )}
-        </motion.div>
-    );
-
-    // --- User Profile Dropdown Items (Desktop - UNMODIFIED) ---
-    const userDesktopDropdown = (
+    // **HOLOGRAPHIC DROPDOWN SURFACE**
+    const dropdownSurface = (content) => (
         <motion.div
             ref={profileRef}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
+            variants={dropdownVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
-            className="absolute top-12 right-0 bg-white shadow-2xl w-64 z-60 border border-gray-200 origin-top"
+            className="absolute top-full right-0 mt-2 bg-black/70 backdrop-blur-lg shadow-[0_0_30px_rgba(0,240,255,0.4)] rounded-lg w-64 z-[60] border border-cyan-400/30 overflow-hidden"
         >
-            <UserDisplay user={user} isAdmin={isAdmin} />
-
-
-            {!isAdmin && ( // Standard User Links
-                <>
-                    {/* Change this: onClick={closeAllMenus} */}
-                    <DropdownItem to="/my-profile" icon={<FaUserCircle />} onClick={() => closeAllMenus()}>My Profile</DropdownItem>
-                    <DropdownItem to="/purchase-history" icon={<FaHistory />} onClick={() => closeAllMenus()}>Purchase History</DropdownItem>
-                    <DropdownItem to="/complaints" icon={<FaEnvelope />} onClick={() => closeAllMenus()}>Complaints</DropdownItem>
-                    <DropdownItem to="/suggestions-history" icon={<FaClipboardList />} onClick={() => closeAllMenus()}>Suggestions History</DropdownItem>
-                </>
-            )}
-
-
-            <DropdownItem to="/change-password" icon={<FaLock />} onClick={() => closeAllMenus()}>Change Password</DropdownItem>
-            <button
-                onClick={() => closeAllMenus(handleLogout)}
-                className="block w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 font-semibold border-t border-gray-200 flex items-center gap-3"
-            >
-                <FaSignOutAlt className="text-lg" /> Logout
-            </button>
+            {content}
         </motion.div>
     );
 
-    return (
-        <header className="bg-[#0F172A] text-white shadow-lg sticky top-0 z-50">
-            <div className="w-full">
-                {/* Main alignment container: Logo (left) <-> Nav (center) <-> Profile/Auth & Toggle (right) */}
-                <div className="flex items-center justify-between h-24 px-4 sm:px-6 lg:px-8">
+    // --- Admin Dropdown Items (Desktop) ---
+    const adminDesktopDropdown = dropdownSurface(
+        <div className="py-1">
+            {isSuperAdmin && (
+                <>
+                    <AdminDropdownItem to="/superadmin/user-management" icon={<FaUsers className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/emailsettings" icon={<FaAt className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Email Settings</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/invoicesettings" icon={<FaFileInvoice className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Invoice Settings</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
+                    <AdminDropdownItem to="/superadmin/admin-commission" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Commission</AdminDropdownItem>
+                </>
+            )}
+            {isAdmin && !isSuperAdmin && (
+                <>
+                    <AdminDropdownItem to="/admin/users" icon={<FaUsers className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/my-commission" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Commission</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/payout-details" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Payment Details</AdminDropdownItem>
+                </>
+            )}
+        </div>
+    );
 
-                    {/* 1. Logo (Extreme Left) */}
-                    <Link to="/" className="flex items-center flex-shrink-0">
-                        <img src="/Group 22.png" alt="NGraph Logo" className="h-10 sm:h-16 w-auto object-contain" />
+    // --- User Profile Dropdown Items (Desktop) ---
+    const userDesktopDropdown = dropdownSurface(
+        <>
+            {/* FIX: Passed isSuperAdmin prop */}
+            <UserDisplay user={user} isAdmin={isAnyAdmin} isSuperAdmin={isSuperAdmin} />
+            <div className="py-1">
+                {!isAnyAdmin && ( // Standard User Links
+                    <>
+                        <DropdownItem to="/my-profile" icon={<FaUserCircle className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Profile</DropdownItem>
+                        <DropdownItem to="/purchase-history" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Purchase History</DropdownItem>
+                        <DropdownItem to="/complaints" icon={<FaEnvelope className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints</DropdownItem>
+                        <DropdownItem to="/suggestions-history" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Suggestions History</DropdownItem>
+                        <DropdownItem to="/subscription/addon" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Add Ons</DropdownItem>
+                    </>
+                )}
+                <DropdownItem to="/change-password" icon={<FaLock className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Change Password</DropdownItem>
+            </div>
+
+            <button
+                onClick={() => closeAllMenus(handleLogout)}
+                className="block w-full text-left px-4 py-3 text-red-400 bg-red-800/20 hover:bg-red-800/40 font-bold border-t border-red-400/30 flex items-center gap-3 transition-colors duration-150"
+            >
+                <FaSignOutAlt className="text-lg drop-shadow-[0_0_5px_#FF6347]" /> LOGOUT
+            </button>
+        </>
+    );
+
+    // --- MAIN RENDER ---
+    return (
+        <header className={`bg-[${BG_DARK}] text-white shadow-2xl shadow-black/50 sticky top-0 z-[100] relative`}>
+
+            {/* --- NEW: FUTURISTIC GRID PATTERN LAYER (Placed directly inside header) --- */}
+            <div
+                className="absolute inset-0 z-0 opacity-10 pointer-events-none"
+                style={{
+                    // Inline style for the complex repeating gradient grid pattern
+                    backgroundImage: `linear-gradient(to right, rgba(0,240,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,240,255,0.05) 1px, transparent 1px)`,
+                    backgroundSize: '40px 40px',
+                }}
+            />
+
+            {/* --- TOP HEADER CONTENT (Wrapped in a Z-index to sit above the grid) --- */}
+            <div className="w-full relative z-10">
+                <div className="flex items-center justify-between h-24 px-4 sm:px-6 lg:px-8">
+                    {/* 1. Logo (Extreme Left) - Glow Effect */}
+                    <Link to="/" className="flex items-center flex-shrink-0 group">
+                        {/* Assuming /Group 22.png is the logo file */}
+                        <motion.img
+                            src="/Group 22.png"
+                            alt="NGraph Logo - Data Core"
+                            className="h-12 sm:h-16 w-auto object-contain group-hover:drop-shadow-[0_0_10px_#00F0FF] transition-all duration-300"
+                            initial={{ scale: 0.95 }}
+                            whileHover={{ scale: 1.05 }}
+                        />
                     </Link>
 
-                    {/* 2. Desktop Navigation (Centered) */}
-                    <nav className="hidden md:flex items-center h-full flex-1 justify-center">
-                        <div className="flex items-center space-x-1 lg:space-x-4 h-full">
-                            <NavLinkDesktop to="/">Home</NavLinkDesktop>
+                    {/* 2. Right Aligned Container */}
+                    <div className="flex items-center gap-6">
 
-                            {/* **DESKTOP ORDER FIX:** Admin Tools placed between Home and Subscriptions */}
-                            {(isSuperAdmin || isAdmin) && (
-                                <div className="relative h-full flex items-center">
-                                    <button
-                                        ref={adminSettingsButtonRef}
-                                        onClick={(e) => {
-                                            e.preventDefault(); e.stopPropagation();
-                                            setAdminSettingsOpen(p => !p);
-                                            setProfileOpen(false);
-                                        }}
-                                        className="flex items-center gap-1 p-2 text-white rounded-full hover:bg-[#2E3C57] transition-colors border border-transparent hover:border-cyan-400 text-xl font-medium"
-                                        aria-expanded={adminSettingsOpen}
-                                    >
-                                        Admin Tools
-                                        <FaChevronDown className={`text-sm transition-transform duration-200 ${adminSettingsOpen ? 'rotate-180' : 'rotate-0'}`} />
-                                    </button>
-                                    <AnimatePresence>
-                                        {adminSettingsOpen && adminDesktopDropdown}
-                                    </AnimatePresence>
+                        {/* Desktop Navigation Links */}
+                        <nav className="hidden md:flex items-center h-full">
+                            <div className="flex items-center space-x-4 lg:space-x-6 h-full">
+
+                                <NavLinkDesktop to="/">HOME</NavLinkDesktop>
+
+                                {/* Admin Tools Dropdown (Re-rendered using new wrapper) */}
+                                {(isAnyAdmin) && (
+                                    <div className="relative h-full flex items-center">
+                                        <button
+                                            ref={adminSettingsButtonRef}
+                                            onClick={(e) => {
+                                                e.preventDefault(); e.stopPropagation();
+                                                setAdminSettingsOpen(p => !p);
+                                                setProfileOpen(false);
+                                            }}
+                                            className={`flex items-center gap-1 p-2 transition-colors border-2 border-transparent text-lg font-medium rounded-full text-white/80 hover:border-cyan-400 hover:bg-cyan-900/30'}
+                                            `}
+                                            aria-expanded={adminSettingsOpen}
+                                        >
+                                            {isSuperAdmin ? 'SUPER ADMIN TOOLS' : 'ADMIN TOOLS'}
+                                            <FaChevronDown className={`text-sm transition-transform duration-200 ${adminSettingsOpen ? 'rotate-180' : 'rotate-0'}`} />
+                                        </button>
+                                        <AnimatePresence>
+                                            {adminSettingsOpen && adminDesktopDropdown}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
+
+                                {/* Dashboard Link for non-admins */}
+                                {!isAnyAdmin && <NavLinkDesktop to="/dashboard">DASHBOARD</NavLinkDesktop>}
+
+                                {/* Pricing Links (Combined Logic) */}
+                                {isSuperAdmin && <NavLinkDesktop to="/superadmin/pricing">PRICING</NavLinkDesktop>}
+                                {isAdmin && <NavLinkDesktop to="/pricing">PRICING</NavLinkDesktop>}
+                                {!isAnyAdmin && <NavLinkDesktop to="/pricing">PRICING</NavLinkDesktop>}
+
+                            </div>
+                        </nav>
+
+                        {/* 3. Profile/Auth & Mobile Toggle (Far Right) */}
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            {user ? (
+                                <>
+                                    {/* Profile Button (Desktop/Tablet) - Interactive Device Style */}
+                                    <div className="relative hidden md:block">
+                                        <button
+                                            ref={profileButtonRef}
+                                            onClick={(event) => {
+                                                event.preventDefault(); event.stopPropagation();
+                                                setProfileOpen(!profileOpen);
+                                                setAdminSettingsOpen(false);
+                                            }}
+                                            className="flex items-center gap-2 p-2 rounded-full transition-colors duration-200 border-2 border-transparent hover:border-cyan-400 hover:bg-cyan-900/30 min-h-[44px]"
+                                            aria-expanded={profileOpen}
+                                            aria-haspopup="true"
+                                        >
+                                            {isAnyAdmin ? (
+                                                <FaUserShield className="text-2xl text-red-400 drop-shadow-[0_0_5px_#FF6347]" />
+                                            ) : (
+                                                <FaUserCircle className="text-2xl text-cyan-400 drop-shadow-[0_0_5px_#00F0FF]" />
+                                            )}
+                                            {/* User Name/Email display for desktop */}
+                                            <div className="flex flex-col items-end text-right leading-tight hidden xl:block">
+                                                <span className="font-semibold text-lg truncate max-w-[150px] text-white/90">{userName}</span>
+                                            </div>
+                                            <FaChevronDown className={`text-sm transition-transform duration-200 ${profileOpen ? 'rotate-180 text-cyan-400' : 'rotate-0 text-white/60'}`} />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {profileOpen && userDesktopDropdown}
+                                        </AnimatePresence>
+                                    </div>
+                                </>
+                            ) : (
+                                // Auth Links (Desktop) - Futuristic Buttons
+                                <div className="hidden md:flex items-center space-x-3">
+                                    <Link to="/login" className="flex items-center gap-2 text-lg px-4 py-2 bg-purple-700/60 rounded-lg hover:bg-purple-700/80 transition-colors font-semibold border border-purple-400/50 text-white hover:text-purple-400 drop-shadow-[0_0_5px_#9D4EDD]">
+                                        <FaSignInAlt className="text-lg" /> LOGIN
+                                    </Link>
+                                    <Link to="/register" className="flex items-center gap-2 text-lg px-4 py-2 bg-cyan-700/60 rounded-lg hover:bg-cyan-700/80 transition-colors font-semibold border border-cyan-400/50 text-white hover:text-cyan-400 drop-shadow-[0_0_5px_#00F0FF]">
+                                        <FaUserPlus className="text-lg" /> REGISTER
+                                    </Link>
                                 </div>
                             )}
 
-                            {!isAnyAdmin && <NavLinkDesktop to="/dashboard">Dashboard</NavLinkDesktop>}
-
-                            <NavLinkDesktop to="/subscription/buy">Subscriptions</NavLinkDesktop>
-
+                            {/* Mobile Menu Button (Far Right) - Interactive Toggle */}
+                            <button
+                                ref={navToggleButtonRef}
+                                onClick={toggleMobileNav}
+                                className="md:hidden p-3 text-white hover:text-cyan-400 transition-colors duration-200 rounded-md hover:bg-cyan-900/30 border border-transparent hover:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
+                                aria-expanded={navOpen}
+                                aria-controls="main-mobile-menu"
+                            >
+                                {navOpen ? <FaTimes size={24} className="text-cyan-400" /> : <FaBars size={24} className="text-white/80" />}
+                            </button>
                         </div>
-                    </nav>
-
-                    {/* 3. Profile/Auth & Mobile Toggle (Right Side - UNMODIFIED) */}
-                    {/* ... (Desktop Profile/Auth and Mobile Toggle) ... */}
-                    <div className="flex items-center gap-4">
-                        {user ? (
-                            <>
-                                {/* Profile Button (Visible on Desktop/Tablet, Hidden on Mobile) */}
-                                <div className="relative hidden md:block">
-                                    <button
-                                        ref={profileButtonRef}
-                                        onClick={(event) => {
-                                            event.preventDefault(); event.stopPropagation();
-                                            setProfileOpen(!profileOpen);
-                                            setAdminSettingsOpen(false);
-                                        }}
-                                        className="flex items-center gap-2 p-2 rounded-full hover:bg-[#2E3C57] transition-colors border border-transparent hover:border-cyan-400"
-                                        aria-expanded={profileOpen}
-                                        aria-haspopup="true"
-                                    >
-                                        {isAnyAdmin ? (
-                                            <FaUserShield className="text-2xl text-red-400" />
-                                        ) : (
-                                            <FaUserCircle className="text-2xl" />
-                                        )}
-                                        {/* Added User Name/Email for non-admin profile desktop display */}
-                                        <div className="flex flex-col items-end text-right leading-tight hidden lg:block">
-                                            <span className="font-semibold text-lg truncate max-w-[150px]">{userName}</span>
-                                        </div>
-                                        <FaChevronDown className={`text-sm transition-transform duration-200 ${profileOpen ? 'rotate-180' : 'rotate-0'}`} />
-                                    </button>
-
-                                    <AnimatePresence>
-                                        {profileOpen && userDesktopDropdown}
-                                    </AnimatePresence>
-                                </div>
-                            </>
-                        ) : (
-                            // Auth Links (Desktop)
-                            <div className="hidden md:flex items-center space-x-3">
-                                <Link to="/login" className="hover:text-cyan-400 flex items-center gap-2 text-lg sm:text-xl min-h-[44px] px-2">
-                                    <FaSignInAlt className="text-lg sm:text-xl" /> Login
-                                </Link>
-                                <Link to="/register" className="hover:text-cyan-400 flex items-center gap-2 text-lg sm:text-xl min-h-[44px] px-2">
-                                    <FaUserPlus className="text-lg sm:text-xl" /> Register
-                                </Link>
-                            </div>
-
-                        )}
-
-                        {/* Mobile Menu Button (Far Right - Always visible on mobile - UNMODIFIED) */}
-                        <button
-                            ref={navToggleButtonRef}
-                            onClick={() => {
-                                setNavOpen(p => !p);
-                                setProfileOpen(false); // Close profile dropdown if open
-                                setAdminSettingsOpen(false);
-                            }}
-                            className="md:hidden p-2 text-white hover:text-cyan-400 transition-colors"
-                            aria-expanded={navOpen}
-                            aria-controls="main-mobile-menu"
-                        >
-                            {navOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Mobile Overlay Menu (Sliding from Top) */}
+            {/* --- CIRCUIT/GLOW SEPARATOR --- */}
+            <div className="absolute bottom-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-[#00F0FF] to-transparent opacity-50 drop-shadow-[0_0_8px_#00F0FF]" />
+
+
+            {/* Mobile Overlay Menu (Sliding from Top - Holographic Panel) */}
             <AnimatePresence>
                 {navOpen && (
                     <motion.div
                         id="main-mobile-menu"
                         ref={navRef}
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.2 }}
-                        className="md:hidden bg-[#151D33] shadow-lg border-t-4 border-cyan-500 z-40"
+                        variants={mobileNavVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.3 }}
+                        className={`fixed top-20 left-0 w-full h-auto md:hidden bg-black/80 backdrop-blur-xl shadow-2xl border-t-4 border-cyan-500 z-[90] overflow-y-auto max-h-[calc(100vh-80px)]`}
                     >
-                        <div className="px-2 pt-2 pb-4 space-y-1">
+                        <div className="px-4 py-4 space-y-2">
                             {/* Primary Links */}
-                            <Link to="/" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaHome className="inline mr-2" /> Home
+                            <Link to="/" className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 transition-colors border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}>
+                                <FaHome className="inline mr-3 text-cyan-400" /> HOME
                             </Link>
 
                             {/* ADMIN/SUPERADMIN Links (Mobile) */}
-                            {(isSuperAdmin || isAdmin) && (
-                                <>
+                            {(isAnyAdmin) && (
+                                <div className="space-y-1 border-t border-red-700/50 pt-2">
+                                    <h3 className="px-3 text-lg font-semibold text-red-400 tracking-wider">
+                                        {isSuperAdmin ? 'SUPER ADMIN TOOLS' : 'ADMIN TOOLS'}
+                                    </h3>
                                     {isSuperAdmin && (
                                         <>
-                                            <Link to="/admin/users" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaUsers className="inline mr-2" /> User Management
+                                            <Link to="/superadmin/user-management" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaUsers className="inline mr-3 text-red-400" /> User Management
                                             </Link>
-                                            <Link to="/admin/emailsettings" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaAt className="inline mr-2" /> Email Settings
+                                            <Link to="/admin/emailsettings" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaAt className="inline mr-3 text-red-400" /> Email Settings
                                             </Link>
-                                            <Link to="/admin/invoicesettings" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaFileInvoice className="inline mr-2" /> Invoice Settings
+                                            <Link to="/admin/invoicesettings" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaFileInvoice className="inline mr-3 text-red-400" /> Invoice Settings
                                             </Link>
-                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaClipboardList className="inline mr-2" /> Complaints Management
+                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaClipboardList className="inline mr-3 text-red-400" /> Complaints Management
                                             </Link>
-                                            <Link to="/admin/admindashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaTachometerAlt className="inline mr-2" /> Admin Dashboard
+                                            <Link to="/admin/admindashboard" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaTachometerAlt className="inline mr-3 text-red-400" /> Admin Dashboard
                                             </Link>
-                                            <Link to="/admin/activitylogs" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaHistory className="inline mr-2" /> Activity Log
+                                            <Link to="/admin/activitylogs" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaHistory className="inline mr-3 text-red-400" /> Activity Log
                                             </Link>
                                         </>
                                     )}
                                     {isAdmin && !isSuperAdmin && (
                                         <>
-                                            <Link to="/admin/users" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaUsers className="inline mr-2" /> User Management
+                                            <Link to="/admin/users" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaUsers className="inline mr-3 text-red-400" /> User Management
                                             </Link>
-                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                                <FaClipboardList className="inline mr-2" /> Complaints Management
+                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaClipboardList className="inline mr-3 text-red-400" /> Complaints Management
+                                            </Link>
+                                            <Link to="/admin/admindashboard" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaTachometerAlt className="inline mr-3 text-red-400" /> Admin Dashboard
+                                            </Link>
+                                            <Link to="/admin/activitylogs" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaHistory className="inline mr-3 text-red-400" /> Activity Log
+                                            </Link>
+                                            <Link to="/admin/payout-details" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
+                                                <FaHistory className="inline mr-3 text-red-400" /> Admin Payout Details
                                             </Link>
                                         </>
                                     )}
-                                </>
+                                </div>
                             )}
 
-
-                            {!isAnyAdmin && <Link to="/dashboard" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaChartArea className="inline mr-2" /> Dashboard
+                            {/* Dashboard/Pricing for non-admins */}
+                            {!isAnyAdmin && <Link to="/dashboard" className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 transition-colors border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}>
+                                <FaChartArea className="inline mr-3 text-cyan-400" /> DASHBOARD
                             </Link>}
 
-                            <Link to="/subscription/buy" className="block px-3 py-2 rounded-md text-lg font-medium text-white hover:bg-[#2E3C57] transition-colors" onClick={() => closeAllMenus()}>
-                                <FaTags className="inline mr-2" /> Subscriptions
-                            </Link>
+                            {/* Pricing Links (Mobile) */}
+                            {(isSuperAdmin || isAdmin || !isAnyAdmin) && <Link to={isSuperAdmin ? "/superadmin/pricing" : "/pricing"} className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 transition-colors border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}>
+                                <FaTags className="inline mr-3 text-cyan-400" /> PRICING
+                            </Link>}
+
 
                             {/* User Profile Links & Logout (Mobile Only) */}
                             {user ? (
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <UserDisplay user={user} isAdmin={isAnyAdmin} />
+                                <div className="mt-4 pt-4 border-t border-cyan-700/50 space-y-2">
+                                    {/* FIX: Passed isSuperAdmin prop */}
+                                    <UserDisplay user={user} isAdmin={isAnyAdmin} isSuperAdmin={isSuperAdmin} />
 
                                     {/* User Links (Mobile Only) */}
-                                    {!isAnyAdmin && <Link to="/my-profile" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaUserCircle className="text-cyan-400 w-4" /> My Profile</Link>}
-                                    {!isAnyAdmin && <Link to="/purchase-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaHistory className="text-cyan-400 w-4" /> Purchase History</Link>}
-                                    {!isAnyAdmin && <Link to="/complaints" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-4" /> My Complaints</Link>}
-                                    {!isAnyAdmin && <Link to="/suggestions-history" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-4" /> Suggestions History</Link>}
-                                    <Link to="/change-password" className="block px-3 py-2 text-white hover:bg-[#2E3C57] rounded-md flex items-center gap-2" onClick={() => closeAllMenus()}><FaLock className="text-cyan-400 w-4" /> Change Password</Link>
+                                    {!isAnyAdmin && <Link to="/my-profile" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaUserCircle className="text-cyan-400 w-5 h-5 shrink-0" /> My Profile</Link>}
+                                    {!isAnyAdmin && <Link to="/purchase-history" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaHistory className="text-cyan-400 w-5 h-5 shrink-0" /> Purchase History</Link>}
+                                    {!isAnyAdmin && <Link to="/complaints" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-5 h-5 shrink-0" /> My Complaints</Link>}
+                                    {!isAnyAdmin && <Link to="/suggestions-history" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-5 h-5 shrink-0" /> Suggestions History</Link>}
+                                    {!isAnyAdmin && <Link to="/subscription/addon" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaPlug className="text-cyan-400 w-5 h-5 shrink-0" /> Add Ons</Link>}
+
+                                    <Link to="/change-password" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaLock className="text-cyan-400 w-5 h-5 shrink-0" /> Change Password</Link>
 
                                     <button
                                         onClick={() => closeAllMenus(handleLogout)}
-                                        className="w-full text-left px-3 py-3 text-red-400 hover:bg-red-800 font-bold transition-colors rounded-lg mt-2 flex items-center gap-2"
+                                        className="w-full text-left px-3 py-3 text-red-400 bg-red-800/20 hover:bg-red-800/40 font-bold transition-colors rounded-lg mt-4 flex items-center gap-3"
                                     >
-                                        <FaSignOutAlt className="text-lg" /> Log Out
+                                        <FaSignOutAlt className="text-lg drop-shadow-[0_0_5px_#FF6347]" /> TERMINATE SESSION
                                     </button>
                                 </div>
                             ) : (
                                 // Auth Actions (Not logged in)
-                                <div className="pt-2 border-t border-gray-700 flex flex-col gap-2">
-                                    <Link to="/login" className="block text-center bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-semibold transition text-lg" onClick={() => closeAllMenus()}>Login</Link>
-                                    <Link to="/register" className="block text-center bg-cyan-500 hover:bg-cyan-600 py-2 rounded-lg font-semibold transition text-lg" onClick={() => closeAllMenus()}>Register</Link>
+                                <div className="pt-4 border-t border-gray-700 flex flex-col gap-3">
+                                    <Link to="/login" className="block text-center bg-purple-700/60 hover:bg-purple-700/80 py-3 rounded-lg font-bold transition text-xl border border-purple-400/50 text-white hover:text-purple-400" onClick={() => closeAllMenus()}>
+                                        <FaSignInAlt className="inline mr-2" /> ACCESS LOGIN
+                                    </Link>
+                                    <Link to="/register" className="block text-center bg-cyan-700/60 hover:bg-cyan-700/80 py-3 rounded-lg font-bold transition text-xl border border-cyan-400/50 text-white hover:text-cyan-400" onClick={() => closeAllMenus()}>
+                                        <FaUserPlus className="inline mr-2" /> NEW USER REGISTRATION
+                                    </Link>
                                 </div>
                             )}
                         </div>

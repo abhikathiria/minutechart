@@ -464,8 +464,11 @@ namespace minutechart.Controllers.Api
 
             var dto = new UserProfileDto
             {
-                CompanyName = user.CompanyName,
+                ProfilePhotoUrl = profile?.ProfilePhotoUrl ?? "",
+                CompanyName = user.CompanyName ?? "",
                 CustomerName = user.CustomerName ?? "",
+                Email = user.UserName ?? "",
+                PhoneNumber = user.PhoneNumber ?? "",
                 ServerName = profile?.ServerName ?? "",
                 DatabaseName = profile?.DatabaseName ?? "",
                 DbUsername = profile?.DbUsername ?? "",
@@ -478,6 +481,43 @@ namespace minutechart.Controllers.Api
             return Ok(dto);
         }
 
+        [HttpPost("upload-profile-photo")]
+        public async Task<IActionResult> UploadProfilePhoto([FromForm] IFormFile file)
+        {
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+                return Unauthorized(new { message = "User not found" });
+
+            var profile = await _mainDb.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file selected." });
+
+            string uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profile");
+
+            if (!Directory.Exists(uploadPath))
+                Directory.CreateDirectory(uploadPath);
+
+            string fileName = $"{user.Id}_{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            string filePath = Path.Combine(uploadPath, fileName);
+
+            // Save the file
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            string baseUrl = $"{Request.Scheme}://{Request.Host}";
+            string newPhotoUrl = $"{baseUrl}/uploads/profile/{fileName}";
+
+            profile.ProfilePhotoUrl = newPhotoUrl;
+
+            await _mainDb.SaveChangesAsync();
+
+            return Ok(new { newUrl = newPhotoUrl, message = "Profile photo updated" });
+        }
+
         [HttpPut("save-profile")]
         public async Task<IActionResult> SaveProfile([FromBody] SaveProfileDto dto)
         {
@@ -487,6 +527,7 @@ namespace minutechart.Controllers.Api
 
             user.CompanyName = dto.CompanyName;
             user.CustomerName = dto.CustomerName;
+            user.PhoneNumber = dto.PhoneNumber;
             user.GST = dto.GST;
 
             var profile = await _mainDb.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == user.Id);
@@ -504,9 +545,10 @@ namespace minutechart.Controllers.Api
 
         public class SaveProfileDto
         {
-            public string CompanyName { get; set; }
-            public string CustomerName { get; set; }
-            public string GST { get; set; }
+            public string CompanyName { get; set; } = "";
+            public string CustomerName { get; set; } = "";
+            public string PhoneNumber { get; set; } = "";
+            public string GST { get; set; } = "";
         }
 
 

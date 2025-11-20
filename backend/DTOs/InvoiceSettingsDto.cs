@@ -29,7 +29,8 @@ namespace minutechart.DTOs
         public decimal IgstPercent { get; set; }
         public decimal CgstPercent { get; set; }
         public decimal SgstPercent { get; set; }
-        public string TermsAndConditions { get; set; }
+        public string? TermsAndConditions { get; set; }
+        public string? AddonTermsAndConditions { get; set; }
 
         // Display toggles
         public bool ShowGst { get; set; }
@@ -38,6 +39,7 @@ namespace minutechart.DTOs
         public bool ShowSignature { get; set; }
         public bool ShowNotes { get; set; }
         public bool ShowTermsAndConditions { get; set; }
+        public bool ShowAddonTermsAndConditions { get; set; }
 
         // Invoice Columns
         public List<InvoiceColumnDto> Columns { get; set; } = new();

@@ -1,12 +1,22 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using System.Security.Claims;
+using System.Net.Http.Headers;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+
 using minutechart.Models;
 using minutechart.Data;
-using minutechart.Helpers;
 using minutechart.Services;
-using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
+using minutechart.Helpers;
 
 namespace minutechart.Controllers
 {
@@ -18,14 +28,21 @@ namespace minutechart.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly MinutechartDbContext _mainDb;
         private readonly ActivityLogger _activityLogger;
+        private readonly IConfiguration _config;
+        private readonly IHttpClientFactory _httpFactory;
+        private readonly AddonInvoiceService _addonInvoiceService;
 
 
 
-        public UserController(UserManager<AppUser> userManager, MinutechartDbContext mainDb, ActivityLogger activityLogger)
+        public UserController(UserManager<AppUser> userManager, MinutechartDbContext mainDb, IConfiguration config,
+            IHttpClientFactory httpFactory, ActivityLogger activityLogger, AddonInvoiceService addonInvoiceService)
         {
             _userManager = userManager;
             _mainDb = mainDb;
+            _config = config;
+            _httpFactory = httpFactory;
             _activityLogger = activityLogger;
+            _addonInvoiceService = addonInvoiceService;
         }
 
         [HttpGet("subscription-status")]
@@ -39,54 +56,186 @@ namespace minutechart.Controllers
 
             var now = DateTimeHelper.GetIndianTime();
 
-            // Fetch paid invoices (invoice holds PlanStartDate and PlanEndDate)
-            var invoices = await _mainDb.Invoices
+            // Load all paid plan invoices for this user (we will inspect ranges)
+            var paidInvoices = await _mainDb.PlanInvoices
                 .Include(i => i.Plan)
                 .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
-                .OrderBy(i => i.PlanStartDate ?? i.PaymentDate)
+                .OrderByDescending(i => i.PaymentDate)
                 .ToListAsync();
 
-            // Map invoices to activePlans using PlanStartDate/PlanEndDate when available
-            var activePlans = invoices.Select(i =>
+            DateTime InvoiceStart(PlanInvoice inv) => inv.PlanStartDate ?? inv.PaymentDate;
+            DateTime InvoiceEnd(PlanInvoice inv)
             {
-                var start = i.PlanStartDate ?? i.PaymentDate;
-                var end = i.PlanEndDate ?? (i.PaymentDate.AddDays(i.Plan.DurationDays));
+                if (inv.PlanEndDate.HasValue) return inv.PlanEndDate.Value;
 
-                int remainingDays = 0;
-                if (end > now)
+                // fallback by billing cycle, prefer invoice.BillingCycle then Plan.DurationDays (if available)
+                var cycle = (inv.BillingCycle ?? "null").ToLowerInvariant();
+                if (cycle == "annual" || cycle == "yearly") return inv.PaymentDate.AddYears(1);
+                // default monthly fallback to 30 days
+                return inv.PaymentDate.AddDays(30);
+            }
+            // Find currently active invoice (the one whose range includes now). Prefer the one with latest start date.
+            var activeInvoice = paidInvoices
+                .Where(i =>
                 {
-                    var effectiveStart = start > now ? start : now;
-                    remainingDays = (int)Math.Ceiling((end - effectiveStart).TotalDays);
-                    if (remainingDays < 0) remainingDays = 0;
-                }
+                    var s = InvoiceStart(i);
+                    var e = InvoiceEnd(i);
+                    return s <= now && now <= e;
+                })
+                .OrderByDescending(i => InvoiceStart(i))
+                .FirstOrDefault();
 
-                return new
-                {
-                    name = i.Plan?.Name ?? "Unknown",
-                    subscriptionStart = start,
-                    subscriptionEnd = end,
-                    totalDays = i.Plan?.DurationDays ?? (int)(end - start).TotalDays,
-                    remainingDays
-                };
-            }).ToList();
+            // Find the next queued invoice (paid and starting in the future) - earliest start date after now
+            var queuedInvoice = paidInvoices
+                .Where(i => InvoiceStart(i) > now)
+                .OrderBy(i => InvoiceStart(i))
+                .FirstOrDefault();
 
-            int totalDaysRemaining = activePlans.Sum(p => p.remainingDays);
+            // Last paid invoice by payment date (useful for "lastPaidInvoice" info)
+            var lastPaidInvoice = paidInvoices.FirstOrDefault();
+
+            // Derive plan objects
+            Pricing? activePlan = activeInvoice?.Plan;
+            Pricing? nextPlanned = queuedInvoice?.Plan;
+            Pricing? lastPaidPlan = lastPaidInvoice?.Plan;
+
+            // isPaidActive: if the user has an invoice active (range includes now) OR user.SubscriptionEndDate is in future.
+            bool isPaidActive =
+                (activeInvoice != null) ||
+                (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now);
+
+            // tier and billingCycle info (prefer active invoice values if present)
+            int? currentTierOrder = activePlan?.TierOrder ?? lastPaidPlan?.TierOrder;
+            string currentBillingCycle = activeInvoice?.BillingCycle ?? lastPaidInvoice?.BillingCycle ?? "monthly";
+
+            bool isTrialActive = user.IsTrialActive;
+
+            // Build activePlan display object only from the active invoice (NOT the queued one).
+            var activePlanDetails = activeInvoice == null ? null : new
+            {
+                planId = activeInvoice.PlanId,
+                name = activePlan?.Name ?? "Unknown",
+                tierOrder = activePlan?.TierOrder,
+                billingCycle = activeInvoice.BillingCycle ?? "null",
+                subscriptionStart = InvoiceStart(activeInvoice),
+                subscriptionEnd = InvoiceEnd(activeInvoice)
+            };
+
+            // Build nextPlan display object (queued)
+            var nextPlannedDetails = queuedInvoice == null ? null : new
+            {
+                planId = queuedInvoice.PlanId,
+                name = nextPlanned?.Name ?? "Unknown",
+                tierOrder = nextPlanned?.TierOrder,
+                billingCycle = queuedInvoice.BillingCycle ?? "null",
+                subscriptionStart = InvoiceStart(queuedInvoice),
+                subscriptionEnd = InvoiceEnd(queuedInvoice)
+            };
 
             var response = new
             {
-                isTrialActive = user.IsTrialActive,
-                isPaidSubscriptionActive = user.IsPaidSubscriptionActive,
-                hasActivePlan = user.HasActivePlan,
+                // Decision flags
+                isTrialActive = isTrialActive,
+                isPaidActive = isPaidActive,
+                // hasActivePlan — true when we have an activeInvoice OR user's SubscriptionEndDate indicates active
+                hasActivePlan = (activeInvoice != null) || (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now),
+
+                // INTENT logic fields (prefer active plan id if present, otherwise null)
+                currentPlanId = activePlan?.Id ?? lastPaidPlan?.Id,
+                currentTierOrder = currentTierOrder,
+                currentBillingCycle = currentBillingCycle,
+
+                // Dates from user record (kept for compatibility)
                 trialStart = user.TrialStartDate,
                 trialEnd = user.TrialEndDate,
                 subscriptionStart = user.SubscriptionStartDate,
                 subscriptionEnd = user.SubscriptionEndDate,
-                activePlans,
-                totalDaysRemaining
+
+                // For UI display: the actively running plan (null if none) and the next queued plan if any
+                activePlan = activePlanDetails,
+                nextPlanned = nextPlannedDetails,
+
+                // Additional helpful fields (non-breaking): last paid invoice info
+                lastPaidInvoice = lastPaidInvoice == null ? null : new
+                {
+                    planId = lastPaidInvoice.PlanId,
+                    paymentDate = lastPaidInvoice.PaymentDate,
+                    billingCycle = lastPaidInvoice.BillingCycle
+                }
             };
 
             return Ok(response);
         }
+
+        [HttpGet("current-plan")]
+        public async Task<IActionResult> GetCurrentPlan()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            var now = DateTimeHelper.GetIndianTime();
+
+            // Load all paid plan invoices for user
+            var paidInvoices = await _mainDb.PlanInvoices
+                .Include(i => i.Plan)
+                .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
+                .ToListAsync();
+
+            // helper for start/end
+            DateTime InvoiceStart(PlanInvoice inv) => inv.PlanStartDate ?? inv.PaymentDate;
+            DateTime InvoiceEnd(PlanInvoice inv)
+            {
+                if (inv.PlanEndDate.HasValue) return inv.PlanEndDate.Value;
+                var cycle = (inv.BillingCycle ?? "monthly").ToLowerInvariant();
+                if (cycle == "annual" || cycle == "yearly") return inv.PaymentDate.AddYears(1);
+                return inv.PaymentDate.AddDays(30);
+            }
+
+            // find invoice which is active now
+            var activeInvoice = paidInvoices
+                .Where(i =>
+                {
+                    var s = InvoiceStart(i);
+                    var e = InvoiceEnd(i);
+                    return s <= now && now <= e;
+                })
+                .OrderByDescending(i => InvoiceStart(i))
+                .FirstOrDefault();
+
+            if (activeInvoice == null)
+            {
+                // No currently active paid invoice
+                return Ok(new { hasPlan = false });
+            }
+
+            var plan = activeInvoice.Plan;
+
+            // compute addon totals (only count addons that are still active)
+            var addonTotal = await _mainDb.UserAddons
+                .Where(a => a.AppUserId == user.Id && a.EndDate > now)
+                .SumAsync(a => a.Dashboards);
+
+            return Ok(new
+            {
+                hasPlan = true,
+                planId = plan.Id,
+                name = plan.Name,
+                tier = plan.TierOrder,
+                dashboardLimit = plan.DashboardLimit,
+                refreshRateMinutes = plan.RefreshRateMinutes,
+                excelExport = plan.ExcelExport,
+
+                // Addon feature
+                dashboardAddonEnabled = plan.DashboardAddonEnabled,
+                addonDashboards = plan.AddonDashboards,
+                addonPrice = plan.AddonPrice,
+
+                // totals
+                totalDashboards = plan.DashboardLimit + (addonTotal),
+                expiry = activeInvoice.PlanEndDate ?? InvoiceEnd(activeInvoice)
+            });
+        }
+
 
         [HttpGet("orders")]
         public async Task<IActionResult> GetUserOrders()
@@ -115,8 +264,60 @@ namespace minutechart.Controllers
 
             return Ok(invoices);
         }
-        // Inside User Controller
 
+
+        [HttpGet("invoices")]
+        public async Task<IActionResult> GetUserInvoices()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var planinvoices = await _mainDb.PlanInvoices
+                .Include(i => i.Plan)
+                .Where(i => i.AppUserId == userId)
+                .OrderByDescending(i => i.PaymentDate)
+                .Select(i => new
+                {
+                    i.Id,
+                    i.InvoiceNumber,
+                    i.RazorpayOrderId,
+                    i.PaymentDate,
+                    i.Amount,
+                    i.Currency,
+                    i.Status,
+                    ProrationCredit = i.ProrationCredit,
+                    NetAmount = i.NetAmount,
+                    PlanName = i.Plan.Name,
+                    BillingCycle = i.BillingCycle,
+                    PlanStartDate = i.PlanStartDate ?? i.PaymentDate,
+                    PlanEndDate = i.PlanEndDate
+                })
+                .ToListAsync();
+
+            var addoninvoices = await _mainDb.AddonInvoices
+                .Include(i => i.Pricing)
+                .Where(i => i.AppUserId == userId)
+                .OrderByDescending(i => i.PaymentDate)
+                .Select(i => new
+                {
+                    i.Id,
+                    i.InvoiceNumber,
+                    i.RazorpayOrderId,
+                    i.PaymentDate,
+                    i.Amount,
+                    i.Status,
+                    Dashboards = i.Dashboards,
+                    StartDate = i.StartDate,
+                    EndDate = i.EndDate
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                planinvoices = planinvoices,
+                addoninvoices = addoninvoices
+            });
+        }
         public class SuggestModuleDto
         {
             public string Text { get; set; } = string.Empty;
@@ -178,6 +379,272 @@ namespace minutechart.Controllers
                 .ToListAsync();
 
             return Ok(history);
+        }
+
+        public class BuyAddonRequest
+        {
+            public int PricingId { get; set; } // ID of addon package
+        }
+
+        [HttpPost("buy-addon")]
+        public async Task<IActionResult> BuyAddon([FromBody] BuyAddonRequest req)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            // 1. Read pricing package
+            var pricing = await _mainDb.Pricings.FirstOrDefaultAsync(p => p.Id == req.PricingId);
+            if (pricing == null)
+                return BadRequest("Addon plan not found.");
+
+            var now = DateTimeHelper.GetIndianTime();
+
+            // 2. Check if user has base plan (or is trial)
+            Pricing? activePlan;
+
+            if (user.IsTrialActive)
+            {
+                activePlan = await _mainDb.Pricings.FirstOrDefaultAsync(p => p.TierOrder == 3);
+            }
+            else
+            {
+                var invoices = await _mainDb.PlanInvoices
+                    .Include(i => i.Plan)
+                    .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
+                    .OrderByDescending(i => i.PaymentDate)
+                    .ToListAsync();
+
+                activePlan = invoices
+                    .Where(inv =>
+                    {
+                        var start = inv.PlanStartDate ?? inv.PaymentDate;
+                        var end = inv.PlanEndDate ?? inv.PaymentDate.AddDays(30);
+                        return start <= now && now <= end;
+                    })
+                    .Select(inv => inv.Plan)
+                    .FirstOrDefault();
+            }
+
+            if (activePlan == null)
+                return BadRequest("You must have an active subscription before buying add-ons.");
+
+            // 3. Check if their plan supports dashboard addons
+            if (!activePlan.DashboardAddonEnabled)
+                return BadRequest("Your current plan does not support dashboard add-ons.");
+
+            // 4. Create new addon entry (STACKING ENABLED)
+            var addon = new UserAddon
+            {
+                AppUserId = user.Id,
+                PricingId = pricing.Id,
+                Dashboards = pricing.AddonDashboards,
+                Price = pricing.AddonPrice,
+                StartDate = now,
+                EndDate = now.AddDays(30)
+            };
+
+            _mainDb.UserAddons.Add(addon);
+            await _mainDb.SaveChangesAsync();
+
+            await _activityLogger.LogAsync("bought dashboard addon", "User", user.CompanyName ?? user.Email);
+
+            // 5. Calculate updated total limit
+            var totalAddonDash = await _mainDb.UserAddons
+                .Where(a => a.AppUserId == user.Id && a.IsActive)
+                .SumAsync(a => a.Dashboards);
+
+            var finalLimit = activePlan.DashboardLimit + totalAddonDash;
+
+            return Ok(new
+            {
+                success = true,
+                message = "Add-on activated!",
+                addedDashboards = pricing.AddonDashboards,
+                totalAddonDash = totalAddonDash,
+                finalDashboardLimit = finalLimit,
+                expiresOn = addon.EndDate
+            });
+        }
+
+        [HttpGet("addons")]
+        public async Task<IActionResult> GetUserAddons()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var now = DateTimeHelper.GetIndianTime();
+
+            var addons = await _mainDb.UserAddons
+                .Include(a => a.Pricing)
+                .Where(a => a.AppUserId == userId)
+                .OrderByDescending(a => a.StartDate)
+                .Select(a => new
+                {
+                    id = a.Id,
+                    dashboards = a.Dashboards,
+                    price = a.Price,
+                    startDate = a.StartDate,
+                    endDate = a.EndDate,
+                    isActive = a.EndDate > now,
+                    pricingName = a.Pricing.Name
+                })
+                .ToListAsync();
+
+            return Ok(addons);
+        }
+
+        public class CreateAddonOrderDto
+        {
+            public int PricingId { get; set; }
+        }
+
+        [HttpPost("create-order")]
+        public async Task<IActionResult> CreateAddonOrder([FromBody] CreateAddonOrderDto dto)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            var pricing = await _mainDb.Pricings.FindAsync(dto.PricingId);
+            if (pricing == null)
+                return NotFound("Addon pricing not found");
+
+            if (!pricing.DashboardAddonEnabled)
+                return BadRequest("This pricing does not support add-ons.");
+
+            decimal amount = pricing.AddonPrice;
+            int amountPaise = (int)(amount * 100);
+
+            var key = _config["Razorpay:KeyId"];
+            var secret = _config["Razorpay:KeySecret"];
+
+            var client = _httpFactory.CreateClient();
+            var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}"));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+
+            var payload = new
+            {
+                amount = amountPaise,
+                currency = "INR",
+                receipt = $"addon_{Guid.NewGuid():N}",
+                notes = new { userId = user.Id, pricingId = pricing.Id, type = "addon" }
+            };
+
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            var resp = await client.PostAsync("https://api.razorpay.com/v1/orders", content);
+            var json = await resp.Content.ReadAsStringAsync();
+
+            if (!resp.IsSuccessStatusCode)
+                return StatusCode(500, json);
+
+            var doc = JsonDocument.Parse(json);
+            string orderId = doc.RootElement.GetProperty("id").GetString()!;
+
+            var order = new RazorpayAddonOrder
+            {
+                OrderId = orderId,
+                AppUserId = user.Id,
+                PricingId = pricing.Id,
+                Amount = amount,
+                CreatedAt = DateTimeHelper.GetIndianTime(),
+                Status = "created"
+            };
+
+            _mainDb.RazorpayAddonOrders.Add(order);
+            await _mainDb.SaveChangesAsync();
+
+            return Ok(new { key, orderId, amount, currency = "INR" });
+        }
+
+        public class VerifyAddonPaymentDto
+        {
+            public string OrderId { get; set; } = "";
+            public string PaymentId { get; set; } = "";
+            public string Signature { get; set; } = "";
+        }
+
+        [HttpPost("verify")]
+        public async Task<IActionResult> VerifyAddonPayment([FromBody] VerifyAddonPaymentDto dto)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            var dbOrder = await _mainDb.RazorpayAddonOrders
+                .Include(o => o.Pricing)
+                .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId && o.AppUserId == user.Id);
+
+            if (dbOrder == null)
+                return NotFound("Addon order not found.");
+
+            // verify signature
+            var secret = _config["Razorpay:KeySecret"];
+            string payload = $"{dto.OrderId}|{dto.PaymentId}";
+            string expected = CreateSignature(payload, secret);
+
+            if (expected != dto.Signature)
+                return BadRequest("Invalid signature");
+
+            dbOrder.PaymentId = dto.PaymentId;
+            dbOrder.Status = "paid";
+            dbOrder.PaidAt = DateTimeHelper.GetIndianTime();
+            await _mainDb.SaveChangesAsync();
+
+            var now = DateTimeHelper.GetIndianTime();
+
+            // CREATE ADDON INVOICE
+            var invoice = new AddonInvoice
+            {
+                AppUserId = user.Id,
+                PricingId = dbOrder.PricingId,
+                Pricing = dbOrder.Pricing,
+                Amount = dbOrder.Amount,
+                RazorpayOrderId = dto.OrderId,
+                RazorpayPaymentId = dto.PaymentId,
+                Status = "Paid",
+                CreatedAt = now,
+                PaymentDate = now,
+                InvoiceNumber = "TEMP",
+
+                // ⭐ THIS NOW WORKS
+                Dashboards = dbOrder.Pricing.AddonDashboards,
+                StartDate = now,
+                EndDate = now.AddDays(30),
+            };
+
+            _mainDb.AddonInvoices.Add(invoice);
+            await _mainDb.SaveChangesAsync();
+
+            // ⭐ CORRECT FORMAT
+            invoice.InvoiceNumber = $"INV-ADDON-{invoice.Id}";
+            await _mainDb.SaveChangesAsync();
+
+            // Activate addon
+            var userAddon = new UserAddon
+            {
+                AppUserId = user.Id,
+                PricingId = dbOrder.PricingId,
+                Dashboards = dbOrder.Pricing.AddonDashboards,
+                Price = dbOrder.Amount,
+                StartDate = now,
+                EndDate = now.AddDays(30)
+            };
+
+            _mainDb.UserAddons.Add(userAddon);
+            await _mainDb.SaveChangesAsync();
+            var fileName4 = $"INVOICE_ADDON_{invoice.Id}_{now.ToString("ddMMMyyyy")}_{now.ToString("hhmmtt")}.pdf";
+
+            await _addonInvoiceService.GenerateInvoiceAsync(invoice, fileName4);
+            await _addonInvoiceService.SendInvoiceEmailAsync(invoice);
+
+            return Ok(new { success = true, invoiceNumber = invoice.InvoiceNumber });
+        }
+
+        private static string CreateSignature(string payload, string secret)
+        {
+            using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(secret));
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
+            return BitConverter.ToString(hash).Replace("-", "").ToLower();
         }
 
     }

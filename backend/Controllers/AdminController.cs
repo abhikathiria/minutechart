@@ -8,6 +8,7 @@ using minutechart.Models;
 using minutechart.Services;
 using minutechart.Helpers;
 using System.Text.Json;
+using System.Security.Claims;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using SendGrid;
@@ -46,18 +47,98 @@ namespace minutechart.Controllers
 
         }
 
-
-        [HttpGet("activitylogs")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GetActivityLogs()
+        private async Task<Pricing?> GetActivePlanAsync(AppUser user)
         {
-            var logs = _db.ActivityLogs
-                .OrderByDescending(l => l.Timestamp)
-                .ToList();
+            var now = DateTimeHelper.GetIndianTime();
 
-            return Ok(logs);
+            var invoices = await _db.PlanInvoices
+                .Include(p => p.Plan)
+                .Where(p => p.AppUserId == user.Id && p.Status == "Paid")
+                .OrderByDescending(p => p.PaymentDate)
+                .ToListAsync();
+
+            foreach (var inv in invoices)
+            {
+                // If dates missing, fallback to default 30 days
+                var start = inv.PlanStartDate ?? inv.PaymentDate;
+                var end = inv.PlanEndDate ?? inv.PaymentDate.AddDays(30);
+
+                if (start <= now && now <= end)
+                    return inv.Plan;
+            }
+
+            return null;
         }
 
+        private async Task<(int used, int remaining)> GetUserModuleUsage(string userId)
+        {
+            var limits = await GetLimitsInternal(userId);
+            int dashboardLimit = limits.dashboardLimit;
+
+            // Count only visible modules
+            int used = await _db.UserQueries
+                .Where(q => q.AppUserId == userId && !q.HideQuery)
+                .CountAsync();
+
+            int remaining = Math.Max(dashboardLimit - used, 0);
+
+            return (used, remaining);
+        }
+
+        private async Task<(int dashboardLimit, int refreshMinutes, bool excelExport)> GetLimitsInternal(string userId)
+        {
+            var user = await _userManager.Users
+                .Include(u => u.UserProfile)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return (0, 0, false);
+
+            var now = DateTimeHelper.GetIndianTime();
+
+            // TRIAL — uses Pro plan always
+            if (user.IsTrialActive)
+            {
+                var pro = await _db.Pricings.FirstOrDefaultAsync(p => p.TierOrder == 3);
+                if (pro == null)
+                    return (0, 0, false);
+
+                // ALSO add any purchased add-ons (user may buy addon during trial)
+                var addonCount = await _db.UserAddons
+                    .Where(a => a.AppUserId == user.Id && a.EndDate > now)
+                    .SumAsync(a => a.Dashboards);
+
+                return (
+                    pro.DashboardLimit + addonCount,
+                    pro.RefreshRateMinutes,
+                    pro.ExcelExport
+                );
+            }
+
+            // ACTIVE PLAN CHECK
+            var activePlan = await GetActivePlanAsync(user);
+
+            if (activePlan == null)
+                return (0, 0, false); // No plan = no addons allowed
+
+            // ADD-ON DASHBOARDS (only active, only if plan allows addons)
+            var activeAddonsAllowed = activePlan.DashboardAddonEnabled;
+
+            int addonDash = 0;
+
+            if (activeAddonsAllowed)
+            {
+                addonDash = await _db.UserAddons
+                    .Where(a => a.AppUserId == user.Id && a.EndDate > now)
+                    .SumAsync(a => a.Dashboards);
+            }
+
+            return (
+                activePlan.DashboardLimit + addonDash,
+                activePlan.RefreshRateMinutes,
+                activePlan.ExcelExport
+            );
+        }
 
         [HttpGet("user/{id}/queries")]
         public async Task<IActionResult> GetUserQueries(string id)
@@ -112,25 +193,34 @@ namespace minutechart.Controllers
         public async Task<IActionResult> ToggleHideQuery(int id, [FromBody] HideQueryDto request)
         {
             var query = await _db.UserQueries
-                .Include(q => q.AppUser) // Include user for logging target name
+                .Include(q => q.AppUser)
                 .FirstOrDefaultAsync(q => q.UserQueryId == id);
 
             if (query == null)
                 return NotFound(new { success = false, message = "Module not found" });
 
-            var targetUserName = query.AppUser?.UserName ?? query.AppUser?.Email ?? "N/A";
+            // only check when making visible
+            if (!request.HideQuery)
+            {
+                var userId = query.AppUserId;
 
-            // Determine the action string for logging
-            string action = request.HideQuery ? "hid module" : "made module visible";
+                var usage = await GetUserModuleUsage(userId);
+                if (usage.remaining <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Module limit reached. Cannot make this module visible."
+                    });
+                }
+            }
 
-            // ✅ Toggle the hidden flag
             query.HideQuery = request.HideQuery;
             query.UserQueryLastUpdated = DateTimeHelper.GetIndianTime();
-
             await _db.SaveChangesAsync();
 
-            // LOG: Admin toggled module visibility
-            await _activityLogger.LogAsync(action, "Module", query.UserTitle, targetUserName);
+            string action = request.HideQuery ? "hid module" : "made module visible";
+            await _activityLogger.LogAsync(action, "Module", query.UserTitle, query.AppUser?.UserName);
 
             return Ok(new
             {
@@ -140,7 +230,6 @@ namespace minutechart.Controllers
                     : $"Module '{query.UserTitle}' is now visible."
             });
         }
-
 
         [HttpPost("execute-user-query/{userId}")]
         public async Task<IActionResult> ExecuteUserQuery(string userId, [FromBody] ExecuteQueryRequest req)
@@ -261,6 +350,17 @@ namespace minutechart.Controllers
                 }
                 else // create new
                 {
+                    var usage = await GetUserModuleUsage(userId);
+
+                    if (usage.remaining <= 0)
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = "Module limit reached. Upgrade your plan to add more modules."
+                        });
+                    }
+
                     userQuery = new UserQuery
                     {
                         AppUserId = userId,
@@ -274,6 +374,7 @@ namespace minutechart.Controllers
                         ApprovalUpdateQuery = req.IsApprovalModule ? req.ApprovalUpdateQuery : "",
                         ApprovalIdColumn = req.IsApprovalModule ? req.ApprovalIdColumn : ""
                     };
+
                     _db.UserQueries.Add(userQuery);
                     action = "created new module";
                 }
@@ -564,6 +665,7 @@ namespace minutechart.Controllers
                 CustomerGST = user.UserProfile.CustomerGST ?? user.GST ?? "",  // Default to AppUser.GST if profile GST is null
                 CustomerCode = user.UserProfile.CustomerCode ?? "",
                 ServerName = user.UserProfile.ServerName,
+                ProfilePhotoUrl = user.UserProfile.ProfilePhotoUrl,
                 DatabaseName = user.UserProfile.DatabaseName,
                 DbUsername = user.UserProfile.DbUsername,
                 DbPassword = user.UserProfile.DbPassword,
@@ -572,105 +674,6 @@ namespace minutechart.Controllers
 
             return Ok(dto);
         }
-
-        // [HttpPost("user/{id}/profile")]
-        // public async Task<IActionResult> SetUserProfile(string id, [FromBody] UserProfileDto model)
-        // {
-        //     var user = await _db.Users
-        //         .Include(u => u.UserProfile)
-        //         .FirstOrDefaultAsync(u => u.Id == id);
-
-        //     if (user == null)
-        //         return NotFound(new { message = "User not found" });
-
-        //     if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
-        //     {
-        //         // LOG: Failed profile set (Connection failed)
-        //         await _activityLogger.LogAsync("failed to set/update profile (DB connection failed) for", "User", user.UserName ?? user.Email);
-        //         return BadRequest(new { message = "Database connection failed", details = error });
-        //     }
-
-        //     var profile = user.UserProfile;
-        //     bool isNewProfile = (profile == null);
-
-        //     if (isNewProfile)
-        //     {
-        //         // --- Profile Creation (Activation/Trial Start) ---
-
-        //         // Generate CustomerCode logic (remains)
-        //         var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
-        //         var companyWords = user.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
-        //         var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
-        //         var customerWords = user.CustomerName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
-        //         var customerInitials = string.Join("", customerWords.Select(w => w[0])).ToUpper();
-        //         var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
-        //         var customerCode = $"C-{regYear}-{companyInitials}{customerInitials}-{userIdPart}";
-
-        //         profile = new UserProfile
-        //         {
-        //             AppUserId = user.Id,
-        //             CompanyName = user.CompanyName,
-        //             ServerName = model.ServerName,
-        //             DatabaseName = model.DatabaseName,
-        //             DbUsername = model.DbUsername,
-        //             DbPassword = model.DbPassword,
-        //             RefreshTime = model.RefreshTime,
-        //             CustomerGST = model.CustomerGST ?? user.GST ?? "",
-        //             CustomerCode = customerCode
-        //         };
-        //         _db.UserProfiles.Add(profile);
-        //         await _db.SaveChangesAsync(); // Save profile first to get ID/link relationship
-
-        //         // Activate user and set trial dates only on first creation
-        //         user.AccountStatus = "Active";
-        //         user.TrialStartDate = DateTimeHelper.GetIndianTime();
-        //         user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
-        //         _db.Users.Update(user);
-        //         // await SendAccountActivationEmailAsync(user.Email, user.CustomerName, user.CompanyName);
-        //         await _db.SaveChangesAsync();
-
-        //         // LOG: Admin created new profile and activated user
-        //         await _activityLogger.LogAsync("created new profile (including DB connection) and activated trial for", "User", user.UserName ?? user.Email);
-        //     }
-        //     else
-        //     {
-        //         // --- Profile Update ---
-
-        //         // Capture old details for logging significance
-        //         var oldServer = profile.ServerName;
-        //         var oldDB = profile.DatabaseName;
-
-        //         // Update logic (remains)
-        //         profile.CompanyName = user.CompanyName;
-        //         profile.ServerName = model.ServerName;
-        //         profile.DatabaseName = model.DatabaseName;
-        //         profile.DbUsername = model.DbUsername;
-        //         profile.DbPassword = model.DbPassword;
-        //         profile.RefreshTime = model.RefreshTime;
-        //         profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
-
-        //         _db.UserProfiles.Update(profile);
-        //         user.GST = model.CustomerGST ?? user.GST ?? "";
-        //         _db.Users.Update(user);
-        //         await _db.SaveChangesAsync();
-
-        //         // Determine log message based on what was updated
-        //         string updateMessage;
-        //         if (oldServer != model.ServerName || oldDB != model.DatabaseName)
-        //         {
-        //             updateMessage = "updated database connection details for";
-        //         }
-        //         else
-        //         {
-        //             updateMessage = "updated profile settings for";
-        //         }
-
-        //         // LOG: Admin updated existing profile
-        //         await _activityLogger.LogAsync(updateMessage, "User", user.UserName ?? user.Email);
-        //     }
-
-        //     return Ok(new { message = "Profile saved successfully" });
-        // }
 
         [HttpPost("user/{id}/profile")]
         public async Task<IActionResult> SetUserProfile(string id, [FromBody] UserProfileDto model)
@@ -727,7 +730,7 @@ namespace minutechart.Controllers
                 // Activate user and set trial dates only on first creation
                 user.AccountStatus = "Active";
                 user.TrialStartDate = DateTimeHelper.GetIndianTime();
-                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(7);
+                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(30);
                 // --- UPDATED: Update AppUser fields based on model ---
                 user.CompanyName = model.CompanyName ?? user.CompanyName;
                 user.CustomerName = model.CustomerName ?? user.CustomerName;
@@ -764,10 +767,6 @@ namespace minutechart.Controllers
                 if (!string.IsNullOrEmpty(model.CustomerName) && user.CustomerName != model.CustomerName)
                 {
                     user.CustomerName = model.CustomerName;
-                    // IMPORTANT: If CustomerName changes, the CustomerCode *should* be recalculated, 
-                    // but since the code is only calculated on creation in the current logic, 
-                    // we'll update the User's GST field which *is* updated on the profile below.
-                    // For a complete solution, you'd need to re-implement the code generation here or in a service.
                 }
 
                 _db.UserProfiles.Update(profile);
@@ -918,6 +917,24 @@ Nchart Team";
             await _emailSender.SendEmailAsync(toEmail, subject, plainTextContent, htmlContent);
         }
 
+        [HttpGet("emailsettings")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
+        public async Task<IActionResult> Get()
+        {
+            var settings = await _db.EmailSettings.FirstOrDefaultAsync();
+            if (settings == null) return Ok(null);
+
+            return Ok(new
+            {
+                settings.SmtpHost,
+                settings.SmtpPort,
+                settings.SmtpUser,
+                settings.FromEmail,
+                settings.EnableSsl,
+                settings.UpdatedAt
+            });
+        }
+
         [HttpPost("emailsettings/save")]
         public async Task<IActionResult> Save([FromBody] EmailSetting model)
         {
@@ -1019,11 +1036,13 @@ Nchart Team";
                     CgstPercent = 9,
                     SgstPercent = 9,
                     TermsAndConditions = "",
+                    AddonTermsAndConditions = "",
                     ShowGst = true,
                     ShowBankDetails = true,
                     ShowWebsite = false,
                     ShowSignature = true,
                     ShowTermsAndConditions = true,
+                    ShowAddonTermsAndConditions = true,
                     Columns = new List<InvoiceColumnDto>
                     {
                         new InvoiceColumnDto { ColumnKey = "srno", ColumnName = "SL NO", IsVisible = true, Order = 0 },
@@ -1063,11 +1082,13 @@ Nchart Team";
                 CgstPercent = settings.CgstPercent,
                 SgstPercent = settings.SgstPercent,
                 TermsAndConditions = settings.TermsAndConditions,
+                AddonTermsAndConditions = settings.AddonTermsAndConditions,
                 ShowGst = settings.ShowGst,
                 ShowBankDetails = settings.ShowBankDetails,
                 ShowWebsite = settings.ShowWebsite,
                 ShowSignature = settings.ShowSignature,
                 ShowTermsAndConditions = settings.ShowTermsAndConditions,
+                ShowAddonTermsAndConditions = settings.ShowAddonTermsAndConditions,
                 Columns = settings.Columns
                     .OrderBy(c => c.SortOrder)
                     .Select(c => new InvoiceColumnDto
@@ -1085,7 +1106,7 @@ Nchart Team";
             return Ok(dto);
         }
 
-        // [HttpPost("invoicesettings/save")]
+        [HttpPost("invoicesettings/save")]
         public async Task<IActionResult> SaveInvoiceSettings([FromBody] InvoiceSettingsDto dto)
         {
             if (dto == null) return BadRequest("DTO is required.");
@@ -1106,12 +1127,6 @@ Nchart Team";
             var oldIgst = settings?.IgstPercent;
             var oldCompanyName = settings?.CompanyName;
 
-
-
-
-            // --- Path Cleaning Helper (NEW) ---
-            // Function to strip the base URL from the full URL received from the frontend, 
-            // ensuring only the relative path (e.g., "/uploads/invoice/...") is saved.
             string GetRelativePath(string fullPath, HttpRequest request)
             {
                 if (string.IsNullOrEmpty(fullPath)) return string.Empty;
@@ -1158,11 +1173,13 @@ Nchart Team";
             settings.CgstPercent = dto.IgstPercent / 2;
             settings.SgstPercent = dto.IgstPercent / 2;
             settings.TermsAndConditions = dto.TermsAndConditions;
+            settings.AddonTermsAndConditions = dto.AddonTermsAndConditions;
             settings.ShowGst = dto.ShowGst;
             settings.ShowBankDetails = dto.ShowBankDetails;
             settings.ShowWebsite = dto.ShowWebsite;
             settings.ShowSignature = dto.ShowSignature;
             settings.ShowTermsAndConditions = dto.ShowTermsAndConditions;
+            settings.ShowAddonTermsAndConditions = dto.ShowAddonTermsAndConditions;
             settings.UpdatedAt = DateTimeHelper.GetIndianTime();
 
             if (settings.Columns == null) settings.Columns = new List<InvoiceColumnSetting>();
@@ -1222,111 +1239,6 @@ Nchart Team";
 
             return Ok(new { message = "Invoice settings saved successfully" });
         }
-
-        // [HttpPost("invoicesettings/save")]
-        // public async Task<IActionResult> SaveInvoiceSettings([FromBody] InvoiceSettingsDto dto)
-        // {
-        //     if (dto == null) return BadRequest("DTO is required.");
-
-        //     var settings = await _db.CompanyInvoiceSettings
-        //         .Include(s => s.Columns)
-        //         .FirstOrDefaultAsync();
-
-        //     bool isNew = (settings == null);
-
-        //     if (isNew)
-        //     {
-        //         settings = new CompanyInvoiceSetting();
-        //         _db.CompanyInvoiceSettings.Add(settings);
-        //     }
-
-        //     // Capture data before mapping for logging significance
-        //     var oldIgst = settings?.IgstPercent;
-        //     var oldCompanyName = settings?.CompanyName;
-
-        //     // --- Path Cleaning Helper (remains) ---
-        //     string GetRelativePath(string fullPath, HttpRequest request)
-        //     {
-        //         if (string.IsNullOrEmpty(fullPath)) return string.Empty;
-        //         var baseUrl = $"{request.Scheme}://{request.Host}";
-
-        //         if (fullPath.StartsWith(baseUrl))
-        //         {
-        //             var relativePath = fullPath.Substring(baseUrl.Length);
-        //             return relativePath.StartsWith("/") ? relativePath : $"/{relativePath}";
-        //         }
-        //         if (fullPath.StartsWith("/"))
-        //         {
-        //             return fullPath;
-        //         }
-        //         return fullPath;
-        //     }
-
-        //     // Map simple fields
-        //     settings.CompanyLogoPath = GetRelativePath(dto.CompanyLogoPath, Request);
-        //     settings.OwnerSignaturePath = GetRelativePath(dto.OwnerSignaturePath, Request);
-        //     settings.CompanyName = dto.CompanyName;
-        //     // ... (Map other fields remains) ...
-        //     settings.IgstPercent = dto.IgstPercent;
-        //     settings.CgstPercent = dto.IgstPercent / 2;
-        //     settings.SgstPercent = dto.IgstPercent / 2;
-        //     settings.UpdatedAt = DateTimeHelper.GetIndianTime();
-
-        //     if (settings.Columns == null) settings.Columns = new List<InvoiceColumnSetting>();
-
-        //     // --- Column update/remove/add logic (remains) ---
-        //     var dtoColumnIds = dto.Columns.Where(c => c.Id.HasValue).Select(c => c.Id.Value).ToList();
-        //     var columnsToRemove = settings.Columns.Where(c => !dtoColumnIds.Contains(c.Id)).ToList();
-        //     foreach (var col in columnsToRemove)
-        //     {
-        //         _db.InvoiceColumnSettings.Remove(col);
-        //     }
-
-        //     foreach (var dtoCol in dto.Columns)
-        //     {
-        //         if (dtoCol.Id.HasValue && dtoCol.Id.Value > 0)
-        //         {
-        //             var col = settings.Columns.FirstOrDefault(c => c.Id == dtoCol.Id.Value);
-        //             if (col != null)
-        //             {
-        //                 col.ColumnName = dtoCol.ColumnName;
-        //                 col.IsVisible = dtoCol.IsVisible;
-        //                 col.SortOrder = dtoCol.Order;
-        //             }
-        //         }
-        //         else
-        //         {
-        //             settings.Columns.Add(new InvoiceColumnSetting
-        //             {
-        //                 ColumnName = dtoCol.ColumnName,
-        //                 IsVisible = dtoCol.IsVisible,
-        //                 SortOrder = dtoCol.Order
-        //             });
-        //         }
-        //     }
-
-        //     await _db.SaveChangesAsync();
-
-        //     // Determine log action
-        //     string action;
-        //     if (isNew)
-        //     {
-        //         action = "created new";
-        //     }
-        //     else if (oldIgst != settings.IgstPercent)
-        //     {
-        //         action = $"updated tax rate (IGST changed to {settings.IgstPercent}%) on";
-        //     }
-        //     else
-        //     {
-        //          action = "updated general";
-        //     }
-
-        //     // LOG: Admin saved invoice settings
-        //     await _activityLogger.LogAsync(action, "Invoice Settings", settings.CompanyName);
-
-        //     return Ok(new { message = "Invoice settings saved successfully" });
-        // }
 
         // Helper: Save files and return relative URLs
         private async Task<List<string>> SaveFiles(IFormFileCollection files, HttpRequest request)
@@ -1397,9 +1309,8 @@ Nchart Team";
 
 
         [HttpPost("transfer-modules")]
-        public async Task<IActionResult> TransferModules([FromBody] TransferModulesRequest request)  // Made async for await
+        public async Task<IActionResult> TransferModules([FromBody] TransferModulesRequest request)
         {
-            // Input validation (unchanged)
             if (string.IsNullOrEmpty(request.SourceUserId) ||
                 string.IsNullOrEmpty(request.TargetUserId) ||
                 request.ModuleIds == null || request.ModuleIds.Count == 0)
@@ -1407,14 +1318,14 @@ Nchart Team";
                 return BadRequest(new { success = false, message = "Invalid input" });
             }
 
-            // Fetch user info for logging
             var sourceUser = await _userManager.FindByIdAsync(request.SourceUserId);
             var targetUser = await _userManager.FindByIdAsync(request.TargetUserId);
             var sourceName = sourceUser?.CompanyName ?? "Unknown";
             var targetName = targetUser?.CompanyName ?? "Unknown";
+
             try
             {
-                // Fetch source modules: Use loop to avoid OPENJSON and WITH syntax issues
+                // Load source modules
                 var sourceModules = new List<UserQuery>();
                 foreach (var id in request.ModuleIds)
                 {
@@ -1422,15 +1333,17 @@ Nchart Team";
                     if (module != null) sourceModules.Add(module);
                 }
 
-                // Fetch target modules (unchanged)
-                var targetModules = _db.UserQueries
+                // Load target modules
+                var targetModules = await _db.UserQueries
                     .Where(q => q.AppUserId == request.TargetUserId)
-                    .ToList();
+                    .ToListAsync();
 
                 var duplicates = new List<UserQuery>();
                 var copied = new List<UserQuery>();
 
-                // Detect duplicates and prepare for action (unchanged)
+                // Find duplicates + items that will increase usage
+                var modulesThatWillIncreaseCount = new List<UserQuery>();
+
                 foreach (var sm in sourceModules)
                 {
                     var existing = targetModules.FirstOrDefault(tm =>
@@ -1440,23 +1353,72 @@ Nchart Team";
                     {
                         duplicates.Add(existing);
 
-                        // Handle based on requested action
                         if (request.Action == "replace")
                         {
-                            _db.UserQueries.Remove(existing);
+                            continue; // replaced items do not increase count
                         }
                         else if (request.Action == "ignore")
                         {
-                            continue; // skip this one
+                            continue;
                         }
                         else if (request.Action == "cancel" || request.Action == "check")
                         {
                             continue;
                         }
                     }
+                    else
+                    {
+                        modulesThatWillIncreaseCount.Add(sm);
+                    }
+                }
 
-                    // Only add new module if not cancelling/checking
-                    if (request.Action != "cancel" && request.Action != "check")
+                // Load limit info
+                var usage = await GetUserModuleUsage(request.TargetUserId);    // (used, remaining)
+                var limits = await GetLimitsInternal(request.TargetUserId);   // (dashboardLimit, refreshMinutes, excelExport)
+
+                int dashboardLimit = limits.dashboardLimit;
+                int used = usage.used;
+                int potentialAdds = modulesThatWillIncreaseCount.Count;
+
+                // --------------------------------------------------------------------
+                // CHECK MODE — MUST NEVER RETURN BadRequest
+                // --------------------------------------------------------------------
+                if (request.Action == "check")
+                {
+                    if (duplicates.Any())
+                    {
+                        await _activityLogger.LogAsync("checked module transfer (duplicates found) from", "User", sourceName, targetName);
+
+                        return Ok(new
+                        {
+                            success = false,
+                            duplicates = duplicates.Select(d => new { d.UserQueryId, d.UserTitle }),
+                            capacityOk = (used + potentialAdds) <= dashboardLimit,
+                            dashboardLimit,
+                            used,
+                            potentialAdds
+                        });
+                    }
+
+                    // No duplicates — check capacity
+                    bool capacityOk = (used + potentialAdds) <= dashboardLimit;
+
+                    if (!capacityOk)
+                    {
+                        // STILL return 200 OK (never 400)
+                        return Ok(new
+                        {
+                            success = false,
+                            duplicates = new List<object>(),
+                            capacityOk = false,
+                            dashboardLimit,
+                            used,
+                            potentialAdds
+                        });
+                    }
+
+                    // Auto-transfer all
+                    foreach (var sm in sourceModules)
                     {
                         var newQuery = new UserQuery
                         {
@@ -1472,67 +1434,114 @@ Nchart Team";
                         _db.UserQueries.Add(newQuery);
                         copied.Add(newQuery);
                     }
+
+                    await _db.SaveChangesAsync();
+
+                    await _activityLogger.LogAsync("checked module transfer (no duplicates) from", "User", sourceName, targetName);
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = $"{copied.Count} modules transferred successfully (no duplicates found)."
+                    });
                 }
 
-                // ✅ Handle check mode separately (unchanged)
-                if (request.Action == "check")
+                // --------------------------------------------------------------------
+                // CANCEL MODE
+                // --------------------------------------------------------------------
+                if (request.Action == "cancel")
                 {
-                    if (duplicates.Any())
-                    {
-                        // LOG: Transfer check found duplicates
-                        await _activityLogger.LogAsync("checked module transfer (duplicates found) from", "User", sourceName, targetName);
-                        // duplicates found → send back to frontend
-                        return Ok(new
-                        {
-                            success = false,
-                            duplicates = duplicates.Select(d => new
-                            {
-                                d.UserQueryId,
-                                d.UserTitle
-                            })
-                        });
-                    }
-                    else
-                    {
-                        // no duplicates → directly transfer all modules
-                        foreach (var sm in sourceModules)
-                        {
-                            var newQuery = new UserQuery
-                            {
-                                AppUserId = request.TargetUserId,
-                                UserTitle = sm.UserTitle,
-                                UserQueryText = sm.UserQueryText,
-                                VisualizationType = sm.VisualizationType,
-                                UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
-                                UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
-                                UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
-                            };
-                            _db.UserQueries.Add(newQuery);
-                            copied.Add(newQuery);
-                        }
-
-                        await _db.SaveChangesAsync();  // Added await
-
-                        // LOG: Successful transfer check (no duplicates)
-                        await _activityLogger.LogAsync("checked module transfer (no duplicates) from", "User", sourceName, targetName);
-
-                        return Ok(new
-                        {
-                            success = true,
-                            message = $"{copied.Count} modules transferred successfully (no duplicates found)."
-                        });
-                    }
+                    return Ok(new { success = true, message = "Transfer cancelled." });
                 }
 
-                // Save changes for replace / ignore actions
-                await _db.SaveChangesAsync();  // Added await
+                int netVisibleIncrease = 0;
 
-                // LOG: Final successful transfer based on action
+                if (request.Action == "replace" && duplicates.Any())
+                {
+                    // Case 1: Duplicates are being replaced.
+                    // If the existing duplicate was hidden (HideQuery=true), removing it frees 0 visible slots.
+                    // The new module will be visible (HideQuery=false). Net change = +1 visible module.
+                    int visibleDuplicatesReplaced = duplicates.Count(d => d.HideQuery == false);
+                    int hiddenDuplicatesReplaced = duplicates.Count(d => d.HideQuery == true);
+
+                    // Net change in visible modules from duplicates:
+                    // Removed visible: -visibleDuplicatesReplaced
+                    // Added visible (replacements): +duplicates.Count (since new module defaults to visible)
+
+                    // Final calculation is simpler:
+                    // Duplicates are removed: Net change to total module count is 0.
+                    // Net change to VISIBLE count is: (Number of added visible modules) - (Number of removed visible modules)
+
+                    // We assume all added modules will be visible (HideQuery=false)
+                    netVisibleIncrease = potentialAdds + duplicates.Count(d => d.HideQuery == true);
+                }
+                else
+                {
+                    // Case 2: Ignore or Standard transfer (only non-duplicates added)
+                    netVisibleIncrease = potentialAdds;
+                }
+
+                // --- Enforce the FINAL Capacity Check ---
+                if (used + netVisibleIncrease > dashboardLimit)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"Transfer blocked. Target user will exceed module limit ({dashboardLimit}). The operation attempts to add {netVisibleIncrease} new visible modules."
+                    });
+                }
+
+                // --- FIX 2: Atomic Replacement ---
+                // If replacing, remove the old module before adding the new one in the database context, 
+                // so the changes are saved atomically.
+                if (request.Action == "replace" && duplicates.Any())
+                {
+                    foreach (var d in duplicates)
+                        _db.UserQueries.Remove(d);
+                }
+
+                // Add modules (This loop handles both non-duplicates and the replacements)
+                foreach (var sm in sourceModules)
+                {
+                    var existing = targetModules.FirstOrDefault(tm =>
+                        tm.UserTitle == sm.UserTitle && tm.UserQueryText == sm.UserQueryText);
+
+                    if (existing != null)
+                    {
+                        if (request.Action == "ignore") continue;
+                        if (request.Action == "cancel" || request.Action == "check") continue;
+                        // If request.Action == "replace", the old one was marked for removal above, so we proceed to add the new one below.
+                    }
+
+                    // Determine if the newly added module should be hidden due to being over the limit.
+                    // This is only relevant if the transferred module itself is not a replacement.
+
+                    // Since the check above already passed, we assume we can add it, and it should be VISIBLE.
+                    // We only need to check the remaining capacity if we allow creation when limits are exceeded 
+                    // and hide the query, but we blocked the transfer outright, so we assume HideQuery=false is safe here.
+
+                    var newQuery = new UserQuery
+                    {
+                        AppUserId = request.TargetUserId,
+                        UserTitle = sm.UserTitle,
+                        UserQueryText = sm.UserQueryText,
+                        VisualizationType = sm.VisualizationType,
+                        UserQueryCreatedAtTime = DateTimeHelper.GetIndianTime(),
+                        UserQueryLastUpdated = DateTimeHelper.GetIndianTime(),
+                        UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                        HideQuery = false // Modules added by admin transfer are generally visible unless explicitly limited
+                    };
+
+                    _db.UserQueries.Add(newQuery);
+                    copied.Add(newQuery);
+                }
+
+                await _db.SaveChangesAsync();
+
                 string logAction = request.Action switch
                 {
                     "replace" => $"transferred/replaced {copied.Count} modules from",
                     "ignore" => $"transferred {copied.Count} modules (ignored {duplicates.Count} duplicates) from",
-                    "cancel" => "cancelled module transfer from",
                     _ => $"transferred {copied.Count} modules from"
                 };
 
@@ -1545,20 +1554,15 @@ Nchart Team";
                     {
                         "replace" => $"{copied.Count} modules transferred and duplicates replaced.",
                         "ignore" => $"{copied.Count} modules transferred, duplicates ignored.",
-                        "cancel" => "Transfer cancelled.",
                         _ => $"{copied.Count} modules transferred successfully."
                     }
                 });
             }
             catch (Exception ex)
             {
-                // Log the error for debugging (use your logger)
                 _logger.LogError(ex, "Error in TransferModules: {Message}", ex.Message);
-
-                // LOG: General transfer failure
                 await _activityLogger.LogAsync("failed module transfer from", "User", sourceName, targetName);
 
-                // Return a user-friendly error
                 return StatusCode(500, new { success = false, message = "An error occurred while transferring modules. Please try again." });
             }
         }
@@ -1570,16 +1574,6 @@ Nchart Team";
             public List<int> ModuleIds { get; set; }
             public string Action { get; set; } = "check"; // check, replace, ignore, cancel
         }
-
-        // [HttpGet("module-suggestions")]
-        // public async Task<IActionResult> GetModuleSuggestions()
-        // {
-        //     var suggestions = await _db.ModuleSuggestions
-        //         .Include(s => s.AppUser)
-        //         .OrderByDescending(s => s.CreatedAt)
-        //         .ToListAsync();
-        //     return Ok(suggestions);
-        // }
 
         public class ModuleSuggestionDto
         {
@@ -1721,10 +1715,13 @@ Nchart Team";
     // 🔹 DTO for profile input/output
     public class UserProfileDto
     {
+        public string? ProfilePhotoUrl { get; set; }
         public string CompanyName { get; set; }
+        public string? Email { get; set; }
         public string CustomerName { get; set; } = "";
         public string CustomerGST { get; set; } = "";
         public string CustomerCode { get; set; } = "";
+        public string? PhoneNumber { get; set; }
         public string ServerName { get; set; }
         public string DatabaseName { get; set; }
         public string DbUsername { get; set; }

@@ -89,6 +89,7 @@ namespace minutechart.Controllers
                     user.Email,
                     user.CompanyName,
                     user.CustomerName,
+                    user.AdminName,
                     user.PhoneNumber,
                     user.AccountStatus,
                     ProfileConfigured = user.UserProfile != null,
@@ -99,7 +100,7 @@ namespace minutechart.Controllers
                     SubscriptionStartDate = user.SubscriptionStartDate,
                     SubscriptionEndDate = user.SubscriptionEndDate,
                     AssignedAdminId = user.AssignedAdminId,
-                    UserRole = userRole // 👈 New: Role for differentiation
+                    UserRole = userRole
                 });
             }
 
@@ -107,16 +108,46 @@ namespace minutechart.Controllers
             return Ok(superAdminList);
         }
 
+        public class PromoteAdminDto
+        {
+            public decimal? CommissionPercentage { get; set; }
+        }
+
         [HttpPost("promote-to-admin/{userId}")]
-        public async Task<IActionResult> PromoteToAdmin(string userId)
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> PromoteToAdmin(string userId, [FromBody] PromoteAdminDto dto)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null) return NotFound();
 
+            if (!await _userManager.IsInRoleAsync(user, "User"))
+            {
+                return BadRequest(new { message = "User is already an administrator or has a non-standard role." });
+            }
+
+            // Copy CustomerName to AdminName
+            user.AdminName = user.CustomerName;
+            user.AccountStatus = "Active";
+
+            // 🆕 Set commission
+            user.CommissionPercentage = dto.CommissionPercentage ?? 10;
+
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                return BadRequest(new { errors = updateResult.Errors });
+            }
+
             await _userManager.RemoveFromRoleAsync(user, "User");
             await _userManager.AddToRoleAsync(user, "Admin");
 
-            return Ok(new { message = $"{user.Email} promoted to Admin." });
+            await _activityLogger.LogAsync("promoted user to", "Admin", user.UserName);
+
+            return Ok(new
+            {
+                message = $"{user.Email} promoted to Admin.",
+                commission = user.CommissionPercentage
+            });
         }
 
         [HttpPost("assign-user/{userId}/to-admin/{adminId}")]
