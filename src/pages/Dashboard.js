@@ -425,7 +425,7 @@ export default function Dashboard() {
 
     // --- Main Render (Improved Responsive Layout) ---
     return (
-        <div className="min-h-screen flex relative bg-[#02060b] text-white">
+        <div className="min-h-screen flex relative bg-white text-black">
             {/* Ambient background responsive to cursor */}
             <AmbientBackground mouseX={mx} mouseY={my} />
 
@@ -552,7 +552,7 @@ export default function Dashboard() {
                                 <FaBars size={20} />
                             </button>
                         )}
-                        <h2 className="text-3xl font-bold text-white">
+                        <h2 className="text-3xl font-bold text-black">
                             Your Dashboard
                         </h2>
                         {/* <button
@@ -649,15 +649,7 @@ export default function Dashboard() {
                                 spanClasses = "sm:col-span-2";
 
                                 if (q.visualizationType === "table" || q.visualizationType === "heatmap") {
-                                    if (numRows > 100 && numColumns > 5) {
-                                        spanClasses = "sm:col-span-2 lg:col-span-4 lg:row-span-2";
-                                        overflowClass = "overflow-auto";
-                                        limitHeight = false;
-                                    } else if (numRows > 100) {
-                                        spanClasses = "sm:col-span-2 lg:row-span-2";
-                                        overflowClass = "overflow-x-auto";
-                                        limitHeight = false;
-                                    } else if (numColumns > 5) {
+                                    if (numColumns > 5) {
                                         spanClasses = "sm:col-span-2 lg:col-span-4";
                                         overflowClass = "overflow-auto";
                                         limitHeight = true;
@@ -679,12 +671,24 @@ export default function Dashboard() {
                                 return (
                                     <div
                                         key={q.userQueryId}
-                                        className={`bg-[#071017]/70 rounded-xl shadow-lg p-5 flex flex-col hover:shadow-[0_16px_60px_rgba(0,240,255,0.06)] transition ${spanClasses} h-auto min-h-[300px] border border-[#0f1720]`}
+                                        className={`bg-white shadow-lg p-5 flex flex-col hover:shadow-[0_16px_60px_rgba(0,240,255,0.06)] transition ${spanClasses} h-auto min-h-[300px] border border-black`}
                                     >
-                                        <div className="flex items-start justify-between mb-1 border-b pb-2">
-                                            <h3 className="font-extrabold text-xl sm:text-2xl truncate mr-2 text-indigo-700">
+                                        <div className="flex items-center justify-between mb-1 border-b border-black pb-2">
+                                            {/* Left Spacer (Invisible) - Takes up space equal to the button group */}
+                                            <div className="flex gap-2 invisible opacity-0 pointer-events-none">
+                                                {/* Duplicate the structure of the button group to match its width */}
+                                                {(q.visualizationType === "table" || q.visualizationType === "heatmap") && (
+                                                    <div className="p-2 w-8 h-8"></div> // Placeholder for FaFileExcel button (approximate size)
+                                                )}
+                                                <div className="p-2 w-8 h-8"></div> {/* Placeholder for RefreshCcw button (approximate size) */}
+                                            </div>
+
+                                            {/* Center Title */}
+                                            <h3 className="font-bold text-xl sm:text-2xl text-black flex-grow-0">
                                                 {q.userTitle || "Untitled Module"}
                                             </h3>
+
+                                            {/* Right Buttons */}
                                             <div className="flex gap-2">
                                                 {(q.visualizationType === "table" || q.visualizationType === "heatmap") && (
                                                     <button
@@ -709,8 +713,7 @@ export default function Dashboard() {
                                                     title={
                                                         refreshRules[q.userQueryId]?.canRefresh
                                                             ? "Refresh Module"
-                                                            : `Next refresh at: ${refreshRules[q.userQueryId]?.nextAllowedAt?.toLocaleTimeString()
-                                                            }`
+                                                            : `Next refresh at: ${refreshRules[q.userQueryId]?.nextAllowedAt?.toLocaleTimeString()}`
                                                     }
                                                     className={`p-2 rounded-full shadow-md ${refreshRules[q.userQueryId]?.canRefresh === false
                                                         ? "bg-gray-500 cursor-not-allowed"
@@ -721,13 +724,13 @@ export default function Dashboard() {
                                                 </button>
                                             </div>
                                         </div>
-                                        {refreshRules[q.userQueryId]?.canRefresh === false && (
-                                            <div className="text-xs text-yellow-400 mb-2 flex items-center gap-1">
+                                        {/* {refreshRules[q.userQueryId]?.canRefresh === false && (
+                                            <div className="text-xs text-yellow-500 mb-2 flex items-center gap-1">
                                                 <AlertTriangle className="w-3 h-3" />
                                                 Next refresh at:{" "}
                                                 {refreshRules[q.userQueryId]?.nextAllowedAt?.toLocaleTimeString()}
                                             </div>
-                                        )}
+                                        )} */}
 
                                         {/* Chart / Table area */}
                                         <div className={`flex-1 ${overflowClass} flex items-center justify-center ${limitHeight ? "max-h-[500px]" : ""}`}>

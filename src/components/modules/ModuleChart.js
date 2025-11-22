@@ -40,12 +40,14 @@ const containerFade = {
 };
 
 // --- Small shared subcomponents used inside ModuleChart ---
-function CardWrapper({ children, className = "", title, rightNode }) {
+function CardWrapper({ children, className = "", rightNode }) {
   return (
-    <motion.div variants={containerFade} initial="hidden" animate="show" className={`rounded-lg border border-[#0f1720] bg-[#041018]/60 p-2 ${className}`}>
-      {title || rightNode ? (
-        <div className="flex items-center justify-between gap-2 p-2 pb-0">
-          <div className="text-sm font-semibold text-slate-200">{title}</div>
+    <motion.div variants={containerFade} initial="hidden" animate="show" className={`bg-white p-2 ${className}`}>
+      {/* Check if rightNode exists to render the header div */}
+      {rightNode ? (
+        // Changed justify-between to justify-start and removed gap-2
+        <div className="flex items-center justify-start p-2 pb-0">
+          {/* rightNode is now the only (and therefore left-most) item */}
           {rightNode && <div className="text-sm text-slate-400">{rightNode}</div>}
         </div>
       ) : null}
@@ -57,28 +59,52 @@ function CardWrapper({ children, className = "", title, rightNode }) {
 function PaginationControls({ pageIndex, pageSize, total, setPageIndex }) {
   const from = total === 0 ? 0 : pageIndex * pageSize + 1;
   const to = Math.min(total, (pageIndex + 1) * pageSize);
+
+  const isNextDisabled = (pageIndex + 1) * pageSize >= total;
+
   return (
-    <div className="flex items-center justify-between text-sm text-slate-400 mt-2">
-      <div>{`${from} - ${to} / ${total}`}</div>
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-end gap-4 text-sm text-[#0a2345] w-full">
+
+      {/* Arrows group (left side of the right-aligned container) */}
+      <div className="flex items-center">
+
+        <div className="font-semibold">{`${from} - ${to} / ${total}`}</div>
+
+        {/* Prev */}
         <button
           onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-          className="px-2 py-1 rounded border bg-[#021016] hover:bg-[#022a4a]/40"
+          className={`
+            p-1 mx-1 text-2xl font-semibold transition-colors duration-150
+            ${pageIndex === 0
+              ? "text-gray-400 cursor-not-allowed"
+              : "text-[#0a2345] hover:text-[#0a2345]/80"
+            }
+          `}
           disabled={pageIndex === 0}
         >
-          Prev
+          &lt;
         </button>
+
+        {/* Next */}
         <button
           onClick={() => setPageIndex((p) => (p + 1) * pageSize < total ? p + 1 : p)}
-          className="px-2 py-1 rounded border bg-[#021016] hover:bg-[#022a4a]/40"
-          disabled={(pageIndex + 1) * pageSize >= total}
+          className={`
+            p-1 mx-1 text-2xl font-bold transition-colors duration-150
+            ${isNextDisabled
+              ? "text-gray-400 cursor-not-allowed"
+              : "text-[#0a2345] hover:text-[#0a2345]/80"
+            }
+          `}
+          disabled={isNextDisabled}
         >
-          Next
+          &gt;
         </button>
+
       </div>
     </div>
   );
 }
+
 
 /**
  * MiniTable
@@ -272,44 +298,77 @@ export default function ModuleChart({
   // --- RENDER SWITCH ---
   switch (type) {
     case "table": {
-      // calculate paginated slice for table
-      const totalRows = sortedAndFilteredData.length;
+      // -------------------------------
+      // TOTAL ROW DETECTION (LAST ROW ONLY)
+      // -------------------------------
+      let totalRow = null;
+
+      if (sortedAndFilteredData.length > 0) {
+        const lastRow = sortedAndFilteredData[sortedAndFilteredData.length - 1];
+
+        const lastRowIsTotal = Object.values(lastRow).some(
+          v => typeof v === "string" && v.toLowerCase().includes("total")
+        );
+
+        if (lastRowIsTotal) {
+          totalRow = lastRow;
+        }
+      }
+
+      // Remove total row so it is NOT paginated
+      const nonTotalRows = totalRow
+        ? sortedAndFilteredData.slice(0, sortedAndFilteredData.length - 1)
+        : sortedAndFilteredData;
+
+      // Pagination
+      const totalRows = nonTotalRows.length;
       const tableStart = tablePageIndex * tablePageSize;
-      const tablePageRows = sortedAndFilteredData.slice(tableStart, tableStart + tablePageSize);
+      const tablePageRows = nonTotalRows.slice(tableStart, tableStart + tablePageSize);
 
       return (
-        <CardWrapper className={`mt-2 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`} title={`Columns: ${keys.length}`}>
-          <div className="flex items-center justify-between gap-2 p-2">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500"
-                value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); setTablePageIndex(0); }}
-              />
-            </div>
-            <div className="text-sm text-slate-400">Rows: {totalRows}</div>
+        <CardWrapper className={`mt-2 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`}>
+
+          {/* Search Bar */}
+          <div className="flex items-center justify-between pb-2">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="px-3 py-2 w-60 bg-[#0a2345] text-white placeholder-white"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setTablePageIndex(0); }}
+            />
           </div>
 
+          {/* Table */}
           <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
-            <table className="border-collapse border w-full min-w-max text-sm bg-transparent">
+            <table className="border-collapse border-2 border-[#0a2345] w-full min-w-max text-sm">
+
+              {/* Header */}
               <thead className="sticky top-0 z-10 bg-[#0a2345]">
                 <tr>
-                  {isApprovalModule && <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>}
-                  {keys.map((k) => {
-                    const isNumeric = !isNaN(Number(data[0]?.[k]));
+                  {isApprovalModule && (
+                    <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>
+                  )}
+
+                  {keys.map((k, colIndex) => {
+                    const isTextColumn = colIndex === 0;
                     const activeDirectionIcon = sortDirection === "asc" ? "▲" : "▼";
                     const defaultIcon = "↕";
+
                     return (
                       <th
                         key={k}
                         onClick={() => handleSort(k)}
-                        className={`border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none ${isNumeric ? "text-right" : "text-left"} hover:bg-[#3b2f8a]/80 transition-colors duration-150`}
+                        style={
+                          isTextColumn
+                            ? { maxWidth: "300px", whiteSpace: "normal" }
+                            : { whiteSpace: "normal" }
+                        }
+                        className="border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none text-left"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate">{k}</span>
-                          <span className={`ml-2 text-xs ${sortColumn === k ? "opacity-100 text-slate-200" : "opacity-50 text-slate-500"}`}>
+                          <span>{k}</span>
+                          <span className="ml-2 text-xs">
                             {sortColumn === k ? activeDirectionIcon : defaultIcon}
                           </span>
                         </div>
@@ -318,28 +377,47 @@ export default function ModuleChart({
                   })}
                 </tr>
               </thead>
+
+              {/* Body */}
               <tbody>
+                {/* Paginated Rows */}
                 {tablePageRows.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
-                  const isTotalRow = Object.values(row).some((val) => typeof val === "string" && String(val).toLowerCase().includes("total"));
+
+                  const isEven = i % 2 === 0;
+                  const baseRowBg = isEven
+                    ? "bg-white text-black"
+                    : "bg-[#1a3a60] text-white";
+
                   return (
-                    <tr key={rowId || i} className={`${isTotalRow ? "bg-[#0b2140] text-white font-semibold" : "hover:bg-[#3b2f8a]/80"}`}>
+                    <tr key={rowId || i} className={`${baseRowBg} hover:bg-[#3b2f8a]/80`}>
                       {isApprovalModule && (
                         <td className="border px-3 py-2 text-center">
-                          <input type="checkbox" checked={isRowSelected} onChange={() => handleApproval(rowId)} className="w-4 h-4 accent-[#00F0FF]" />
+                          <input
+                            type="checkbox"
+                            checked={isRowSelected}
+                            onChange={() => handleApproval(rowId)}
+                            className="w-4 h-4 accent-[#00F0FF]"
+                          />
                         </td>
                       )}
+
                       {keys.map((k, j) => {
                         const cellValue = row[k];
                         const isNumeric = !isNaN(Number(cellValue));
-                        const isTotalColumn = k && String(k).toLowerCase().includes("total");
-                        let cellClasses = `border px-3 py-2 ${isNumeric ? "text-right" : "text-left"}`;
-                        if (isTotalRow || isTotalColumn) cellClasses += " bg-[#0b2140] text-white font-semibold";
-                        else if (sortColumn === k) cellClasses += " bg-[#022a4a]/30";
+
                         return (
-                          <td key={j} className={cellClasses}>
-                            {cellValue}
+                          <td
+                            key={j}
+                            style={
+                              j === 0
+                                ? { maxWidth: "300px", whiteSpace: "normal" }
+                                : {}
+                            }
+                            className={`border px-3 py-2 ${isNumeric ? "text-right" : "text-left"} break-words`}
+                          >
+                            <div className="whitespace-normal break-words">{cellValue}</div>
                           </td>
                         );
                       })}
@@ -347,23 +425,58 @@ export default function ModuleChart({
                   );
                 })}
 
+                {/* No Results */}
                 {tablePageRows.length === 0 && (
                   <tr>
-                    <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-slate-500">
+                    <td
+                      colSpan={keys.length + (isApprovalModule ? 1 : 0)}
+                      className="text-center py-4 text-slate-500"
+                    >
                       No results found.
                     </td>
                   </tr>
                 )}
+
+                {/* ----- FIXED GRAND TOTAL ROW ----- */}
+                {totalRow && (
+                  <tr className="bg-[#0b2140] text-white font-semibold border-t-2 border-[#0a2345]">
+                    {isApprovalModule && (
+                      <td className="border px-3 py-2"></td>
+                    )}
+
+                    {keys.map((k, j) => {
+                      const val = totalRow[k];
+                      const isNumeric = !isNaN(Number(val));
+                      return (
+                        <td
+                          key={j}
+                          className={`border px-3 py-2 ${isNumeric ? "text-right" : "text-left"}`}
+                        >
+                          {val}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                )}
+
               </tbody>
             </table>
           </div>
 
-          <div className="mt-2">
-            <PaginationControls pageIndex={tablePageIndex} pageSize={tablePageSize} total={totalRows} setPageIndex={setTablePageIndex} />
+          {/* Pagination */}
+          <div className="mt-1">
+            <PaginationControls
+              pageIndex={tablePageIndex}
+              pageSize={tablePageSize}
+              total={totalRows}
+              setPageIndex={setTablePageIndex}
+            />
           </div>
+
         </CardWrapper>
       );
     }
+
 
     case "pie": {
       const allColumns = keys || [];
@@ -416,10 +529,10 @@ export default function ModuleChart({
 
       const renderLegend = () => (
         <div className="border-t border-[#0b1620] mt-3 pt-3">
-          <h4 className="text-sm font-semibold text-slate-400 mb-2">{xCol}</h4>
+          <h4 className="text-sm font-semibold text-black mb-2">{xCol}</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
             {chartData.map((entry, index) => (
-              <div key={`legend-${index}-${entry.name}`} className="flex items-center text-sm text-slate-300 gap-2">
+              <div key={`legend-${index}-${entry.name}`} className="flex items-center text-sm text-black gap-2">
                 <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                 <span className="truncate" title={entry.name}>{entry.name}</span>
               </div>
@@ -433,14 +546,14 @@ export default function ModuleChart({
       return (
         <CardWrapper className="h-96 w-full" title={`${xCol} vs ${yCol}`} rightNode={filterColumn ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-300">Filter:</span>
-            <select value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} className="border px-3 py-1 rounded text-sm bg-[#021016] text-slate-200">
+            <span className="text-md font-semibold text-black">Filter:</span>
+            <select value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} className="border border-black px-3 py-1 text-sm bg-white text-black">
               <option value="">All</option>
               {filterOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
             </select>
           </div>
         ) : null}>
-          <div className="flex gap-4">
+          <div className="flex gap-4 mt-1">
             <div className="flex-1 h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -601,58 +714,130 @@ export default function ModuleChart({
 
       return (
         <CardWrapper className="mt-4 border rounded-lg overflow-hidden" title="Heatmap Preview">
+
+          {/* Search Bar */}
           <div className="flex items-center justify-between p-2">
-            <input type="text" placeholder="Search..." className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setHeatmapPageIndex(0); }} />
-            <div className="text-sm text-slate-400">Heatmap Preview</div>
+            <input
+              type="text"
+              placeholder="Search..."
+              className="border px-3 py-2 rounded w-60 bg-white text-black placeholder-black"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setHeatmapPageIndex(0);
+              }}
+            />
           </div>
 
+          {/* Table */}
           <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
             <table className="border-collapse border w-full min-w-max text-sm bg-transparent">
-              <thead className="sticky top-0 z-10  bg-[#0a2345]">
+              <thead className="sticky top-0 z-10 bg-[#0a2345]">
                 <tr>
-                  {isApprovalModule && <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>}
-                  {keys.map((k) => {
+                  {isApprovalModule && (
+                    <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>
+                  )}
+
+                  {keys.map((k, colIndex) => {
+                    const isTextColumn = colIndex === 0; // Same logic as table
                     const isNumeric = hasData && !isNaN(Number(data[0][k]));
+
                     const activeDirectionIcon = sortDirection === "asc" ? "▲" : "▼";
                     const defaultIcon = "↕";
+
                     return (
-                      <th key={k} onClick={() => handleSort(k)} className={`border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none hover:bg-[#3b2f8a]/80 ${isNumeric ? "text-right" : "text-left"}`}>
+                      <th
+                        key={k}
+                        onClick={() => handleSort(k)}
+                        style={
+                          isTextColumn
+                            ? { maxWidth: "300px", whiteSpace: "normal" }
+                            : { whiteSpace: "normal" }
+                        }
+                        className={`border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none ${isNumeric ? "text-right" : "text-left"
+                          }`}
+                      >
                         <div className="flex items-center justify-between">
-                          <span className="truncate">{k}</span>
-                          <span className={`ml-2 text-xs ${sortColumn === k ? "opacity-100 text-slate-200" : "opacity-50 text-slate-500"}`}>{sortColumn === k ? activeDirectionIcon : defaultIcon}</span>
+                          <span className="whitespace-normal break-words">{k}</span>
+                          <span className="ml-2 text-xs">
+                            {sortColumn === k ? activeDirectionIcon : defaultIcon}
+                          </span>
                         </div>
                       </th>
                     );
                   })}
+
                 </tr>
               </thead>
+
               <tbody>
                 {heatmapPageRows.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
+
                   return (
-                    <tr key={rowId || i} className="hover:bg-[#3b2f8a]/80">
+                    <tr key={rowId || i} className="hover:bg-[#3b2f8a]/40">
                       {isApprovalModule && (
                         <td className="border px-3 py-2 text-center">
-                          <input type="checkbox" checked={isRowSelected} onChange={() => handleApproval(rowId)} className="w-4 h-4 accent-[#9D4EDD]" />
+                          <input
+                            type="checkbox"
+                            checked={isRowSelected}
+                            onChange={() => handleApproval(rowId)}
+                            className="w-4 h-4 accent-[#9D4EDD]"
+                          />
                         </td>
                       )}
+
                       {keys.map((k, j) => {
-                        const value = Number(row[k]);
-                        if (isNaN(value) || !isFinite(value)) return <td key={j} className="border px-3 py-2 text-center">{row[k]}</td>;
+                        const rawValue = row[k];
+                        const numericValue = Number(rawValue);
+
+                        // Non-numeric cells
+                        if (isNaN(numericValue) || !isFinite(numericValue)) {
+                          return (
+                            <td
+                              key={j}
+                              style={
+                                j === 0
+                                  ? { maxWidth: "300px", whiteSpace: "normal" }
+                                  : {}
+                              }
+                              className="border px-3 py-2 whitespace-normal break-words"
+                            >
+                              {rawValue}
+                            </td>
+                          );
+                        }
+
+                        // Numeric cells → heatmap colored
                         const range = maxValue - minValue;
-                        const intensity = range > 0 ? (value - minValue) / range : 0.5;
+                        const intensity = range > 0 ? (numericValue - minValue) / range : 0.5;
                         const colorValue = Math.floor(255 - intensity * 160);
+
                         return (
-                          <td key={j} className="border px-3 py-2 font-bold text-black text-right" style={{ backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)` }}>{value.toLocaleString()}</td>
+                          <td
+                            key={j}
+                            className="border px-3 py-2 font-bold text-black text-right"
+                            style={{
+                              backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)`
+                            }}
+                          >
+                            {numericValue.toLocaleString()}
+                          </td>
                         );
                       })}
                     </tr>
                   );
                 })}
+
                 {heatmapPageRows.length === 0 && (
                   <tr>
-                    <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-slate-500">No results found.</td>
+                    <td
+                      colSpan={keys.length + (isApprovalModule ? 1 : 0)}
+                      className="text-center py-4 text-slate-500"
+                    >
+                      No results found.
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -660,7 +845,12 @@ export default function ModuleChart({
           </div>
 
           <div className="mt-2">
-            <PaginationControls pageIndex={heatmapPageIndex} pageSize={heatmapPageSize} total={totalRows} setPageIndex={setHeatmapPageIndex} />
+            <PaginationControls
+              pageIndex={heatmapPageIndex}
+              pageSize={heatmapPageSize}
+              total={totalRows}
+              setPageIndex={setHeatmapPageIndex}
+            />
           </div>
         </CardWrapper>
       );
