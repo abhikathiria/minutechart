@@ -464,12 +464,12 @@ export default function ModuleChart({
               </ResponsiveContainer>
             </div>
 
-            <div style={{ width: 300 }}>
+            {/* <div style={{ width: 300 }}>
               <MiniTable rows={miniRows} pageSize={5} colors={COLORS} title={`${xCol}`} />
-            </div>
+            </div> */}
           </div>
 
-          {/* {renderLegend()} */}
+          {renderLegend()}
         </CardWrapper>
       );
     }
@@ -508,9 +508,9 @@ export default function ModuleChart({
               </ResponsiveContainer>
             </div>
 
-            <div style={{ width: 320 }}>
+            {/* <div style={{ width: 320 }}>
               <MiniTable rows={miniRows} pageSize={5} colors={[NEON.primary, NEON.accent, ...COLORS]} title="Top items" />
-            </div>
+            </div> */}
           </div>
         </CardWrapper>
       );
@@ -541,9 +541,9 @@ export default function ModuleChart({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ width: 320 }}>
+            {/* <div style={{ width: 320 }}>
               <MiniTable rows={miniRows} pageSize={5} colors={[NEON.accent, ...COLORS]} title="Top items" />
-            </div>
+            </div> */}
           </div>
         </CardWrapper>
       );
@@ -569,9 +569,9 @@ export default function ModuleChart({
               </ResponsiveContainer>
             </div>
 
-            <div style={{ width: 320 }}>
+            {/* <div style={{ width: 320 }}>
               <MiniTable rows={miniRows} pageSize={5} colors={[NEON.accent, ...COLORS]} title="Top items" />
-            </div>
+            </div> */}
           </div>
         </CardWrapper>
       );
@@ -705,9 +705,9 @@ export default function ModuleChart({
               </ComposableMap>
             </div>
 
-            <div style={{ width: 320 }}>
+            {/* <div style={{ width: 320 }}>
               <MiniTable rows={regionList} pageSize={5} colors={[NEON.primary, NEON.accent, ...COLORS]} title="Top regions" />
-            </div>
+            </div> */}
           </div>
         </CardWrapper>
       );
