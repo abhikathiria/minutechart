@@ -23,7 +23,7 @@
           "Microsoft.IdentityModel.Tokens": "8.14.0",
           "MySqlConnector": "2.4.0",
           "Pomelo.EntityFrameworkCore.MySql": "8.0.3",
-          "PuppeteerSharp": "20.2.2",
+          "PuppeteerSharp": "20.2.4",
           "QuestPDF": "2025.7.1",
           "Razorpay": "3.3.2",
           "SendGrid": "9.29.3",
@@ -1199,14 +1199,14 @@
           }
         }
       },
-      "PuppeteerSharp/20.2.2": {
+      "PuppeteerSharp/20.2.4": {
         "dependencies": {
           "Microsoft.Extensions.Logging": "9.0.8"
         },
         "runtime": {
           "lib/net8.0/PuppeteerSharp.dll": {
-            "assemblyVersion": "20.2.2.0",
-            "fileVersion": "20.2.2.0"
+            "assemblyVersion": "20.2.4.0",
+            "fileVersion": "20.2.4.0"
           }
         }
       },
@@ -2836,12 +2836,12 @@
       "path": "portable.bouncycastle/1.9.0",
       "hashPath": "portable.bouncycastle.1.9.0.nupkg.sha512"
     },
-    "PuppeteerSharp/20.2.2": {
+    "PuppeteerSharp/20.2.4": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-66l7Uzh4mzTaFqRkkP62Jno/lh+ORNEHY2QjtevbQwqQ6TO1w80wZqNGeUR416aw8AEEFZs8vO9MOaJx8i9ySw==",
-      "path": "puppeteersharp/20.2.2",
-      "hashPath": "puppeteersharp.20.2.2.nupkg.sha512"
+      "sha512": "sha512-EIZEsXiFkzh1oftndcLwwFuiSoWGQ0s8/W7s78nszZZ97dP8Hv5n/37uQL/qW7rYs2xA/Upj1dsG9SRzYqySmA==",
+      "path": "puppeteersharp/20.2.4",
+      "hashPath": "puppeteersharp.20.2.4.nupkg.sha512"
     },
     "QuestPDF/2025.7.1": {
       "type": "package",

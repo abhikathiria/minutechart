@@ -1671,7 +1671,6 @@ namespace Backend.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("UserIpAddress")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UserQueryCreatedAtTime")

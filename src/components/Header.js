@@ -490,10 +490,10 @@ function Header({ user, onLogout }) {
                                 // Auth Actions (Not logged in)
                                 <div className="pt-4 border-t border-gray-700 flex flex-col gap-3">
                                     <Link to="/login" className="block text-center bg-purple-700/60 hover:bg-purple-700/80 py-3 rounded-lg font-bold transition text-xl border border-purple-400/50 text-white hover:text-purple-400" onClick={() => closeAllMenus()}>
-                                        <FaSignInAlt className="inline mr-2" /> ACCESS LOGIN
+                                        <FaSignInAlt className="inline mr-2" /> LOGIN
                                     </Link>
                                     <Link to="/register" className="block text-center bg-cyan-700/60 hover:bg-cyan-700/80 py-3 rounded-lg font-bold transition text-xl border border-cyan-400/50 text-white hover:text-cyan-400" onClick={() => closeAllMenus()}>
-                                        <FaUserPlus className="inline mr-2" /> NEW USER REGISTRATION
+                                        <FaUserPlus className="inline mr-2" /> REGISTER
                                     </Link>
                                 </div>
                             )}

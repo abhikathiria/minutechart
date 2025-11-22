@@ -128,7 +128,7 @@ namespace minutechart.Controllers
             foreach (var inv in invoices)
             {
                 var start = inv.PlanStartDate ?? inv.PaymentDate;
-                var end = inv.PlanEndDate ?? inv.PaymentDate.AddDays(30);
+                var end = inv.PlanEndDate ?? inv.PaymentDate.AddMonths(1);
 
                 if (start <= now && now <= end)
                 {

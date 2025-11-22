@@ -22,8 +22,11 @@ import { toast } from "react-hot-toast";
 const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
   const [showHistory, setShowHistory] = useState(false);
 
-  // No Active Subscription State
-  if (!status || !status.hasActivePlan || status.totalDaysRemaining <= 0) {
+  const hasActive = status?.hasActivePlan && status?.activePlanDaysRemaining > 0;
+  const active = status?.activePlan;
+  const next = status?.nextPlanned;
+
+  if (!hasActive) {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -34,7 +37,7 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
         <p className="font-bold text-xl">No Active Subscription</p>
         <p className="text-sm">Please view plans to continue using our services.</p>
         <Link
-          to="/subscription/buy"
+          to="/pricing"
           className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-500 transition shadow-xl mt-4"
         >
           View Plans
@@ -43,15 +46,21 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
     );
   }
 
-  const { activePlans, totalDaysRemaining } = status;
+  // Convert dates
+  const startDate = new Date(active.subscriptionStart);
+  const endDate = new Date(active.subscriptionEnd);
+  const activePlanDaysRemaining = status.activePlanDaysRemaining;
 
-  // Data Filtering for History
-  const allPlans = activePlans || [];
-  const activePlansFiltered = allPlans.filter(p => p.remainingDays > 0);
-  const now = new Date().getTime();
-  const futurePlans = allPlans.filter(p => new Date(p.subscriptionStart).getTime() > now);
-  const expiredPlans = allPlans.filter(p => p.remainingDays <= 0 && new Date(p.subscriptionEnd).getTime() < now);
-  const historyCount = expiredPlans.length + futurePlans.length;
+  const now = new Date();
+
+  const totalDays = activePlanDaysRemaining +
+    Math.max(Math.ceil((now - startDate) / 86400000), 0);
+
+  const percentElapsed = Math.min(
+    ((totalDays - activePlanDaysRemaining) / totalDays) * 100,
+    100
+  );
+
 
   return (
     <motion.div
@@ -60,96 +69,71 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
       className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-blue-500/50 overflow-hidden"
     >
       {/* Summary Header */}
-      <div className="bg-blue-600/90 text-white p-6 flex flex-col items-start justify-between">
+      <div className="bg-blue-600/90 text-white p-6 flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <CheckCircle2 className="w-6 h-6" />
-          <h2 className="text-xl font-extrabold tracking-wide">Active Subscription</h2>
+          <h2 className="text-xl font-extrabold">Active Subscription</h2>
         </div>
-        <div className="mt-4 bg-white text-gray-900 px-4 py-2 rounded-lg shadow-md">
-          <span className="text-xl font-extrabold">Total Days Remaining: {totalDaysRemaining}</span>
-        </div>
-      </div>
 
-      {/* List of Active Plans */}
-      <div className="p-6">
-        <h3 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2">Currently Active Plans ({activePlansFiltered.length})</h3>
-        <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-          {activePlansFiltered
-            .sort((a, b) => new Date(a.subscriptionEnd) - new Date(b.subscriptionEnd))
-            .map((plan, idx) => {
-              const total = plan.totalDays;
-              const remaining = plan.remainingDays;
-              const percentElapsed = Math.min((1 - (remaining / total)) * 100, 100);
-
-              return (
-                <div key={idx} className="p-3 rounded-lg bg-gray-900/50 shadow-inner border border-blue-600/30">
-                  <div className="flex justify-between items-center text-sm font-semibold text-white">
-                    <span className="flex items-center gap-2 text-blue-300">
-                      <TrendingUp className="w-4 h-4" /> <span className="font-bold">{plan.name}</span>
-                    </span>
-                    <span className="text-right text-base">{remaining} {remaining === 1 ? "day" : "days"} left</span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <FaCalendarAlt size={10} className="text-blue-400" /> Ends: {new Date(plan.subscriptionEnd).toLocaleDateString()}
-                    </span>
-                    <span className="text-blue-400 font-medium">Progress:</span>
-                  </p>
-                  <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
-                      style={{ width: `${percentElapsed}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-
-      {/* History Toggle */}
-      <div className="p-6 border-t border-gray-700">
-        <button
-          onClick={() => setShowHistory(p => !p)}
-          className="w-full p-3 bg-gray-700 rounded-xl text-white font-semibold flex justify-between items-center hover:bg-gray-700/80 transition shadow-md"
-        >
-          <span className="flex items-center gap-2">
-            <FaHistory size={16} className="text-blue-300" /> Purchase History ({historyCount} records)
+        <div className="bg-white text-gray-900 px-4 py-2 rounded-lg shadow-md">
+          <span className="text-xl font-extrabold">
+            Total Days Remaining: {activePlanDaysRemaining}
           </span>
-          {showHistory ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
-        </button>
-
-        <AnimatePresence>
-          {showHistory && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-3 p-4 bg-gray-900/70 border border-gray-700 rounded-xl shadow-inner space-y-3 max-h-64 overflow-y-auto custom-scrollbar"
-            >
-              {futurePlans.length > 0 && (
-                <div className="border-b border-gray-700 pb-2">
-                  <h4 className="font-bold text-sm text-indigo-400 mb-1">Future Plans ({futurePlans.length})</h4>
-                  {futurePlans.map((p, idx) => <p key={idx} className="text-xs text-gray-400">Starts {new Date(p.subscriptionStart).toLocaleDateString()} - <span className="font-semibold text-white">{p.name}</span></p>)}
-                </div>
-              )}
-              {expiredPlans.length > 0 && (
-                <div>
-                  <h4 className="font-bold text-sm text-red-400 mb-1">Expired Plans ({expiredPlans.length})</h4>
-                  {expiredPlans.map((p, idx) => <p key={idx} className="text-xs text-gray-400">Ended {new Date(p.subscriptionEnd).toLocaleDateString()} - <span className="font-semibold text-white">{p.name}</span></p>)}
-                </div>
-              )}
-              {historyCount === 0 && <p className="text-sm text-gray-500">No expired or future purchase records found.</p>}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
 
+      {/* Current Plan */}
+      <div className="p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2">
+          Current Plan
+        </h3>
+
+        <div className="p-3 rounded-lg bg-gray-900/50 shadow-inner border border-blue-600/30">
+          <div className="flex justify-between items-center text-sm font-semibold text-white">
+            <span className="flex items-center gap-2 text-blue-300">
+              <TrendingUp className="w-4 h-4" />
+              <span className="font-bold">{active.name}</span>
+            </span>
+            <span className="text-right text-base">
+              {activePlanDaysRemaining} {activePlanDaysRemaining === 1 ? "day" : "days"} left
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-400 mt-1 flex justify-between">
+            <span className="flex items-center gap-1">
+              <FaCalendarAlt size={10} className="text-blue-400" />
+              Ends: {endDate.toLocaleDateString('en-GB')}
+            </span>
+            <span className="text-blue-400 font-medium">Progress:</span>
+          </p>
+
+          <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+            <div
+              className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+              style={{ width: `${percentElapsed}%` }}
+            />
+          </div>
+        </div>
+
+        {/* FUTURE PLAN IF ANY */}
+        {next && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-300 mt-4">
+              Upcoming Plan
+            </h3>
+            <div className="text-xs text-gray-400 mt-1">
+              Starts {new Date(next.subscriptionStart).toLocaleDateString('en-GB')} –{" "}
+              <span className="font-semibold text-white">{next.name}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Refresh */}
       <div className="p-4 border-t border-gray-700 bg-gray-900/50">
         <button
           onClick={onRefresh}
-          className="text-xs text-gray-400 hover:text-blue-300 transition flex items-center mx-auto font-medium"
+          className="text-md text-gray-400 hover:text-blue-300 transition flex items-center mx-auto font-medium"
         >
           <Clock className="w-3 h-3 mr-1" /> Refresh Subscription Status
         </button>
@@ -238,7 +222,7 @@ export default function MyProfile() {
       setSubscriptionStatus(subRes.data);
     } catch (err) {
       console.error("Failed to fetch subscription status", err);
-      setSubscriptionStatus({ hasActivePlan: false, activePlans: [], totalDaysRemaining: 0 });
+      setSubscriptionStatus({ hasActivePlan: false, activePlans: [], activePlanDaysRemaining: 0 });
     } finally {
       setLoadingStatus(false);
     }

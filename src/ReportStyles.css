@@ -1,0 +1,196 @@
+/* ReportStyles.css
+   Print-focused styles for ReportRenderer (A4)
+   - Prevents module splits
+   - Fixed header/footer on printed pages
+   - Page counters
+   - Removes shadows/rounded corners for print fidelity
+*/
+
+/* ---------- Base (screen + print) ---------- */
+:root{
+  --page-width-mm: 210mm;
+  --page-height-mm: 297mm;
+  --page-padding-mm: 12mm;
+  --header-height-mm: 28mm;
+  --footer-height-mm: 14mm;
+  --body-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--body-font);
+  color: #111827;
+  background: #fff;
+}
+
+/* container used by React -- makes sure content respects page width */
+.report-page {
+  box-sizing: border-box;
+  width: calc(var(--page-width-mm) - (var(--page-padding-mm) * 2));
+  margin: 0 auto;
+  padding: var(--page-padding-mm);
+  background: #fff;
+}
+
+/* ---------- Header & Footer (fixed for print) ---------- */
+.report-header {
+  background: #ffffff;
+  box-shadow: none;
+  border: 0;
+  padding: 8px 0 10px 0;
+  margin: 0 0 12px 0;
+}
+
+.report-header * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* Print fixed header */
+@media print {
+  .report-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: var(--header-height-mm);
+    padding: 8px 18mm;
+    box-sizing: border-box;
+    border-bottom: 1px solid #e6e6e6;
+    background: #fff;
+    z-index: 9999;
+  }
+
+  .report-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--footer-height-mm);
+    padding: 4px 18mm;
+    box-sizing: border-box;
+    border-top: 1px solid #e6e6e6;
+    background: #fff;
+    z-index: 9999;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  /* Prevent header/footer from overlapping content */
+  .report-content {
+    margin-top: calc(var(--header-height-mm) + 6mm);
+    margin-bottom: calc(var(--footer-height-mm) + 6mm);
+  }
+}
+
+/* ---------- Module card (print-safe) ---------- */
+.report-module-wrapper {
+  background: #fff;
+  box-shadow: none;               /* remove shadows for print */
+  border-radius: 0;               /* flatten corners for consistent print */
+  border: 1px solid #e6e6e6;
+  padding: 12px;
+  margin: 0 0 12mm 0;
+  page-break-inside: avoid;       /* keep module together on page */
+  -webkit-column-break-inside: avoid;
+  break-inside: avoid;
+  box-sizing: border-box;
+}
+
+/* Ensure charts (canvas/svg) scale nicely */
+.report-module-wrapper canvas,
+.report-module-wrapper svg {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+/* Header inside module */
+.report-module-wrapper h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+/* Table styles (print-friendly) */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: #111827;
+  margin-top: 8px;
+}
+
+.report-table th,
+.report-table td {
+  border: 1px solid #e6e6e6;
+  padding: 6px 8px;
+  vertical-align: middle;
+  text-align: left;
+  hyphens: auto;
+  word-break: break-word;
+}
+
+/* Sticky header for very long tables - works in browsers, but not in PDF engines;
+   keep it simple for PDF: avoid 'position: sticky' in print mode. */
+@media print {
+  .report-table th,
+  .report-table td {
+    font-size: 10px;
+    padding: 5px 6px;
+  }
+}
+
+/* ---------- Utility: page-break helpers ---------- */
+.page-break-before { page-break-before: always; }
+.page-break-after  { page-break-after: always; }
+.avoid-break       { break-inside: avoid; -webkit-column-break-inside: avoid; }
+
+/* ---------- Page counter (CSS only) ---------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    counter-reset: pageNumber;
+  }
+
+  .report-footer .page:after {
+    content: "Page " counter(page) " of " counter(pages);
+  }
+
+  /* If browser/Puppeteer supports the 'pages' counter, great. Otherwise header/footer text will appear per page. */
+}
+
+/* ---------- Small-screen tweaks for preview on web --------- */
+@media screen {
+  .report-module-wrapper { box-shadow: 0 8px 20px rgba(2,6,23,0.06); border-radius: 8px; }
+  .report-page { background: #f7fafc; padding: 18px; }
+  .report-header { background: none; padding: 0; margin-bottom: 18px; }
+  .report-footer { background: none; border-top: none; padding: 18px 0 6px 0; text-align:center; }
+}
+
+/* ---------- Accessibility / print cleanup ---------- */
+/* Hide interactive-only bits in printed PDF */
+@media print {
+  button, .no-print, .interactive {
+    display: none !important;
+  }
+  a[href]:after {
+    content: "";
+  }
+}
+
+/* ---------- Minor helpers for alignment ---------- */
+.meta { color: #6b7280; font-size: 12px; }
+.kpi-row { display:flex; gap:8px; margin-bottom:12px; }
+.kpi { flex:1; padding:10px; border:1px solid #f1f5f9; text-align:center; }
+
+/* Make sure images used as decorations print (if any) */
+img { max-width: 100%; height: auto; }
+
+/* Force backgrounds to print when print color adjustments allowed */
+@media print {
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

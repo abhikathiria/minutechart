@@ -114,6 +114,8 @@ namespace minutechart
             builder.Services.AddScoped<SubscriptionService>();
             builder.Services.AddScoped<SubscriptionServiceV2>();
             builder.Services.AddScoped<SubscriptionTimelineManager>();
+            builder.Services.AddScoped<DashboardService>();
+            builder.Services.AddHostedService<QueuedPlanActivator>();
 
             builder.Services.AddControllers(options =>
             {

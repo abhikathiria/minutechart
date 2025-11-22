@@ -61,7 +61,7 @@ namespace minutechart.Controllers
             {
                 // If dates missing, fallback to default 30 days
                 var start = inv.PlanStartDate ?? inv.PaymentDate;
-                var end = inv.PlanEndDate ?? inv.PaymentDate.AddDays(30);
+                var end = inv.PlanEndDate ?? inv.PaymentDate.AddMonths(1);
 
                 if (start <= now && now <= end)
                     return inv.Plan;
@@ -147,12 +147,12 @@ namespace minutechart.Controllers
             if (user == null)
                 return NotFound(new { message = "User not found" });
 
-            bool isAdmin = User.IsInRole("Admin");
+            bool isAnyAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
 
             var queriesQuery = _db.UserQueries
                 .Where(q => q.AppUserId == user.Id);
 
-            if (!isAdmin)
+            if (!isAnyAdmin)
             {
                 // Normal users → only show non-hidden queries
                 queriesQuery = queriesQuery.Where(q => !q.HideQuery);
@@ -730,7 +730,7 @@ namespace minutechart.Controllers
                 // Activate user and set trial dates only on first creation
                 user.AccountStatus = "Active";
                 user.TrialStartDate = DateTimeHelper.GetIndianTime();
-                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddDays(30);
+                user.TrialEndDate = DateTimeHelper.GetIndianTime().AddMonths(1);
                 // --- UPDATED: Update AppUser fields based on model ---
                 user.CompanyName = model.CompanyName ?? user.CompanyName;
                 user.CustomerName = model.CustomerName ?? user.CustomerName;

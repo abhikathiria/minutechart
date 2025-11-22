@@ -484,11 +484,7 @@ export default function PurchaseHistory() {
                     <strong>Plan:</strong> {inv.planName}
                   </p>
                   <p className="flex justify-between">
-                    <strong>Billing:</strong> {inv.billingCycle}
-                  </p>
-                  <p className="flex justify-between">
-                    <strong>Duration:</strong>
-                    {inv.planStartDate?.slice(0, 10)} → {inv.planEndDate?.slice(0, 10)}
+                    <strong>Duration:</strong> {inv.billingCycle?.charAt(0).toUpperCase() + inv.billingCycle?.slice(1)}
                   </p>
                 </>
               ) : (
@@ -605,7 +601,7 @@ export default function PurchaseHistory() {
                   {/* Duration */}
                   <td className="px-4 py-4 text-center text-slate-200">
                     {inv.type === "plan"
-                      ? `${inv.billingCycle} (${inv.planStartDate?.slice(0, 10)} → ${inv.planEndDate?.slice(0, 10)})`
+                      ? `${inv.billingCycle?.charAt(0).toUpperCase() + inv.billingCycle?.slice(1)}`
                       : `${inv.startDate?.slice(0, 10)} → ${inv.endDate?.slice(0, 10)}`
                     }
                   </td>

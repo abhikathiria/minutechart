@@ -602,6 +602,19 @@ namespace minutechart.Controllers.Api
             var now = DateTimeHelper.GetIndianTime();
             var active = await _timeline.GetActiveAsync(user.Id, now);
 
+            // -----------------------------------
+            // TRIAL LOGIC (Trial is "Pro")
+            // -----------------------------------
+            if (user.IsTrialActive && user.TrialEndDate.HasValue)
+            {
+                var trialTier = await GetTrialTierAsync(); // Pro tier
+
+                if (plan.TierOrder > trialTier)
+                    intent = "upgrade_immediate"; // Higher than Pro → immediate
+                else
+                    intent = "queue"; // Same or lower → queue
+            }
+
             decimal grossPrice = billing == "annual" ? plan.AnnualPrice : plan.MonthlyPrice;
             decimal proration = 0m;
             decimal amountToCharge = grossPrice;
@@ -611,10 +624,6 @@ namespace minutechart.Controllers.Api
             {
                 proration = _timeline.CalculateProrationCredit(active, now);
                 amountToCharge = Math.Max(0m, grossPrice - proration);
-            }
-            else
-            {
-                intent = "purchase"; // fallback
             }
 
             // Create Razorpay order
@@ -731,17 +740,23 @@ namespace minutechart.Controllers.Api
         }
 
         public class CreatePlanOrderDto
-    {
-        public int PlanId { get; set; }
-        public string BillingCycle { get; set; } = "monthly"; 
-        public string Intent { get; set; } = "purchase";
-    }
+        {
+            public int PlanId { get; set; }
+            public string BillingCycle { get; set; } = "monthly";
+            public string Intent { get; set; } = "purchase";
+        }
 
-    public class VerifyPlanPaymentDto
-    {
-        public string OrderId { get; set; }
-        public string PaymentId { get; set; }
-        public string Signature { get; set; }
-    }
+        public class VerifyPlanPaymentDto
+        {
+            public string OrderId { get; set; }
+            public string PaymentId { get; set; }
+            public string Signature { get; set; }
+        }
+
+        private async Task<int> GetTrialTierAsync()
+        {
+            var pro = await _db.Pricings.FirstOrDefaultAsync(p => p.Name.ToLower() == "pro");
+            return pro?.TierOrder ?? 3;
+        }
     }
 }

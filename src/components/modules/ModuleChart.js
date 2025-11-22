@@ -1,397 +1,9 @@
-// import React, { useState } from "react";
-// import {
-//   PieChart,
-//   Pie,
-//   Cell,
-//   Tooltip as ReTooltip,
-//   Legend,
-//   ResponsiveContainer,
-//   Sector,
-//   BarChart,
-//   Bar,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   AreaChart,
-//   Area,
-//   LineChart,
-//   Line,
-// } from "recharts";
-// import { FaCrown, FaFileExcel } from "react-icons/fa";
-// import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-// import { scaleLinear } from "d3-scale";
-// import { Marker } from "react-simple-maps";
-// import { geoCentroid } from "d3-geo";
-// import * as XLSX from "xlsx";
-// import { saveAs } from "file-saver";
-
-// const indiaGeoUrl = "/india_state_geo.json";
-
-// export default function ModuleChart({ data, type }) {
-//   const [activeIndex, setActiveIndex] = useState(null);
-
-//   if (!data || data.length === 0) {
-//     return <p className="text-center text-gray-500">No data to display</p>;
-//   }
-
-//   const keys = Object.keys(data[0]);
-//   const COLORS = [
-//     "#0000FF", "#4F46E5", "#A855F7", "#57167E", "#9B3192", "#EA5F89", "#2B0B3F", "#6366F1",
-//     "#FBCF00", "#423C2E", "#822513", "#D3974E", "#C084FC", "#E9D5FF", "#152342FF"
-//   ];
-
-//   const handleExportTable = () => {
-//     if (!data || data.length === 0) return;
-//     const ws = XLSX.utils.json_to_sheet(data);
-//     const wb = XLSX.utils.book_new();
-//     XLSX.utils.book_append_sheet(wb, ws, "Data");
-//     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-//     const blob = new Blob([wbout], { type: "application/octet-stream" });
-//     saveAs(blob, "data.xlsx");
-//   };
-
-//   switch (type) {
-//     case "table":
-//       return (
-//         <div className="mt-2 border rounded overflow-hidden">
-//           <div className="flex justify-end p-2">
-//             {/* <button
-//               onClick={handleExportTable}
-//               title="Export Table"
-//               className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
-//             >
-//               <FaFileExcel size={20} />
-//             </button> */}
-//           </div>
-//           <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-//             <table className="border-collapse border w-full min-w-max text-sm">
-//               <thead className="bg-[#152342FF] sticky top-0 z-10">
-//                 <tr>
-//                   {keys.map((k) => {
-//                     const isNumeric = !isNaN(Number(data[0][k]));
-//                     return (
-//                       <th
-//                         key={k}
-//                         className={`border px-3 py-2 font-semibold text-white ${isNumeric ? "text-right" : "text-left"
-//                           }`}
-//                       >
-//                         {k}
-//                       </th>
-//                     );
-//                   })}
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {data.map((row, i) => {
-//                   const isTotalRow = Object.values(row).some(
-//                     (val) => typeof val === "string" && val.toLowerCase().includes("total")
-//                   );
-
-//                   return (
-//                     <tr
-//                       key={i}
-//                       className={isTotalRow ? "bg-[#152342FF] text-white font-semibold" : "hover:bg-gray-50"}
-//                     >
-//                       {keys.map((k, j) => {
-//                         const cellValue = row[k];
-//                         const isNumeric = !isNaN(Number(cellValue));
-//                         const isTotalColumn = k.toLowerCase().includes("total");
-
-//                         return (
-//                           <td
-//                             key={j}
-//                             className={`border px-3 py-2 ${isNumeric ? "text-right" : "text-left"
-//                               } ${isTotalRow || isTotalColumn ? "bg-[#152342FF] text-white font-semibold" : ""}`}
-//                           >
-//                             {cellValue}
-//                           </td>
-//                         );
-//                       })}
-//                     </tr>
-//                   );
-//                 })}
-//               </tbody>
-
-//             </table>
-//           </div>
-//         </div>
-//       );
-
-//     case "bar":
-//       return (
-//         <div className="mt-4 h-80 w-full overflow-x-auto">
-//           <ResponsiveContainer width="100%" height="100%">
-//             <BarChart data={data}>
-//               <CartesianGrid strokeDasharray="3 3" />
-//               <XAxis dataKey={keys[0]} />
-//               <YAxis />
-//               <ReTooltip />
-//               <Bar dataKey={keys[1]} fill="#0000ff" />
-//             </BarChart>
-//           </ResponsiveContainer>
-//         </div>
-//       );
-
-//     case "area":
-//       return (
-//         <div className="mt-4 h-80 w-full overflow-x-auto">
-//           <ResponsiveContainer width="100%" height="100%">
-//             <AreaChart data={data}>
-//               <CartesianGrid strokeDasharray="3 3" />
-//               <XAxis dataKey={keys[0]} />
-//               <YAxis />
-//               <ReTooltip />
-//               <Area type="monotone" dataKey={keys[1]} stroke="#0000ff" fill="#0000ff" />
-//             </AreaChart>
-//           </ResponsiveContainer>
-//         </div>
-//       );
-
-//     case "pie":
-//       const chartData = data.map((item) => ({
-//         name: item[keys[0]],
-//         value: Number(item[keys[1]]),
-//       }));
-
-//       const sortedData = [...chartData].sort((a, b) => b.value - a.value);
-//       const topName = sortedData[0]?.name;
-
-//       const renderActiveShape = (props) => {
-//         const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-//         return (
-//           <g>
-//             <Sector
-//               cx={cx}
-//               cy={cy}
-//               innerRadius={innerRadius}
-//               outerRadius={outerRadius + 10}
-//               startAngle={startAngle}
-//               endAngle={endAngle}
-//               fill={fill}
-//             />
-//           </g>
-//         );
-//       };
-
-//       const handleClick = (_, index) => {
-//         setActiveIndex(index === activeIndex ? null : index);
-//       };
-
-//       const CustomTooltip = ({ active, payload }) => {
-//         if (active && payload && payload.length) {
-//           const item = payload[0].payload;
-//           const isTop = item.name === topName;
-//           // const label = keys[1].charAt(0).toUpperCase() + keys[1].slice(1);
-
-//           return (
-//             <div className="bg-white border border-gray-300 rounded shadow px-3 py-2 text-sm font-semibold">
-//               <div className="flex items-center gap-1 text-gray-800 font-bold text-lg">
-//                 {isTop && <FaCrown className="text-yellow-500 text-lg" />}
-//                 <span>{item.name}</span>
-//               </div>
-//               <div>{keys[1]}: {item.value.toLocaleString()}</div>
-//             </div>
-//           );
-//         }
-//         return null;
-//       };
-
-//       return (
-//         <div className="h-96 w-full">
-//           <ResponsiveContainer width="100%" height="100%">
-//             <PieChart>
-//               <Pie
-//                 data={chartData}
-//                 dataKey="value"
-//                 nameKey="name"
-//                 cx="50%"
-//                 cy="50%"
-//                 outerRadius={120}
-//                 activeIndex={activeIndex}
-//                 activeShape={renderActiveShape}
-//                 onClick={handleClick}
-//                 isAnimationActive={true}
-//                 animationDuration={400}
-//                 animationBegin={0}
-//               >
-//                 {chartData.map((entry, index) => (
-//                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-//                 ))}
-//               </Pie>
-//               <ReTooltip content={<CustomTooltip />} />
-//               <Legend verticalAlign="bottom" height={60} />
-//             </PieChart>
-//           </ResponsiveContainer>
-//         </div>
-//       );
-
-//     case "line":
-//       return (
-//         <div className="mt-4 h-80 w-full overflow-x-auto">
-//           <ResponsiveContainer width="100%" height="100%">
-//             <LineChart data={data}>
-//               <CartesianGrid strokeDasharray="3 3" />
-//               <XAxis dataKey={keys[0]} />
-//               <YAxis />
-//               <ReTooltip />
-//               <Line type="monotone" dataKey={keys[1]} stroke="#8884d8" strokeWidth={2} />
-//             </LineChart>
-//           </ResponsiveContainer>
-//         </div>
-//       );
-
-//     case "kpi":
-//       const totalValue = data.reduce((sum, item) => sum + Number(item[keys[0]]), 0);
-//       return (
-//         <div className="mt-4 p-6 bg-blue-600 text-white rounded-lg text-center shadow-lg">
-//           <p className="text-3xl font-bold">{totalValue.toLocaleString()}</p>
-//         </div>
-//       );
-
-//     case "heatmap":
-//       const numericKeys = keys.filter(k => !isNaN(Number(data[0][k])));
-//       const allValues = data.flatMap(row => numericKeys.map(k => Number(row[k])));
-//       const minValue = Math.min(...allValues);
-//       const maxValue = Math.max(...allValues);
-
-//       return (
-//         <div className="mt-4 border rounded overflow-hidden">
-//           <div className="flex justify-end p-2">
-//             {/* <button
-//               onClick={handleExportTable}
-//               title="Export Table"
-//               className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
-//             >
-//               <FaFileExcel size={20} />
-//             </button> */}
-//           </div>
-//           <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-//             <table className="border-collapse border w-full min-w-max text-sm">
-//               <thead className="bg-[#152342FF] sticky top-0 z-10">
-//                 <tr>
-//                   {keys.map((k) => {
-//                     const isNumeric = !isNaN(Number(data[0][k]));
-//                     return (
-//                       <th
-//                         key={k}
-//                         className={`border px-3 py-2 font-semibold text-white ${isNumeric ? "text-right" : "text-left"
-//                           }`}
-//                       >
-//                         {k}
-//                       </th>
-//                     );
-//                   })}
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {data.map((row, i) => (
-//                   <tr key={i}>
-//                     {keys.map((k, j) => {
-//                       const value = Number(row[k]);
-//                       if (isNaN(value)) {
-//                         return (
-//                           <td key={j} className="border px-3 py-2 text-center">{row[k]}</td>
-//                         );
-//                       }
-//                       const intensity = (value - minValue) / (maxValue - minValue);
-//                       const colorValue = Math.floor(255 - intensity * 200);
-//                       return (
-//                         <td
-//                           key={j}
-//                           className="border px-3 py-2 font-semibold text-right"
-//                           style={{ backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)` }}
-//                         >
-//                           {value.toLocaleString()}
-//                         </td>
-//                       );
-//                     })}
-//                   </tr>
-//                 ))}
-//               </tbody>
-//             </table>
-//           </div>
-//         </div>
-//       );
-
-//     case "map":
-//       const regionKey = keys[0];
-//       const valueKey = keys[1];
-
-//       const regionData = {};
-//       data.forEach(d => {
-//         regionData[d[regionKey]] = Number(d[valueKey]);
-//       });
-
-//       const values = Object.values(regionData);
-//       const min = Math.min(...values);
-//       const max = Math.max(...values);
-
-//       const sizeScale = scaleLinear()
-//         .domain([min, max])
-//         .range([5, 40]);
-//       return (
-//         <div className="mt-4 w-full overflow-x-auto">
-//           <ComposableMap
-//             projection="geoMercator"
-//             projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }}
-//           >
-//             <Geographies geography={indiaGeoUrl}>
-//               {({ geographies }) =>
-//                 geographies.map(geo => {
-//                   // console.log(geo.properties);
-//                   const stateName = geo.properties.NAME_1;
-//                   const value = regionData[stateName] || 0;
-//                   const centroid = geoCentroid(geo);
-
-//                   return (
-//                     <React.Fragment key={geo.rsmKey}>
-//                       {/* Base state shape */}
-//                       <Geography
-//                         geography={geo}
-//                         fill="#ffff"
-//                         stroke="#444"
-//                         style={{
-//                           default: { outline: "none" },
-//                           hover: { outline: "none" },
-//                           pressed: { outline: "none" },
-//                         }}
-//                       />
-
-//                       {/* Add circle if this state has value */}
-//                       {value > 0 && (
-//                         <Marker coordinates={centroid}>
-//                           <circle
-//                             r={sizeScale(value)}
-//                             fill="red"
-//                             opacity={0.9}
-//                             stroke="#fff"
-//                             strokeWidth={1}
-//                           />
-//                           <title>{`${stateName}: ${value}`}</title>
-//                         </Marker>
-//                       )}
-//                     </React.Fragment>
-//                   );
-//                 })
-//               }
-//             </Geographies>
-//           </ComposableMap>
-//         </div>
-//       );
-
-//     default:
-//       return <p className="mt-4 text-gray-500">Unsupported visualization type</p>;
-//   }
-// }
-
-
 import React, { useState, useMemo, useCallback } from "react";
 import {
   PieChart,
   Pie,
   Cell,
   Tooltip as ReTooltip,
-  Legend,
   ResponsiveContainer,
   Sector,
   BarChart,
@@ -413,7 +25,7 @@ import { saveAs } from "file-saver";
 import api from "../../api";
 import { motion } from "framer-motion";
 
-const indiaGeoUrl = "/india_state_geo.json";
+const indiaGeoUrl = "/india_state_geo.json"; // unchanged
 
 // --- Visual helpers (purely cosmetic, logic unchanged) ---
 const NEON = {
@@ -427,7 +39,108 @@ const containerFade = {
   show: { opacity: 1, y: 0, transition: { duration: 0.36, ease: "easeOut" } },
 };
 
-export default function ModuleChart({ data, type, isApprovalModule, approvalIdColumn, queryId, userId, onRefresh, limitHeight }) {
+// --- Small shared subcomponents used inside ModuleChart ---
+function CardWrapper({ children, className = "", title, rightNode }) {
+  return (
+    <motion.div variants={containerFade} initial="hidden" animate="show" className={`rounded-lg border border-[#0f1720] bg-[#041018]/60 p-2 ${className}`}>
+      {title || rightNode ? (
+        <div className="flex items-center justify-between gap-2 p-2 pb-0">
+          <div className="text-sm font-semibold text-slate-200">{title}</div>
+          {rightNode && <div className="text-sm text-slate-400">{rightNode}</div>}
+        </div>
+      ) : null}
+      <div className="p-2 pt-0">{children}</div>
+    </motion.div>
+  );
+}
+
+function PaginationControls({ pageIndex, pageSize, total, setPageIndex }) {
+  const from = total === 0 ? 0 : pageIndex * pageSize + 1;
+  const to = Math.min(total, (pageIndex + 1) * pageSize);
+  return (
+    <div className="flex items-center justify-between text-sm text-slate-400 mt-2">
+      <div>{`${from} - ${to} / ${total}`}</div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+          className="px-2 py-1 rounded border bg-[#021016] hover:bg-[#022a4a]/40"
+          disabled={pageIndex === 0}
+        >
+          Prev
+        </button>
+        <button
+          onClick={() => setPageIndex((p) => (p + 1) * pageSize < total ? p + 1 : p)}
+          className="px-2 py-1 rounded border bg-[#021016] hover:bg-[#022a4a]/40"
+          disabled={(pageIndex + 1) * pageSize >= total}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * MiniTable
+ * - rows: array of {label, value, pct?}
+ * - pageSize: number
+ * - colorBars: optional colors array aligned with rows
+ */
+function MiniTable({ rows = [], pageSize = 5, colors = [], title }) {
+  const [pageIndex, setPageIndex] = useState(0);
+  const total = rows.length;
+  const start = pageIndex * pageSize;
+  const pageRows = rows.slice(start, start + pageSize);
+
+  // reset page when rows change
+  React.useEffect(() => {
+    setPageIndex(0);
+  }, [rows.length]);
+
+  return (
+    <div>
+      {title && <div className="text-xs text-slate-300 mb-1 font-semibold">{title}</div>}
+      <div className="bg-[#021016] border border-[#0b1620] rounded text-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <tbody>
+            {pageRows.map((r, i) => (
+              <tr key={i} className="odd:bg-[#041018] hover:bg-[#022a4a]/20">
+                <td className="px-3 py-2 truncate" title={r.label} style={{ maxWidth: 220 }}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-sm" style={{ background: colors[(start + i) % colors.length] || "transparent" }} />
+                    <span className="truncate">{r.label}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right font-semibold">{typeof r.value === "number" ? r.value.toLocaleString() : r.value}</td>
+                <td className="px-3 py-2 text-right text-slate-400">{r.pct != null ? `${(r.pct * 100).toFixed(1)}%` : ""}</td>
+              </tr>
+            ))}
+            {pageRows.length === 0 && (
+              <tr>
+                <td colSpan={3} className="text-center p-4 text-slate-500">No items</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <PaginationControls pageIndex={pageIndex} pageSize={pageSize} total={total} setPageIndex={setPageIndex} />
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Main ModuleChart (updated full code)
+// -----------------------------------------------------------------------------
+export default function ModuleChart({
+  data,
+  type,
+  isApprovalModule,
+  approvalIdColumn,
+  queryId,
+  userId,
+  onRefresh,
+  limitHeight,
+}) {
   // --- 1. ALL HOOKS MUST BE DEFINED HERE (TOP LEVEL) ---
   const [activeIndex, setActiveIndex] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -435,6 +148,30 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const [selectedApprovalIds, setSelectedApprovalIds] = useState([]);
+
+  // table pagination
+  const [tablePageIndex, setTablePageIndex] = useState(0);
+  const tablePageSize = 5;
+
+  // heatmap pagination
+  const [heatmapPageIndex, setHeatmapPageIndex] = useState(0);
+  const heatmapPageSize = 5;
+
+  // map pagination
+  const [mapPageIndex, setMapPageIndex] = useState(0);
+  const mapPageSize = 5;
+
+
+  // shared small export utility
+  const handleExportTable = () => {
+    if (!data || data.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/octet-stream" });
+    saveAs(blob, "data.xlsx");
+  };
 
   // --- Core Sorting Logic (useCallback) ---
   const sortData = useCallback((d, column, direction) => {
@@ -502,16 +239,6 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
   ];
 
   // --- HANDLER FUNCTIONS (non-hook) ---
-  const handleExportTable = () => {
-    if (!data || data.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data");
-    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([wbout], { type: "application/octet-stream" });
-    saveAs(blob, "data.xlsx");
-  };
-
   const handleApproval = async (rowId) => {
     setSelectedApprovalIds((prev) => (prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]));
 
@@ -530,23 +257,39 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
     }
   };
 
+  // Utility: build rows for mini-table for chart types
+  const makeMiniRows = (items, labelKey, valueKey, includePct = true) => {
+    const filtered = items
+      .filter((it) => it[labelKey] != null && it[valueKey] != null && !isNaN(Number(it[valueKey])));
+    const numericTotal = filtered.reduce((s, r) => s + Number(r[valueKey]), 0) || 0;
+    return filtered.map((r) => ({
+      label: String(r[labelKey]),
+      value: Number(r[valueKey]),
+      pct: includePct ? (numericTotal ? Number(r[valueKey]) / numericTotal : 0) : null,
+    }));
+  };
+
   // --- RENDER SWITCH ---
   switch (type) {
-    case "table":
+    case "table": {
+      // calculate paginated slice for table
+      const totalRows = sortedAndFilteredData.length;
+      const tableStart = tablePageIndex * tablePageSize;
+      const tablePageRows = sortedAndFilteredData.slice(tableStart, tableStart + tablePageSize);
+
       return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-2 border rounded-lg overflow-hidden bg-[#041018]/60 backdrop-blur p-0 border-[#0b1620]">
-          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-[#061624]/60 border-b border-[#0b1620]">
+        <CardWrapper className={`mt-2 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`} title={`Columns: ${keys.length}`}>
+          <div className="flex items-center justify-between gap-2 p-2">
             <div className="flex items-center gap-3">
               <input
                 type="text"
                 placeholder="Search..."
                 className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setTablePageIndex(0); }}
               />
-              {/* <button onClick={handleExportTable} className="px-3 py-2 bg-[#9D4EDD] text-black rounded hover:scale-[1.02] transition">Export</button> */}
             </div>
-            <div className="text-sm text-slate-400">Columns: {keys.length}</div>
+            <div className="text-sm text-slate-400">Rows: {totalRows}</div>
           </div>
 
           <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
@@ -576,7 +319,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                 </tr>
               </thead>
               <tbody>
-                {sortedAndFilteredData.map((row, i) => {
+                {tablePageRows.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
                   const isTotalRow = Object.values(row).some((val) => typeof val === "string" && String(val).toLowerCase().includes("total"));
@@ -604,7 +347,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                   );
                 })}
 
-                {sortedAndFilteredData.length === 0 && (
+                {tablePageRows.length === 0 && (
                   <tr>
                     <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-slate-500">
                       No results found.
@@ -614,8 +357,13 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
               </tbody>
             </table>
           </div>
-        </motion.div>
+
+          <div className="mt-2">
+            <PaginationControls pageIndex={tablePageIndex} pageSize={tablePageSize} total={totalRows} setPageIndex={setTablePageIndex} />
+          </div>
+        </CardWrapper>
       );
+    }
 
     case "pie": {
       const allColumns = keys || [];
@@ -638,7 +386,9 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
 
       if (chartData.length === 0) {
         return (
-          <div className="p-4 border rounded text-center text-slate-400 bg-[#041018]">No data available for this selection.</div>
+          <CardWrapper className="h-96 w-full" title="Pie Chart">
+            <div className="p-4 border rounded text-center text-slate-400 bg-[#041018]">No data available for this selection.</div>
+          </CardWrapper>
         );
       }
 
@@ -678,83 +428,160 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
         </div>
       );
 
-      return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="h-96 w-full p-3 bg-[#041018]/60 rounded-lg border border-[#0f1720]">
-          {filterColumn && (
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm text-slate-300">Filter by {filterColumn}:</span>
-              <select value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} className="border px-3 py-1 rounded text-sm bg-[#021016] text-slate-200">
-                <option value="">All {filterColumn}</option>
-                {filterOptions.map((opt, i) => (
-                  <option key={i} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          )}
+      const miniRows = makeMiniRows(chartFilteredData.map((d) => ({ [xCol]: d[xCol], [yCol]: d[yCol] })), xCol, yCol, true);
 
-          <ResponsiveContainer width="100%" height="80%">
-            <PieChart>
-              <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} activeIndex={activeIndex} activeShape={renderActiveShape} onClick={(_, idx) => setActiveIndex(idx === activeIndex ? null : idx)} isAnimationActive animationDuration={450}>
-                {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <ReTooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          {renderLegend()}
-        </motion.div>
+      return (
+        <CardWrapper className="h-96 w-full" title={`${xCol} vs ${yCol}`} rightNode={filterColumn ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-300">Filter:</span>
+            <select value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} className="border px-3 py-1 rounded text-sm bg-[#021016] text-slate-200">
+              <option value="">All</option>
+              {filterOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+            </select>
+          </div>
+        ) : null}>
+          <div className="flex gap-4">
+            <div className="flex-1 h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={110}
+                    activeIndex={activeIndex}
+                    activeShape={renderActiveShape}
+                    onClick={(_, idx) => setActiveIndex(idx === activeIndex ? null : idx)}
+                    isAnimationActive
+                    animationDuration={450}
+                  >
+                    {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <ReTooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ width: 300 }}>
+              <MiniTable rows={miniRows} pageSize={5} colors={COLORS} title={`${xCol}`} />
+            </div>
+          </div>
+
+          {/* {renderLegend()} */}
+        </CardWrapper>
       );
     }
 
-    case "bar":
-      return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 h-80 w-full p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
-              <XAxis dataKey={keys[0]} stroke="#9fb7c9" />
-              <YAxis stroke="#9fb7c9" />
-              <ReTooltip />
-              <Bar dataKey={keys[1]} fill={NEON.primary} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      );
+    case "bar": {
+      const keys0 = keys[0];
+      const keys1 = keys[1];
+      const miniRows = makeMiniRows(data.map((d) => ({ [keys0]: d[keys0], [keys1]: d[keys1] })), keys0, keys1, true);
 
-    case "area":
-      return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 h-80 w-full p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
-              <XAxis dataKey={keys[0]} stroke="#9fb7c9" />
-              <YAxis stroke="#9fb7c9" />
-              <ReTooltip />
-              <Area type="monotone" dataKey={keys[1]} stroke="#9D4EDD" fill="url(#gradArea)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
-      );
+      const CustomBarTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+          const p = payload[0].payload;
+          return (
+            <div className="bg-white px-3 py-2 rounded shadow border text-sm">
+              <div className="font-semibold text-gray-800">{label}</div>
+              <div className="text-gray-600">{keys1}: {p[keys1].toLocaleString()}</div>
+            </div>
+          );
+        }
+        return null;
+      };
 
-    case "line":
+
       return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 h-80 w-full p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
-              <XAxis dataKey={keys[0]} stroke="#9fb7c9" />
-              <YAxis stroke="#9fb7c9" />
-              <ReTooltip />
-              <Line type="monotone" dataKey={keys[1]} stroke="#9D4EDD" strokeWidth={2} dot />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
+        <CardWrapper className="mt-4 h-80 w-full" title={`${keys1} vs ${keys0}`}>
+          <div className="flex gap-4 h-full">
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
+                  <XAxis dataKey={keys0} stroke="#9fb7c9" />
+                  <YAxis stroke="#9fb7c9" />
+                  <ReTooltip content={<CustomBarTooltip />} />
+                  <Bar dataKey={keys1} fill={NEON.primary} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ width: 320 }}>
+              <MiniTable rows={miniRows} pageSize={5} colors={[NEON.primary, NEON.accent, ...COLORS]} title="Top items" />
+            </div>
+          </div>
+        </CardWrapper>
       );
+    }
+
+    case "area": {
+      const keys0 = keys[0];
+      const keys1 = keys[1];
+      const miniRows = makeMiniRows(data.map((d) => ({ [keys0]: d[keys0], [keys1]: d[keys1] })), keys0, keys1, true);
+
+      return (
+        <CardWrapper className="mt-4 h-80 w-full" title={`${keys1} over ${keys0}`}>
+          <div className="flex gap-4 h-full">
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data}>
+                  <defs>
+                    <linearGradient id="gradArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#9D4EDD" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="#9D4EDD" stopOpacity={0.06} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
+                  <XAxis dataKey={keys0} stroke="#9fb7c9" />
+                  <YAxis stroke="#9fb7c9" />
+                  <ReTooltip />
+                  <Area type="monotone" dataKey={keys1} stroke="#9D4EDD" fill="url(#gradArea)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ width: 320 }}>
+              <MiniTable rows={miniRows} pageSize={5} colors={[NEON.accent, ...COLORS]} title="Top items" />
+            </div>
+          </div>
+        </CardWrapper>
+      );
+    }
+
+    case "line": {
+      const keys0 = keys[0];
+      const keys1 = keys[1];
+      const miniRows = makeMiniRows(data.map((d) => ({ [keys0]: d[keys0], [keys1]: d[keys1] })), keys0, keys1, true);
+
+      return (
+        <CardWrapper className="mt-4 h-80 w-full" title={`${keys1} trend`}>
+          <div className="flex gap-4 h-full">
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
+                  <XAxis dataKey={keys0} stroke="#9fb7c9" />
+                  <YAxis stroke="#9fb7c9" />
+                  <ReTooltip />
+                  <Line type="monotone" dataKey={keys1} stroke="#9D4EDD" strokeWidth={2} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ width: 320 }}>
+              <MiniTable rows={miniRows} pageSize={5} colors={[NEON.accent, ...COLORS]} title="Top items" />
+            </div>
+          </div>
+        </CardWrapper>
+      );
+    }
 
     case "kpi": {
       const totalValue = data.reduce((sum, item) => sum + Number(item[keys[0]] || 0), 0);
       return (
         <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 p-6 bg-gradient-to-r from-[#00F0FF]/20 via-[#9D4EDD]/14 to-[#ffffff]/4 text-white rounded-lg text-center border border-[#0f1720] shadow-[0_10px_40px_rgba(157,78,221,0.06)]">
-          {/* <div className="text-xs tracking-widest text-slate-300">KEY METRIC</div> */}
+          <p className="text-xs tracking-widest text-slate-300">KEY METRIC</p>
           <p className="text-4xl font-extrabold mt-2" style={{ color: NEON.primary }}>{totalValue.toLocaleString()}</p>
         </motion.div>
       );
@@ -768,10 +595,14 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
       const minValue = Math.min(...allValues.filter((v) => isFinite(v)));
       const maxValue = Math.max(...allValues.filter((v) => isFinite(v)));
 
+      const totalRows = finalHeatmapData.length;
+      const heatmapStart = heatmapPageIndex * heatmapPageSize;
+      const heatmapPageRows = finalHeatmapData.slice(heatmapStart, heatmapStart + heatmapPageSize);
+
       return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 border rounded-lg overflow-hidden bg-[#041018]/60">
-          <div className="flex flex-wrap gap-2 items-center justify-between p-3 bg-[#061624]/60 border-b border-[#0b1620]">
-            <input type="text" placeholder="Search..." className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <CardWrapper className="mt-4 border rounded-lg overflow-hidden" title="Heatmap Preview">
+          <div className="flex items-center justify-between p-2">
+            <input type="text" placeholder="Search..." className="border px-3 py-2 rounded w-60 bg-[#021016] text-slate-200 placeholder-slate-500" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setHeatmapPageIndex(0); }} />
             <div className="text-sm text-slate-400">Heatmap Preview</div>
           </div>
 
@@ -796,7 +627,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                 </tr>
               </thead>
               <tbody>
-                {finalHeatmapData.map((row, i) => {
+                {heatmapPageRows.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
                   return (
@@ -819,7 +650,7 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
                     </tr>
                   );
                 })}
-                {finalHeatmapData.length === 0 && (
+                {heatmapPageRows.length === 0 && (
                   <tr>
                     <td colSpan={keys.length + (isApprovalModule ? 1 : 0)} className="text-center py-4 text-slate-500">No results found.</td>
                   </tr>
@@ -827,7 +658,11 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
               </tbody>
             </table>
           </div>
-        </motion.div>
+
+          <div className="mt-2">
+            <PaginationControls pageIndex={heatmapPageIndex} pageSize={heatmapPageSize} total={totalRows} setPageIndex={setHeatmapPageIndex} />
+          </div>
+        </CardWrapper>
       );
     }
 
@@ -839,29 +674,42 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
       const values = Object.values(regionData); const min = Math.min(...values); const max = Math.max(...values);
       const sizeScale = scaleLinear().domain([min, max]).range([5, 40]);
 
+      // make a top-list and paginated
+      const regionList = Object.keys(regionData).map((k) => ({ label: k, value: regionData[k] })).sort((a, b) => b.value - a.value);
+      const mapStart = mapPageIndex * mapPageSize;
+      const mapPageRows = regionList.slice(mapStart, mapStart + mapPageSize);
+
       return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 w-full overflow-x-auto p-2 bg-[#041018]/50 rounded-lg border border-[#0f1720]">
-          <ComposableMap projection="geoMercator" projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }}>
-            <Geographies geography={indiaGeoUrl}>
-              {({ geographies }) => geographies.map((geo) => {
-                const stateName = geo.properties.NAME_1;
-                const value = regionData[stateName] || 0;
-                const centroid = geoCentroid(geo);
-                return (
-                  <React.Fragment key={geo.rsmKey}>
-                    <Geography geography={geo} fill="#0b1220" stroke="#17354a" style={{ default: { outline: "none" }, hover: { outline: "none" }, pressed: { outline: "none" } }} />
-                    {value > 0 && (
-                      <Marker coordinates={centroid}>
-                        <circle r={sizeScale(value)} fill="#00F0FF" opacity={0.9} stroke="#071017" strokeWidth={1} />
-                        <title>{`${stateName}: ${value}`}</title>
-                      </Marker>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </Geographies>
-          </ComposableMap>
-        </motion.div>
+        <CardWrapper className="mt-4 w-full overflow-x-auto" title="Map">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <ComposableMap projection="geoMercator" projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }}>
+                <Geographies geography={indiaGeoUrl}>
+                  {({ geographies }) => geographies.map((geo) => {
+                    const stateName = geo.properties.NAME_1;
+                    const value = regionData[stateName] || 0;
+                    const centroid = geoCentroid(geo);
+                    return (
+                      <React.Fragment key={geo.rsmKey}>
+                        <Geography geography={geo} fill="#0b1220" stroke="#17354a" style={{ default: { outline: "none" }, hover: { outline: "none" }, pressed: { outline: "none" } }} />
+                        {value > 0 && (
+                          <Marker coordinates={centroid}>
+                            <circle r={sizeScale(value)} fill="#00F0FF" opacity={0.9} stroke="#071017" strokeWidth={1} />
+                            <title>{`${stateName}: ${value}`}</title>
+                          </Marker>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </Geographies>
+              </ComposableMap>
+            </div>
+
+            <div style={{ width: 320 }}>
+              <MiniTable rows={regionList} pageSize={5} colors={[NEON.primary, NEON.accent, ...COLORS]} title="Top regions" />
+            </div>
+          </div>
+        </CardWrapper>
       );
     }
 
@@ -869,4 +717,3 @@ export default function ModuleChart({ data, type, isApprovalModule, approvalIdCo
       return <p className="mt-4 text-slate-400">Unsupported visualization type</p>;
   }
 }
-

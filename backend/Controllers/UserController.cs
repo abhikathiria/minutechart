@@ -56,7 +56,7 @@ namespace minutechart.Controllers
 
             var now = DateTimeHelper.GetIndianTime();
 
-            // Load all paid plan invoices for this user (we will inspect ranges)
+            // Load invoices
             var paidInvoices = await _mainDb.PlanInvoices
                 .Include(i => i.Plan)
                 .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
@@ -67,14 +67,11 @@ namespace minutechart.Controllers
             DateTime InvoiceEnd(PlanInvoice inv)
             {
                 if (inv.PlanEndDate.HasValue) return inv.PlanEndDate.Value;
-
-                // fallback by billing cycle, prefer invoice.BillingCycle then Plan.DurationDays (if available)
                 var cycle = (inv.BillingCycle ?? "null").ToLowerInvariant();
                 if (cycle == "annual" || cycle == "yearly") return inv.PaymentDate.AddYears(1);
-                // default monthly fallback to 30 days
-                return inv.PaymentDate.AddDays(30);
+                return inv.PaymentDate.AddMonths(1);
             }
-            // Find currently active invoice (the one whose range includes now). Prefer the one with latest start date.
+
             var activeInvoice = paidInvoices
                 .Where(i =>
                 {
@@ -85,43 +82,65 @@ namespace minutechart.Controllers
                 .OrderByDescending(i => InvoiceStart(i))
                 .FirstOrDefault();
 
-            // Find the next queued invoice (paid and starting in the future) - earliest start date after now
             var queuedInvoice = paidInvoices
                 .Where(i => InvoiceStart(i) > now)
                 .OrderBy(i => InvoiceStart(i))
                 .FirstOrDefault();
 
-            // Last paid invoice by payment date (useful for "lastPaidInvoice" info)
             var lastPaidInvoice = paidInvoices.FirstOrDefault();
 
-            // Derive plan objects
-            Pricing? activePlan = activeInvoice?.Plan;
-            Pricing? nextPlanned = queuedInvoice?.Plan;
-            Pricing? lastPaidPlan = lastPaidInvoice?.Plan;
+            Pricing activePlan = activeInvoice?.Plan;
+            Pricing nextPlanned = queuedInvoice?.Plan;
+            Pricing lastPaidPlan = lastPaidInvoice?.Plan;
 
-            // isPaidActive: if the user has an invoice active (range includes now) OR user.SubscriptionEndDate is in future.
+
+            bool isTrialActive = user.IsTrialActive;
+
             bool isPaidActive =
                 (activeInvoice != null) ||
                 (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now);
 
-            // tier and billingCycle info (prefer active invoice values if present)
             int? currentTierOrder = activePlan?.TierOrder ?? lastPaidPlan?.TierOrder;
             string currentBillingCycle = activeInvoice?.BillingCycle ?? lastPaidInvoice?.BillingCycle ?? "monthly";
 
-            bool isTrialActive = user.IsTrialActive;
+            object activePlanDetails = null;
 
-            // Build activePlan display object only from the active invoice (NOT the queued one).
-            var activePlanDetails = activeInvoice == null ? null : new
+            // -------------------------------------------------
+            // TRIAL MODE – treat as Pro Monthly plan
+            // -------------------------------------------------
+            if (isTrialActive && activeInvoice == null)
             {
-                planId = activeInvoice.PlanId,
-                name = activePlan?.Name ?? "Unknown",
-                tierOrder = activePlan?.TierOrder,
-                billingCycle = activeInvoice.BillingCycle ?? "null",
-                subscriptionStart = InvoiceStart(activeInvoice),
-                subscriptionEnd = InvoiceEnd(activeInvoice)
-            };
+                var proPlan = await _mainDb.Pricings
+                    .Where(p => p.Name == "Pro" && p.MonthlyPrice != null)
+                    .FirstOrDefaultAsync();
 
-            // Build nextPlan display object (queued)
+                activePlan = proPlan;
+                currentTierOrder = proPlan?.TierOrder;
+                currentBillingCycle = "monthly";
+
+                activePlanDetails = new
+                {
+                    planId = proPlan.Id,
+                    name = proPlan.Name,
+                    tierOrder = proPlan.TierOrder,
+                    billingCycle = "monthly",
+                    subscriptionStart = user.TrialStartDate,
+                    subscriptionEnd = user.TrialEndDate
+                };
+            }
+            else
+            {
+                activePlanDetails = activeInvoice == null ? null : new
+                {
+                    planId = activeInvoice.PlanId,
+                    name = activePlan?.Name ?? "Unknown",
+                    tierOrder = activePlan?.TierOrder,
+                    billingCycle = activeInvoice.BillingCycle ?? "null",
+                    subscriptionStart = InvoiceStart(activeInvoice),
+                    subscriptionEnd = InvoiceEnd(activeInvoice)
+                };
+            }
+
             var nextPlannedDetails = queuedInvoice == null ? null : new
             {
                 planId = queuedInvoice.PlanId,
@@ -132,40 +151,84 @@ namespace minutechart.Controllers
                 subscriptionEnd = InvoiceEnd(queuedInvoice)
             };
 
+            int activePlanDaysRemaining = 0;
+
+            if (activeInvoice != null)
+            {
+                var end = InvoiceEnd(activeInvoice);
+                var remaining = (int)Math.Ceiling((end - now).TotalDays);
+                if (remaining > 0)
+                    activePlanDaysRemaining = remaining;
+            }
+            else if (isTrialActive && user.TrialEndDate.HasValue)
+            {
+                var remaining = (int)Math.Ceiling((user.TrialEndDate.Value - now).TotalDays);
+                if (remaining > 0)
+                    activePlanDaysRemaining = remaining;
+            }
+
+            int totalDaysRemaining = 0;
+
+            // 1) Active invoice (paid)
+            if (activeInvoice != null)
+            {
+                var end = InvoiceEnd(activeInvoice);
+                var remaining = (int)Math.Ceiling((end - now).TotalDays);
+                if (remaining > 0)
+                    totalDaysRemaining += remaining;
+            }
+
+            // 2) Trial plan
+            if (user.IsTrialActive && user.TrialEndDate.HasValue)
+            {
+                var remaining = (int)Math.Ceiling((user.TrialEndDate.Value - now).TotalDays);
+                if (remaining > 0)
+                    totalDaysRemaining += remaining;
+            }
+
+            // 3) Queued future invoice (only 1 — your API exposes only nextPlanned)
+            if (queuedInvoice != null)
+            {
+                var end = InvoiceEnd(queuedInvoice);
+                var remaining = (int)Math.Ceiling((end - now).TotalDays);
+                if (remaining > 0)
+                    totalDaysRemaining += remaining;
+            }
+
             var response = new
             {
-                // Decision flags
-                isTrialActive = isTrialActive,
-                isPaidActive = isPaidActive,
-                // hasActivePlan — true when we have an activeInvoice OR user's SubscriptionEndDate indicates active
-                hasActivePlan = (activeInvoice != null) || (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now),
+                isTrialActive,
+                isPaidActive,
 
-                // INTENT logic fields (prefer active plan id if present, otherwise null)
+                hasActivePlan = isTrialActive || (activeInvoice != null) ||
+                                (user.SubscriptionEndDate.HasValue && user.SubscriptionEndDate.Value > now),
+
                 currentPlanId = activePlan?.Id ?? lastPaidPlan?.Id,
-                currentTierOrder = currentTierOrder,
-                currentBillingCycle = currentBillingCycle,
+                currentTierOrder,
+                currentBillingCycle,
 
-                // Dates from user record (kept for compatibility)
                 trialStart = user.TrialStartDate,
                 trialEnd = user.TrialEndDate,
                 subscriptionStart = user.SubscriptionStartDate,
                 subscriptionEnd = user.SubscriptionEndDate,
+                activePlanDaysRemaining,
 
-                // For UI display: the actively running plan (null if none) and the next queued plan if any
                 activePlan = activePlanDetails,
                 nextPlanned = nextPlannedDetails,
 
-                // Additional helpful fields (non-breaking): last paid invoice info
                 lastPaidInvoice = lastPaidInvoice == null ? null : new
                 {
                     planId = lastPaidInvoice.PlanId,
                     paymentDate = lastPaidInvoice.PaymentDate,
                     billingCycle = lastPaidInvoice.BillingCycle
-                }
+                },
+
+                totalDaysRemaining
             };
 
             return Ok(response);
         }
+
 
         [HttpGet("current-plan")]
         public async Task<IActionResult> GetCurrentPlan()
@@ -175,23 +238,20 @@ namespace minutechart.Controllers
 
             var now = DateTimeHelper.GetIndianTime();
 
-            // Load all paid plan invoices for user
             var paidInvoices = await _mainDb.PlanInvoices
                 .Include(i => i.Plan)
                 .Where(i => i.AppUserId == user.Id && i.Status == "Paid")
                 .ToListAsync();
 
-            // helper for start/end
             DateTime InvoiceStart(PlanInvoice inv) => inv.PlanStartDate ?? inv.PaymentDate;
             DateTime InvoiceEnd(PlanInvoice inv)
             {
                 if (inv.PlanEndDate.HasValue) return inv.PlanEndDate.Value;
                 var cycle = (inv.BillingCycle ?? "monthly").ToLowerInvariant();
                 if (cycle == "annual" || cycle == "yearly") return inv.PaymentDate.AddYears(1);
-                return inv.PaymentDate.AddDays(30);
+                return inv.PaymentDate.AddMonths(1);
             }
 
-            // find invoice which is active now
             var activeInvoice = paidInvoices
                 .Where(i =>
                 {
@@ -202,15 +262,39 @@ namespace minutechart.Controllers
                 .OrderByDescending(i => InvoiceStart(i))
                 .FirstOrDefault();
 
-            if (activeInvoice == null)
+            // -------------------------------------------------
+            // TRIAL MODE – treat as Pro Monthly plan
+            // -------------------------------------------------
+            if (activeInvoice == null && user.IsTrialActive)
             {
-                // No currently active paid invoice
-                return Ok(new { hasPlan = false });
+                var proPlan = await _mainDb.Pricings
+                    .Where(p => p.Name == "Pro" && p.MonthlyPrice != null)
+                    .FirstOrDefaultAsync();
+
+                return Ok(new
+                {
+                    hasPlan = true,
+                    planId = proPlan.Id,
+                    name = proPlan.Name,
+                    tier = proPlan.TierOrder,
+                    dashboardLimit = proPlan.DashboardLimit,
+                    refreshRateMinutes = proPlan.RefreshRateMinutes,
+                    excelExport = proPlan.ExcelExport,
+                    dashboardAddonEnabled = proPlan.DashboardAddonEnabled,
+                    addonDashboards = proPlan.AddonDashboards,
+                    addonPrice = proPlan.AddonPrice,
+                    totalDashboards = proPlan.DashboardLimit,
+                    expiry = user.TrialEndDate
+                });
             }
 
+            // No trial, no active paid plan
+            if (activeInvoice == null)
+                return Ok(new { hasPlan = false });
+
+            // Active paid plan
             var plan = activeInvoice.Plan;
 
-            // compute addon totals (only count addons that are still active)
             var addonTotal = await _mainDb.UserAddons
                 .Where(a => a.AppUserId == user.Id && a.EndDate > now)
                 .SumAsync(a => a.Dashboards);
@@ -224,17 +308,14 @@ namespace minutechart.Controllers
                 dashboardLimit = plan.DashboardLimit,
                 refreshRateMinutes = plan.RefreshRateMinutes,
                 excelExport = plan.ExcelExport,
-
-                // Addon feature
                 dashboardAddonEnabled = plan.DashboardAddonEnabled,
                 addonDashboards = plan.AddonDashboards,
                 addonPrice = plan.AddonPrice,
-
-                // totals
-                totalDashboards = plan.DashboardLimit + (addonTotal),
+                totalDashboards = plan.DashboardLimit + addonTotal,
                 expiry = activeInvoice.PlanEndDate ?? InvoiceEnd(activeInvoice)
             });
         }
+
 
 
         [HttpGet("orders")]
@@ -419,7 +500,7 @@ namespace minutechart.Controllers
                     .Where(inv =>
                     {
                         var start = inv.PlanStartDate ?? inv.PaymentDate;
-                        var end = inv.PlanEndDate ?? inv.PaymentDate.AddDays(30);
+                        var end = inv.PlanEndDate ?? inv.PaymentDate.AddMonths(1);
                         return start <= now && now <= end;
                     })
                     .Select(inv => inv.Plan)
@@ -441,7 +522,7 @@ namespace minutechart.Controllers
                 Dashboards = pricing.AddonDashboards,
                 Price = pricing.AddonPrice,
                 StartDate = now,
-                EndDate = now.AddDays(30)
+                EndDate = now.AddMonths(1)
             };
 
             _mainDb.UserAddons.Add(addon);
@@ -609,7 +690,7 @@ namespace minutechart.Controllers
                 // ⭐ THIS NOW WORKS
                 Dashboards = dbOrder.Pricing.AddonDashboards,
                 StartDate = now,
-                EndDate = now.AddDays(30),
+                EndDate = now.AddMonths(1),
             };
 
             _mainDb.AddonInvoices.Add(invoice);
@@ -627,7 +708,7 @@ namespace minutechart.Controllers
                 Dashboards = dbOrder.Pricing.AddonDashboards,
                 Price = dbOrder.Amount,
                 StartDate = now,
-                EndDate = now.AddDays(30)
+                EndDate = now.AddMonths(1)
             };
 
             _mainDb.UserAddons.Add(userAddon);

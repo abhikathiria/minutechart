@@ -280,14 +280,23 @@ namespace minutechart.Controllers.Api
             var now = DateTimeHelper.GetIndianTime();
             var active = await _timeline.GetActiveAsync(user.Id, now);
 
+            // -------------------------
+            // TRIAL LOGIC
+            // -------------------------
+            if (user.IsTrialActive && user.TrialEndDate.HasValue)
+            {
+                var trialTier = await GetTrialTierAsync();
+
+                if (plan.TierOrder > trialTier)
+                    intent = "upgrade_immediate";
+                else
+                    intent = "queue";
+            }
+
             if (intent == "upgrade_immediate" && active != null && plan.TierOrder > active.Plan.TierOrder)
             {
                 proration = _timeline.CalculateProrationCredit(active, now);
                 amountToCharge = Math.Max(0m, gross - proration);
-            }
-            else
-            {
-                intent = "purchase";
             }
 
             var domain = _config["App:PublicUrl"];
@@ -357,6 +366,11 @@ namespace minutechart.Controllers.Api
                 start = invoice.PlanStartDate,
                 end = invoice.PlanEndDate
             });
+        }
+        private async Task<int> GetTrialTierAsync()
+        {
+            var pro = await _db.Pricings.FirstOrDefaultAsync(p => p.Name.ToLower() == "pro");
+            return pro?.TierOrder ?? 3;
         }
     }
 

@@ -41,6 +41,7 @@ import CommissionPage from "./pages/CommissionPage";
 import AdminCommissionPage from "./pages/AdminCommissionPage";
 import AdminPayoutDetails from "./pages/AdminPayoutDetails";
 import SubscriptionAddonPage from "./pages/SubscriptionAddonPage";
+import ReportRenderer from './pages/ReportRenderer';
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -298,6 +299,7 @@ function AppContent() {
                 <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
                 <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
                 <Route path="/subscription/addon" element={<PrivateRoute><SubscriptionAddonPage /></PrivateRoute>} />
+                <Route path="/report/render" element={<PrivateRoute><ReportRenderer /></PrivateRoute>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

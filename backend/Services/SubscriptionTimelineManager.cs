@@ -83,6 +83,28 @@ namespace minutechart.Services
         {
             var now = DateTimeHelper.GetIndianTime();
 
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user.IsTrialActive && user.TrialEndDate.HasValue && user.TrialEndDate.Value > now)
+            {
+                // When trial is active, queued plans should follow the last queued invoice, not always start at trial end
+                var lastQueuedInvoice = await _db.PlanInvoices
+                    .Where(i =>
+                        i.AppUserId == userId &&
+                        i.Status == "Paid" &&
+                        i.PlanStartDate.HasValue &&
+                        i.PlanStartDate.Value > now)
+                    .OrderByDescending(i => i.PlanEndDate)
+                    .FirstOrDefaultAsync();
+
+                // If nothing queued yet → start at trial end
+                if (lastQueuedInvoice == null)
+                    return user.TrialEndDate.Value;
+
+                // If queued exists → chain after it  
+                return lastQueuedInvoice.PlanEndDate.Value;
+            }
+
             var active = await _db.PlanInvoices
                 .Where(i =>
                     i.AppUserId == userId &&
@@ -122,10 +144,10 @@ namespace minutechart.Services
 
             foreach (var q in queued)
             {
-                var durationDays = (q.BillingCycle ?? "monthly").ToLowerInvariant() == "annual" ? 365 : 30;
-
                 q.PlanStartDate = cursor;
-                q.PlanEndDate = cursor.AddDays(durationDays);
+                q.PlanEndDate = (q.BillingCycle ?? "monthly").ToLowerInvariant() == "monthly"
+                    ? cursor.AddMonths(1)
+                    : cursor.AddYears(1);
 
                 cursor = q.PlanEndDate.Value;
 
