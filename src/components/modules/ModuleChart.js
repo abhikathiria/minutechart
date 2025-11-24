@@ -25,7 +25,7 @@ import { saveAs } from "file-saver";
 import api from "../../api";
 import { motion } from "framer-motion";
 
-const indiaGeoUrl = "/india_state_geo.json"; // unchanged
+const indiaGeoUrl = "/india_state_geo.json";
 
 // --- Visual helpers (purely cosmetic, logic unchanged) ---
 const NEON = {
@@ -347,7 +347,7 @@ export default function ModuleChart({
               <thead className="sticky top-0 z-10 bg-[#0a2345]">
                 <tr>
                   {isApprovalModule && (
-                    <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>
+                    <th className="border px-3 py-2 font-semibold text-white">Approve</th>
                   )}
 
                   {keys.map((k, colIndex) => {
@@ -364,7 +364,7 @@ export default function ModuleChart({
                             ? { maxWidth: "300px", whiteSpace: "normal" }
                             : { whiteSpace: "normal" }
                         }
-                        className="border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none text-left"
+                        className="border px-3 py-2 font-semibold text-white cursor-pointer select-none text-left"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span>{k}</span>
@@ -430,7 +430,7 @@ export default function ModuleChart({
                   <tr>
                     <td
                       colSpan={keys.length + (isApprovalModule ? 1 : 0)}
-                      className="text-center py-4 text-slate-500"
+                      className="text-center py-4 text-black"
                     >
                       No results found.
                     </td>
@@ -439,7 +439,7 @@ export default function ModuleChart({
 
                 {/* ----- FIXED GRAND TOTAL ROW ----- */}
                 {totalRow && (
-                  <tr className="bg-[#0b2140] text-white font-semibold border-t-2 border-[#0a2345]">
+                  <tr className="bg-[#0a2345] text-white font-semibold border-t-2 border-[#0a2345]">
                     {isApprovalModule && (
                       <td className="border px-3 py-2"></td>
                     )}
@@ -834,7 +834,7 @@ export default function ModuleChart({
                   <tr>
                     <td
                       colSpan={keys.length + (isApprovalModule ? 1 : 0)}
-                      className="text-center py-4 text-slate-500"
+                      className="text-center py-4 text-black"
                     >
                       No results found.
                     </td>

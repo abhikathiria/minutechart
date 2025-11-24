@@ -394,6 +394,18 @@ function UserList() {
                                                     </Link>
                                                 )}
 
+                                                {/* {user.accountStatus === "Active" && (
+                                                    <Link
+                                                        to={`/user/${user.id}/sales-modules`}
+                                                        state={{ keepFilters: true }}
+                                                        className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                                        title="Set Sales Queries/Modules (SQ)"
+                                                    >
+                                                        <FaChartPie className="w-4 h-4" />
+                                                    </Link>
+                                                )} */}
+                                                
+
                                                 {/* Purchases Button */}
                                                 {user.accountStatus === "Active" && (
                                                     <button

@@ -42,6 +42,8 @@ import AdminCommissionPage from "./pages/AdminCommissionPage";
 import AdminPayoutDetails from "./pages/AdminPayoutDetails";
 import SubscriptionAddonPage from "./pages/SubscriptionAddonPage";
 import ReportRenderer from './pages/ReportRenderer';
+import SalesAnalyticsPage from "./pages/SalesAnalyticsPage";
+import SalesAnalyticsModules from "./pages/SalesAnalyticsModules";
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -283,6 +285,7 @@ function AppContent() {
                 <Route path="/admin/activitylogs" element={<AdminRoute><ActivityLogs isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRoute>} />
                 <Route path="/admin/my-commission" element={<AdminRoute><AdminCommissionPage /></AdminRoute>} />
                 <Route path="/admin/payout-details" element={<AdminRoute><AdminPayoutDetails /></AdminRoute>} />
+                <Route path="/user/:id/sales-modules" element={<AdminRoute><SalesAnalyticsModules /></AdminRoute>} />
 
                 {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
                 <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRestrictedRoute>} />
@@ -300,6 +303,7 @@ function AppContent() {
                 <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
                 <Route path="/subscription/addon" element={<PrivateRoute><SubscriptionAddonPage /></PrivateRoute>} />
                 <Route path="/report/render" element={<PrivateRoute><ReportRenderer /></PrivateRoute>} />
+                <Route path="/salesanalytics/:id" element={<PrivateRoute><SalesAnalyticsPage /></PrivateRoute>} />   
 
                 {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

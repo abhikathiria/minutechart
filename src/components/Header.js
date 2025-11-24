@@ -233,6 +233,7 @@ function Header({ user, onLogout }) {
                         <DropdownItem to="/complaints" icon={<FaEnvelope className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints</DropdownItem>
                         <DropdownItem to="/suggestions-history" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Suggestions History</DropdownItem>
                         <DropdownItem to="/subscription/addon" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Add Ons</DropdownItem>
+                        {/* <DropdownItem to={`/salesanalytics/${user?.id}`}  icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Sales Dashboard</DropdownItem> */}
                     </>
                 )}
                 <DropdownItem to="/change-password" icon={<FaLock className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Change Password</DropdownItem>

@@ -42,6 +42,7 @@ namespace minutechart.Data
         public DbSet<UserAddon> UserAddons { get; set; }
         public DbSet<AddonInvoice> AddonInvoices { get; set; }
         public DbSet<RazorpayAddonOrder> RazorpayAddonOrders { get; set; }
+        public DbSet<SalesModule> SalesModules { get; set; }
         
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -115,6 +116,11 @@ namespace minutechart.Data
                 .WithMany()
                 .HasForeignKey(i => i.PlanId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<SalesModule>()
+                .HasIndex(x => new { x.AppUserId, x.ComponentId })
+                .IsUnique();
+
         }
     }
 }
