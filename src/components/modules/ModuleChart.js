@@ -187,6 +187,39 @@ export default function ModuleChart({
   const [mapPageIndex, setMapPageIndex] = useState(0);
   const mapPageSize = 5;
 
+  const [columnWidths, setColumnWidths] = useState({});
+
+  const ResizeHandle = ({ columnKey }) => {
+    const startXRef = React.useRef(null);
+    const startWidthRef = React.useRef(null);
+
+    const onMouseDown = (e) => {
+      startXRef.current = e.clientX;
+      startWidthRef.current = columnWidths[columnKey] || 150;
+
+      const onMouseMove = (e) => {
+        const delta = e.clientX - startXRef.current;
+        const newWidth = Math.max(60, startWidthRef.current + delta);
+        setColumnWidths((prev) => ({ ...prev, [columnKey]: newWidth }));
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    };
+
+    return (
+      <div
+        onMouseDown={onMouseDown}
+        className="w-1 h-full cursor-col-resize absolute right-0 top-0"
+        style={{ background: "transparent" }}
+      />
+    );
+  };
 
   // shared small export utility
   const handleExportTable = () => {
@@ -326,7 +359,7 @@ export default function ModuleChart({
       const tablePageRows = nonTotalRows.slice(tableStart, tableStart + tablePageSize);
 
       return (
-        <CardWrapper className={`mt-2 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`}>
+        <CardWrapper className={`mt-10 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`}>
 
           {/* Search Bar */}
           <div className="flex items-center justify-between pb-2">
@@ -337,10 +370,23 @@ export default function ModuleChart({
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setTablePageIndex(0); }}
             />
+            <PaginationControls
+              pageIndex={tablePageIndex}
+              pageSize={tablePageSize}
+              total={totalRows}
+              setPageIndex={setTablePageIndex}
+            />
           </div>
 
           {/* Table */}
-          <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
+          <div
+            className="overflow-x-auto overflow-y-auto"
+            style={{
+              height: "350px",
+              minHeight: "350px",
+              maxHeight: "350px",
+            }}
+          >
             <table className="border-collapse border-2 border-[#0a2345] w-full min-w-max text-sm">
 
               {/* Header */}
@@ -359,19 +405,23 @@ export default function ModuleChart({
                       <th
                         key={k}
                         onClick={() => handleSort(k)}
-                        style={
-                          isTextColumn
-                            ? { maxWidth: "300px", whiteSpace: "normal" }
-                            : { whiteSpace: "normal" }
-                        }
-                        className="border px-3 py-2 font-semibold text-white cursor-pointer select-none text-left"
+                        className="border px-3 py-2 font-semibold text-white cursor-pointer select-none text-left relative"
+                        style={{
+                          width: columnWidths[k] || 150,    // fixed starting width
+                          maxWidth: columnWidths[k] || 150,
+                          minWidth: columnWidths[k] || 150,
+                          position: "relative",
+                        }}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span>{k}</span>
                           <span className="ml-2 text-xs">
-                            {sortColumn === k ? activeDirectionIcon : defaultIcon}
+                            {sortColumn === k ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
                           </span>
                         </div>
+
+                        {/* Resize handle */}
+                        <ResizeHandle columnKey={k} />
                       </th>
                     );
                   })}
@@ -410,14 +460,18 @@ export default function ModuleChart({
                         return (
                           <td
                             key={j}
-                            style={
-                              j === 0
-                                ? { maxWidth: "300px", whiteSpace: "normal" }
-                                : {}
-                            }
-                            className={`border px-3 py-2 ${isNumeric ? "text-right" : "text-left"} break-words`}
+                            className={`border px-3 py-2 ${isNumeric ? "text-right" : "text-left"}`}
+                            style={{
+                              width: columnWidths[k] || 150,
+                              minWidth: columnWidths[k] || 150,
+                              maxWidth: columnWidths[k] || 150,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                            title={String(cellValue)}
                           >
-                            <div className="whitespace-normal break-words">{cellValue}</div>
+                            {cellValue}
                           </td>
                         );
                       })}
@@ -464,14 +518,14 @@ export default function ModuleChart({
           </div>
 
           {/* Pagination */}
-          <div className="mt-1">
+          {/* <div className="mt-1">
             <PaginationControls
               pageIndex={tablePageIndex}
               pageSize={tablePageSize}
               total={totalRows}
               setPageIndex={setTablePageIndex}
             />
-          </div>
+          </div> */}
 
         </CardWrapper>
       );
