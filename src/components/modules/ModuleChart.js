@@ -414,7 +414,17 @@ export default function ModuleChart({
                         }}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span>{k}</span>
+                          <span
+                            className="truncate"
+                            style={{
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              minWidth: 0,
+                            }}
+                          >
+                            {k}
+                          </span>
                           <span className="ml-2 text-xs">
                             {sortColumn === k ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
                           </span>
@@ -784,7 +794,14 @@ export default function ModuleChart({
           </div>
 
           {/* Table */}
-          <div className={`overflow-x-auto ${limitHeight ? "max-h-[420px] overflow-y-auto" : ""}`}>
+          <div
+            className="overflow-x-auto overflow-y-auto"
+            style={{
+              height: "350px",
+              minHeight: "350px",
+              maxHeight: "350px",
+            }}
+          >
             <table className="border-collapse border w-full min-w-max text-sm bg-transparent">
               <thead className="sticky top-0 z-10 bg-[#0a2345]">
                 <tr>
@@ -803,20 +820,37 @@ export default function ModuleChart({
                       <th
                         key={k}
                         onClick={() => handleSort(k)}
-                        style={
-                          isTextColumn
-                            ? { maxWidth: "300px", whiteSpace: "normal" }
-                            : { whiteSpace: "normal" }
-                        }
-                        className={`border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none ${isNumeric ? "text-right" : "text-left"
-                          }`}
+                        className="border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none text-left relative"
+                        style={{
+                          width: columnWidths[k] || 150,
+                          minWidth: columnWidths[k] || 150,
+                          maxWidth: columnWidths[k] || 150,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          position: "relative",
+                        }}
+                        title={k}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="whitespace-normal break-words">{k}</span>
+                        <div className="flex items-center justify-between gap-2 min-w-0">
+                          <span
+                            className="truncate"
+                            style={{
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              minWidth: 0,
+                            }}
+                          >
+                            {k}
+                          </span>
+
                           <span className="ml-2 text-xs">
-                            {sortColumn === k ? activeDirectionIcon : defaultIcon}
+                            {sortColumn === k ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
                           </span>
                         </div>
+
+                        <ResizeHandle columnKey={k} />
                       </th>
                     );
                   })}
@@ -851,12 +885,16 @@ export default function ModuleChart({
                           return (
                             <td
                               key={j}
-                              style={
-                                j === 0
-                                  ? { maxWidth: "300px", whiteSpace: "normal" }
-                                  : {}
-                              }
-                              className="border px-3 py-2 whitespace-normal break-words"
+                              className="border px-3 py-2 text-left"
+                              style={{
+                                width: columnWidths[k] || 150,
+                                minWidth: columnWidths[k] || 150,
+                                maxWidth: columnWidths[k] || 150,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                              title={String(rawValue)}
                             >
                               {rawValue}
                             </td>
@@ -873,8 +911,15 @@ export default function ModuleChart({
                             key={j}
                             className="border px-3 py-2 font-bold text-black text-right"
                             style={{
-                              backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)`
+                              backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)`,
+                              width: columnWidths[k] || 150,
+                              minWidth: columnWidths[k] || 150,
+                              maxWidth: columnWidths[k] || 150,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
                             }}
+                            title={numericValue.toLocaleString()}
                           >
                             {numericValue.toLocaleString()}
                           </td>
