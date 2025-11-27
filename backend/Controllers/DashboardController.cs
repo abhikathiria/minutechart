@@ -77,23 +77,23 @@ namespace minutechart.Controllers
             return await _factory.CreateAsync(profile);
         }
 
-        [HttpGet("refresh-time")]
-        public async Task<IActionResult> GetRefreshTime()
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-                return Unauthorized();
+        // [HttpGet("refresh-time")]
+        // public async Task<IActionResult> GetRefreshTime()
+        // {
+        //     var user = await _userManager.GetUserAsync(User);
+        //     if (user == null)
+        //         return Unauthorized();
 
-            var profile = await _mainDb.UserProfiles
-                .Where(p => p.AppUserId == user.Id)
-                .Select(p => new { p.RefreshTime })
-                .FirstOrDefaultAsync();
+        //     var profile = await _mainDb.UserProfiles
+        //         .Where(p => p.AppUserId == user.Id)
+        //         .Select(p => new { p.RefreshTime })
+        //         .FirstOrDefaultAsync();
 
-            if (profile == null)
-                return NotFound("User profile not found.");
+        //     if (profile == null)
+        //         return NotFound("User profile not found.");
 
-            return Ok(profile.RefreshTime);
-        }
+        //     return Ok(profile.RefreshTime);
+        // }
 
         [HttpGet("plan-details")]
         [AllowAnonymous]

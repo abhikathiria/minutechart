@@ -857,7 +857,7 @@ export default function UserModules() {
                                         onChange={(e) => setFormData({ ...formData, isApprovalModule: e.target.checked })}
                                         className="w-4 h-4 accent-indigo-600"
                                     />
-                                    <label className="text-sm font-medium text-gray-700">Enable Approval Module</label>
+                                    <label className="text-sm font-medium text-gray-700">Enable Approval Module (Only for tables and heatmaps)</label>
                                 </div>
                                 {formData.isApprovalModule && (
                                     <div className="space-y-2 mt-2 p-2 border border-yellow-300 bg-yellow-50 rounded">

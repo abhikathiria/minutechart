@@ -226,8 +226,8 @@ export default function ComplaintsManagement() {
                         </h2>
 
                         {loading ? (
-                            <div className="p-10 text-center text-gray-500 flex items-center justify-center gap-2">
-                                <Loader2 className="animate-spin w-5 h-5"/> Loading tickets...
+                            <div className="p-10 text-center text-lg text-black flex items-center justify-center gap-2">
+                                <Loader2 className="animate-spin w-6 h-6"/> Loading Tickets...
                             </div>
                         ) : paginated.length === 0 ? (
                              <p className="text-lg text-gray-500 italic p-6 text-center border-2 border-dashed rounded-xl">

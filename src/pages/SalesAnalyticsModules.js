@@ -55,6 +55,7 @@ export default function SalesAnalyticsModules() {
   const [results, setResults] = useState(null);
   const [message, setMessage] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [moduleTitle, setModuleTitle] = useState("");
 
   useEffect(() => {
     loadList();
@@ -88,6 +89,7 @@ export default function SalesAnalyticsModules() {
     // when selected changes, update editor value from config (or empty)
     if (!selected) return;
     const cfg = configMap[selected] ?? null;
+    setModuleTitle(cfg?.moduleTitle ?? "");
     setSqlText(cfg?.sqlQuery ?? "");
     setResults(null);
     setMessage(null);
@@ -139,7 +141,7 @@ export default function SalesAnalyticsModules() {
     setMessage(null);
 
     try {
-      const payload = { componentId: selected, sqlQuery: sqlText };
+      const payload = { componentId: selected, moduleTitle: moduleTitle, sqlQuery: sqlText };
       const res = await api.post(`/salesmodules/save/${encodeURIComponent(userId)}`, payload);
       if (res.data?.success) {
         // refresh list to pick up updated id/lastUpdated
@@ -346,6 +348,23 @@ export default function SalesAnalyticsModules() {
               <div style={{ display: "flex", gap: 12 }}>
                 {/* SQL editor */}
                 <div style={{ flex: 1 }}>
+                  <div style={{ marginBottom: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Module Title (shown in dashboard)"
+                      value={moduleTitle}
+                      onChange={(e) => setModuleTitle(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: 8,
+                        borderRadius: 6,
+                        border: "1px solid #e5e7eb",
+                        fontSize: 13,
+                        marginBottom: 8
+                      }}
+                    />
+                  </div>
+
                   <div style={{ fontSize: 13, color: "#444", marginBottom: 6 }}>SQL Editor</div>
                   <textarea
                     value={sqlText}

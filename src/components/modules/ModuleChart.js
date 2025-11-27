@@ -15,6 +15,7 @@ import {
   Area,
   LineChart,
   Line,
+  Label
 } from "recharts";
 import { FaCrown, FaFileExcel } from "react-icons/fa";
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
@@ -101,55 +102,6 @@ function PaginationControls({ pageIndex, pageSize, total, setPageIndex }) {
         </button>
 
       </div>
-    </div>
-  );
-}
-
-
-/**
- * MiniTable
- * - rows: array of {label, value, pct?}
- * - pageSize: number
- * - colorBars: optional colors array aligned with rows
- */
-function MiniTable({ rows = [], pageSize = 5, colors = [], title }) {
-  const [pageIndex, setPageIndex] = useState(0);
-  const total = rows.length;
-  const start = pageIndex * pageSize;
-  const pageRows = rows.slice(start, start + pageSize);
-
-  // reset page when rows change
-  React.useEffect(() => {
-    setPageIndex(0);
-  }, [rows.length]);
-
-  return (
-    <div>
-      {title && <div className="text-xs text-slate-300 mb-1 font-semibold">{title}</div>}
-      <div className="bg-[#021016] border border-[#0b1620] rounded text-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <tbody>
-            {pageRows.map((r, i) => (
-              <tr key={i} className="odd:bg-[#041018] hover:bg-[#022a4a]/20">
-                <td className="px-3 py-2 truncate" title={r.label} style={{ maxWidth: 220 }}>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm" style={{ background: colors[(start + i) % colors.length] || "transparent" }} />
-                    <span className="truncate">{r.label}</span>
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right font-semibold">{typeof r.value === "number" ? r.value.toLocaleString() : r.value}</td>
-                <td className="px-3 py-2 text-right text-slate-400">{r.pct != null ? `${(r.pct * 100).toFixed(1)}%` : ""}</td>
-              </tr>
-            ))}
-            {pageRows.length === 0 && (
-              <tr>
-                <td colSpan={3} className="text-center p-4 text-slate-500">No items</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <PaginationControls pageIndex={pageIndex} pageSize={pageSize} total={total} setPageIndex={setPageIndex} />
     </div>
   );
 }
@@ -293,8 +245,25 @@ export default function ModuleChart({
 
   const keys = Object.keys(data[0]);
   const COLORS = [
-    "#00F0FF", "#4F46E5", "#A855F7", "#9D4EDD", "#EA5F89", "#2B0B3F", "#6366F1",
-    "#FBCF00", "#D3974E", "#C084FC", "#E9D5FF",
+    "#1F5685", 
+    "#348AC6",
+    "#42ACF1", 
+    "#49BEE7", 
+    "#50CFD8",  
+    "#26679B", 
+    "#3B9BDC", 
+    "#2D79B0", 
+    "#0000FF",
+    "#A855F7",
+    "#00BFFF",
+    "#14B8A6",
+    "#4F46E5",
+    "#6EE7B7",
+    "#D946EF",
+    "#8B5CF6",
+    "#C084FC",
+    "#00FFFF",
+    "#FBCF00",
   ];
 
   // --- HANDLER FUNCTIONS (non-hook) ---
@@ -328,12 +297,8 @@ export default function ModuleChart({
     }));
   };
 
-  // --- RENDER SWITCH ---
   switch (type) {
     case "table": {
-      // -------------------------------
-      // TOTAL ROW DETECTION (LAST ROW ONLY)
-      // -------------------------------
       let totalRow = null;
 
       if (sortedAndFilteredData.length > 0) {
@@ -348,12 +313,10 @@ export default function ModuleChart({
         }
       }
 
-      // Remove total row so it is NOT paginated
       const nonTotalRows = totalRow
         ? sortedAndFilteredData.slice(0, sortedAndFilteredData.length - 1)
         : sortedAndFilteredData;
 
-      // Pagination
       const totalRows = nonTotalRows.length;
       const tableStart = tablePageIndex * tablePageSize;
       const tablePageRows = nonTotalRows.slice(tableStart, tableStart + tablePageSize);
@@ -362,20 +325,23 @@ export default function ModuleChart({
         <CardWrapper className={`mt-10 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`}>
 
           {/* Search Bar */}
-          <div className="flex items-center justify-between pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2">
             <input
               type="text"
               placeholder="Search..."
-              className="px-3 py-2 w-60 bg-[#0a2345] text-white placeholder-white"
+              className="px-3 py-2 w-full sm:w-60 bg-[#0a2345] text-white placeholder-white"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setTablePageIndex(0); }}
             />
-            <PaginationControls
-              pageIndex={tablePageIndex}
-              pageSize={tablePageSize}
-              total={totalRows}
-              setPageIndex={setTablePageIndex}
-            />
+            {/* Pagination */}
+            <div className="w-full sm:w-auto">
+              <PaginationControls
+                pageIndex={tablePageIndex}
+                pageSize={tablePageSize}
+                total={totalRows}
+                setPageIndex={setTablePageIndex}
+              />
+            </div>
           </div>
 
           {/* Table */}
@@ -526,17 +492,6 @@ export default function ModuleChart({
               </tbody>
             </table>
           </div>
-
-          {/* Pagination */}
-          {/* <div className="mt-1">
-            <PaginationControls
-              pageIndex={tablePageIndex}
-              pageSize={tablePageSize}
-              total={totalRows}
-              setPageIndex={setTablePageIndex}
-            />
-          </div> */}
-
         </CardWrapper>
       );
     }
@@ -640,10 +595,6 @@ export default function ModuleChart({
                 </PieChart>
               </ResponsiveContainer>
             </div>
-
-            {/* <div style={{ width: 300 }}>
-              <MiniTable rows={miniRows} pageSize={5} colors={COLORS} title={`${xCol}`} />
-            </div> */}
           </div>
 
           {renderLegend()}
@@ -654,40 +605,61 @@ export default function ModuleChart({
     case "bar": {
       const keys0 = keys[0];
       const keys1 = keys[1];
-      const miniRows = makeMiniRows(data.map((d) => ({ [keys0]: d[keys0], [keys1]: d[keys1] })), keys0, keys1, true);
 
+      // Professional, dark-themed Tooltip
       const CustomBarTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-          const p = payload[0].payload;
-          return (
-            <div className="bg-white px-3 py-2 rounded shadow border text-sm">
-              <div className="font-semibold text-gray-800">{label}</div>
-              <div className="text-gray-600">{keys1}: {p[keys1].toLocaleString()}</div>
+        if (!active || !payload || payload.length === 0) return null;
+
+        // Check if the payload dataKey matches keys1 and use the corresponding color
+        const item = payload.find(p => p.dataKey === keys1);
+        const val = item ? item.value : payload[0].value;
+        const color = item ? item.stroke || item.fill : "#A855F7"; // Default to primary purple
+
+        return (
+          <div className="bg-[#0a2345] border border-[#0000FF] rounded-lg shadow-xl p-4 text-sm backdrop-blur-sm bg-opacity-90">
+            <div className="text-white font-bold text-base border-b border-white/20 pb-1 mb-1">{label}</div>
+            <div className="text-slate-300">
+              <span className="font-medium">{keys1}:</span>
+              <span className="ml-2 font-extrabold" style={{ color: color }}>{val.toLocaleString()}</span>
             </div>
-          );
-        }
-        return null;
+          </div>
+        );
       };
 
-
       return (
-        <CardWrapper className="mt-4 h-80 w-full" title={`${keys1} vs ${keys0}`}>
-          <div className="flex gap-4 h-full">
-            <div className="flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
-                  <XAxis dataKey={keys0} stroke="#9fb7c9" />
-                  <YAxis stroke="#9fb7c9" />
-                  <ReTooltip content={<CustomBarTooltip />} />
-                  <Bar dataKey={keys1} fill={NEON.primary} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        <CardWrapper className="mt-4 w-full" title={`${keys1} over ${keys0}`}>
+          <div className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="5 5" stroke="#0a2345" strokeOpacity={0.8} />
+                <XAxis dataKey={keys0} stroke="#A855F7" tickLine={false} axisLine={{ stroke: "#A855F7" }}>
+                  <Label value={keys0} offset={-5} position="insideBottom" fill="#0a2345" className="font-semibold text-sm" />
+                  <div className="text-xs text-black" />
+                </XAxis>
 
-            {/* <div style={{ width: 320 }}>
-              <MiniTable rows={miniRows} pageSize={5} colors={[NEON.primary, NEON.accent, ...COLORS]} title="Top items" />
-            </div> */}
+                <YAxis stroke="#A855F7" tickLine={false} axisLine={{ stroke: "#A855F7" }} fontSize={12}>
+                  <Label
+                    value={keys1}
+                    angle={-90}
+                    position="insideLeft"
+                    fill="#0a2345"
+                    style={{ textAnchor: "middle", fontWeight: "bold" }}
+                    className="text-sm"
+                  />
+                  <div className="text-xs text-black" />
+                </YAxis>
+
+                {/* Custom Tooltip */}
+                <ReTooltip content={<CustomBarTooltip />} cursor={{ fill: '#0000FF', fillOpacity: 0.1 }} />
+
+                {/* Bar with Primary Purple and a slight shadow/glow effect */}
+                <Bar
+                  dataKey={keys1}
+                  fill="#A855F7"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </CardWrapper>
       );
@@ -696,70 +668,170 @@ export default function ModuleChart({
     case "area": {
       const keys0 = keys[0];
       const keys1 = keys[1];
-      const miniRows = makeMiniRows(data.map((d) => ({ [keys0]: d[keys0], [keys1]: d[keys1] })), keys0, keys1, true);
+
+      const CustomAreaTooltip = ({ active, payload, label }) => {
+        if (!active || !payload?.length) return null;
+        const val = payload[0].value;
+        const color = payload[0].stroke || "#A855F7";
+
+        return (
+          <div className="bg-[#0a2345] border border-[#0000FF] rounded-lg shadow-xl p-4 text-sm backdrop-blur-sm bg-opacity-90">
+            <div className="text-white font-bold text-base border-b border-white/20 pb-1 mb-1">{label}</div>
+            <div className="text-slate-300">
+              <span className="font-medium">{keys1}:</span>
+              <span className="ml-2 font-extrabold" style={{ color: color }}>{val.toLocaleString()}</span>
+            </div>
+          </div>
+        );
+      };
 
       return (
-        <CardWrapper className="mt-4 h-80 w-full" title={`${keys1} over ${keys0}`}>
-          <div className="flex gap-4 h-full">
-            <div className="flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
-                  <defs>
-                    <linearGradient id="gradArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#9D4EDD" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="#9D4EDD" stopOpacity={0.06} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
-                  <XAxis dataKey={keys0} stroke="#9fb7c9" />
-                  <YAxis stroke="#9fb7c9" />
-                  <ReTooltip />
-                  <Area type="monotone" dataKey={keys1} stroke="#9D4EDD" fill="url(#gradArea)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            {/* <div style={{ width: 320 }}>
-              <MiniTable rows={miniRows} pageSize={5} colors={[NEON.accent, ...COLORS]} title="Top items" />
-            </div> */}
+        <CardWrapper className="mt-4 w-full" title={`${keys1} over ${keys0}`}>
+          <div className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                <defs>
+                  {/* Primary Purple Gradient for Fill */}
+                  <linearGradient id="gradAreaUnique" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#A855F7" stopOpacity={0.8} /> {/* Solid Purple top */}
+                    <stop offset="100%" stopColor="#A855F7" stopOpacity={0.05} /> {/* Near-transparent bottom */}
+                  </linearGradient>
+                </defs>
+
+                {/* Dark Cartesian Grid, less intrusive */}
+                <CartesianGrid strokeDasharray="5 5" stroke="#0a2345" strokeOpacity={0.8} />
+
+                {/* X-Axis: Dark background, light axis text */}
+                <XAxis dataKey={keys0} stroke="#A855F7" tickLine={false} axisLine={{ stroke: "#A855F7" }}>
+                  <Label value={keys0} offset={-5} position="insideBottom" fill="#0a2345" className="font-semibold text-sm" />
+                  <div className="text-xs text-black" />
+                </XAxis>
+
+                {/* Y-Axis: Dark background, light axis text, minimal tick lines */}
+                <YAxis stroke="#A855F7" tickLine={false} axisLine={{ stroke: "#A855F7" }} fontSize={12}>
+                  <Label
+                    value={keys1}
+                    angle={-90}
+                    position="insideLeft"
+                    fill="#0a2345"
+                    style={{ textAnchor: "middle", fontWeight: "bold" }}
+                    className="text-sm"
+                  />
+                  <div className="text-xs text-black" />
+                </YAxis>
+
+                {/* Custom Tooltip */}
+                <ReTooltip content={<CustomAreaTooltip />} cursor={{ stroke: '#0000FF', strokeDasharray: '3 3' }} />
+
+                {/* Area: Primary Purple stroke, Gradient fill */}
+                <Area
+                  type="monotone"
+                  dataKey={keys1}
+                  stroke="#A855F7"
+                  strokeWidth={3}
+                  fill="url(#gradAreaUnique)" // Use the new gradient ID
+                  activeDot={{ r: 6, stroke: '#0000FF', strokeWidth: 2, fill: '#A855F7' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </CardWrapper>
       );
     }
+
 
     case "line": {
       const keys0 = keys[0];
       const keys1 = keys[1];
-      const miniRows = makeMiniRows(data.map((d) => ({ [keys0]: d[keys0], [keys1]: d[keys1] })), keys0, keys1, true);
+
+      const CustomLineTooltip = ({ active, payload, label }) => {
+        if (!active || !payload?.length) return null;
+
+        const val = payload[0].value;
+        const color = payload[0].stroke || "#A855F7"; // Use the line stroke color
+
+        return (
+          <div className="bg-[#0a2345] border border-[#0000FF] rounded-lg shadow-xl p-4 text-sm backdrop-blur-sm bg-opacity-90">
+            <div className="text-white font-bold text-base border-b border-white/20 pb-1 mb-1">{label}</div>
+            <div className="text-slate-300">
+              <span className="font-medium">{keys1}:</span>
+              <span className="ml-2 font-extrabold" style={{ color: color }}>{val.toLocaleString()}</span>
+            </div>
+          </div>
+        );
+      };
 
       return (
-        <CardWrapper className="mt-4 h-80 w-full" title={`${keys1} trend`}>
-          <div className="flex gap-4 h-full">
-            <div className="flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#07314a" />
-                  <XAxis dataKey={keys0} stroke="#9fb7c9" />
-                  <YAxis stroke="#9fb7c9" />
-                  <ReTooltip />
-                  <Line type="monotone" dataKey={keys1} stroke="#9D4EDD" strokeWidth={2} dot />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+        <CardWrapper className="mt-4 w-full" title={`${keys1} trend`}>
+          <div className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
 
-            {/* <div style={{ width: 320 }}>
-              <MiniTable rows={miniRows} pageSize={5} colors={[NEON.accent, ...COLORS]} title="Top items" />
-            </div> */}
+                {/* Dark Cartesian Grid, less intrusive */}
+                <CartesianGrid strokeDasharray="5 5" stroke="#0a2345" strokeOpacity={0.8} />
+
+                {/* X-Axis: Dark background, light axis text */}
+                <XAxis dataKey={keys0} stroke="#A855F7" tickLine={false} axisLine={{ stroke: "#A855F7" }}>
+                  <Label value={keys0} offset={-5} position="insideBottom" fill="#0a2345" className="font-semibold text-sm" />
+                  <div className="text-xs text-black" />
+                </XAxis>
+
+                {/* Y-Axis: Dark background, light axis text, minimal tick lines */}
+                <YAxis stroke="#A855F7" tickLine={false} axisLine={{ stroke: "#A855F7" }} fontSize={12}>
+                  <Label
+                    value={keys1}
+                    angle={-90}
+                    position="insideLeft"
+                    fill="#0a2345"
+                    style={{ textAnchor: "middle", fontWeight: "bold" }}
+                    className="text-sm"
+                  />
+                  <div className="text-xs text-black" />
+                </YAxis>
+
+                {/* Custom Tooltip */}
+                <ReTooltip content={<CustomLineTooltip />} cursor={{ stroke: '#0000FF', strokeDasharray: '3 3' }} />
+
+                {/* Line: Primary Purple line, Teal dots */}
+                <Line
+                  type="monotone"
+                  dataKey={keys1}
+                  stroke="#A855F7" // Primary Purple
+                  strokeWidth={3}
+                  dot={{ r: 5, stroke: "#0000FF", strokeWidth: 2, fill: '#A855F7' }} // Blue outline, Purple fill
+                  activeDot={{ r: 8, stroke: "#0000FF", strokeWidth: 3, fill: '#A855F7' }} // Large active dot for focus
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </CardWrapper>
       );
     }
 
+
     case "kpi": {
       const totalValue = data.reduce((sum, item) => sum + Number(item[keys[0]] || 0), 0);
+      const NEON = { primary: "#FFFFFF" };
+
       return (
-        <motion.div variants={containerFade} initial="hidden" animate="show" className="mt-4 p-6 bg-gradient-to-r from-[#00F0FF]/20 via-[#9D4EDD]/14 to-[#ffffff]/4 text-white rounded-lg text-center border border-[#0f1720] shadow-[0_10px_40px_rgba(157,78,221,0.06)]">
-          <p className="text-xs tracking-widest text-slate-300">KEY METRIC</p>
-          <p className="text-4xl font-extrabold mt-2" style={{ color: NEON.primary }}>{totalValue.toLocaleString()}</p>
+        <motion.div
+          variants={containerFade}
+          initial="hidden"
+          animate="show"
+          // Adjusted background/border for a high-contrast look that fits the new color scheme
+          className="mt-4 p-8 w-full flex-grow flex flex-col justify-center items-center 
+                 bg-[#0a2345]/90 text-white rounded-xl text-center 
+                 border-2 border-[#A855F7]/50 shadow-[0_0_25px_rgba(168,85,247,0.3)] transition-all duration-300 hover:shadow-[0_0_40px_rgba(168,85,247,0.5)]"
+        >
+          {/* <p className="text-sm tracking-widest text-slate-300 uppercase font-semibold">
+            {keys[0].toUpperCase()}
+          </p> */}
+          <p
+            className="text-5xl lg:text-7xl font-extrabold mt-3 animate-pulse"
+            style={{ color: NEON.primary, textShadow: '0 0 10px rgba(102, 237, 232, 1)' }} // Subtle glow on the number
+          >
+            {totalValue.toLocaleString()}
+          </p>
         </motion.div>
       );
     }
@@ -767,30 +839,57 @@ export default function ModuleChart({
     case "heatmap": {
       const finalHeatmapData = sortedAndFilteredHeatmapData;
       const hasData = finalHeatmapData.length > 0;
-      const numericKeys = hasData ? keys.filter((k) => !isNaN(Number(data[0][k]))) : [];
-      const allValues = finalHeatmapData.flatMap((row) => numericKeys.map((k) => Number(row[k])));
-      const minValue = Math.min(...allValues.filter((v) => isFinite(v)));
-      const maxValue = Math.max(...allValues.filter((v) => isFinite(v)));
+
+      // Identify numeric columns
+      const numericKeys = hasData
+        ? keys.filter((k) => !isNaN(Number(data[0][k])))
+        : [];
+
+      // Heat only the LAST numeric column
+      const heatColumn =
+        numericKeys.length > 0 ? numericKeys[numericKeys.length - 1] : null;
+
+      // Build min/max ONLY from this one column
+      const allValues = heatColumn
+        ? finalHeatmapData
+          .map((row) => Number(row[heatColumn]))
+          .filter((v) => isFinite(v))
+        : [];
+
+      const minValue = Math.min(...allValues);
+      const maxValue = Math.max(...allValues);
 
       const totalRows = finalHeatmapData.length;
       const heatmapStart = heatmapPageIndex * heatmapPageSize;
-      const heatmapPageRows = finalHeatmapData.slice(heatmapStart, heatmapStart + heatmapPageSize);
+      const heatmapPageRows = finalHeatmapData.slice(
+        heatmapStart,
+        heatmapStart + heatmapPageSize
+      );
 
       return (
-        <CardWrapper className="mt-4 border rounded-lg overflow-hidden" title="Heatmap Preview">
+        <CardWrapper className={`mt-10 ${limitHeight ? "max-h-[520px] overflow-y-auto" : ""}`}>
 
           {/* Search Bar */}
-          <div className="flex items-center justify-between p-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2">
             <input
               type="text"
               placeholder="Search..."
-              className="border px-3 py-2 rounded w-60 bg-white text-black placeholder-black"
+              className="px-3 py-2 w-full sm:w-60 bg-[#0a2345] text-white placeholder-white"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setHeatmapPageIndex(0);
               }}
             />
+            {/* Pagination */}
+            <div className="w-full sm:w-auto">
+              <PaginationControls
+                pageIndex={heatmapPageIndex}
+                pageSize={heatmapPageSize}
+                total={totalRows}
+                setPageIndex={setHeatmapPageIndex}
+              />
+            </div>
           </div>
 
           {/* Table */}
@@ -802,59 +901,54 @@ export default function ModuleChart({
               maxHeight: "350px",
             }}
           >
-            <table className="border-collapse border w-full min-w-max text-sm bg-transparent">
+            <table className="border-collapse border-2 border-[#0a2345] w-full min-w-max text-sm">
+              {/* Header */}
               <thead className="sticky top-0 z-10 bg-[#0a2345]">
                 <tr>
                   {isApprovalModule && (
-                    <th className="border px-3 py-2 font-semibold text-slate-200">Approve</th>
+                    <th className="border px-3 py-2 font-semibold text-white">
+                      Approve
+                    </th>
                   )}
 
-                  {keys.map((k, colIndex) => {
-                    const isTextColumn = colIndex === 0; // Same logic as table
-                    const isNumeric = hasData && !isNaN(Number(data[0][k]));
+                  {keys.map((k, colIndex) => (
+                    <th
+                      key={k}
+                      onClick={() => handleSort(k)}
+                      className="border px-3 py-2 font-semibold text-white cursor-pointer select-none text-left relative"
+                      style={{
+                        width: columnWidths[k] || 150,
+                        minWidth: columnWidths[k] || 150,
+                        maxWidth: columnWidths[k] || 150,
+                        position: "relative",
+                      }}
+                      title={k}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className="truncate"
+                          style={{
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            minWidth: 0,
+                          }}
+                        >
+                          {k}
+                        </span>
 
-                    const activeDirectionIcon = sortDirection === "asc" ? "▲" : "▼";
-                    const defaultIcon = "↕";
+                        <span className="ml-2 text-xs">
+                          {sortColumn === k
+                            ? sortDirection === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "↕"}
+                        </span>
+                      </div>
 
-                    return (
-                      <th
-                        key={k}
-                        onClick={() => handleSort(k)}
-                        className="border px-3 py-2 font-semibold text-slate-200 cursor-pointer select-none text-left relative"
-                        style={{
-                          width: columnWidths[k] || 150,
-                          minWidth: columnWidths[k] || 150,
-                          maxWidth: columnWidths[k] || 150,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          position: "relative",
-                        }}
-                        title={k}
-                      >
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <span
-                            className="truncate"
-                            style={{
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              minWidth: 0,
-                            }}
-                          >
-                            {k}
-                          </span>
-
-                          <span className="ml-2 text-xs">
-                            {sortColumn === k ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
-                          </span>
-                        </div>
-
-                        <ResizeHandle columnKey={k} />
-                      </th>
-                    );
-                  })}
-
+                      <ResizeHandle columnKey={k} />
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
@@ -862,16 +956,20 @@ export default function ModuleChart({
                 {heatmapPageRows.map((row, i) => {
                   const rowId = row[approvalIdColumn];
                   const isRowSelected = selectedApprovalIds.includes(rowId);
+                  const isEven = i % 2 === 0;
+                  const baseRowBg = isEven
+                    ? "bg-white text-black"
+                    : "bg-[#1a3a60] text-white";
 
                   return (
-                    <tr key={rowId || i} className="hover:bg-[#3b2f8a]/40">
+                    <tr key={rowId || i} className={`${baseRowBg} hover:bg-[#3b2f8a]/80`}>
                       {isApprovalModule && (
                         <td className="border px-3 py-2 text-center">
                           <input
                             type="checkbox"
                             checked={isRowSelected}
                             onChange={() => handleApproval(rowId)}
-                            className="w-4 h-4 accent-[#9D4EDD]"
+                            className="w-4 h-4 accent-[#00F0FF]"
                           />
                         </td>
                       )}
@@ -880,7 +978,7 @@ export default function ModuleChart({
                         const rawValue = row[k];
                         const numericValue = Number(rawValue);
 
-                        // Non-numeric cells
+                        // NOT numeric → normal cell
                         if (isNaN(numericValue) || !isFinite(numericValue)) {
                           return (
                             <td
@@ -901,17 +999,41 @@ export default function ModuleChart({
                           );
                         }
 
-                        // Numeric cells → heatmap colored
-                        const range = maxValue - minValue;
-                        const intensity = range > 0 ? (numericValue - minValue) / range : 0.5;
-                        const colorValue = Math.floor(255 - intensity * 160);
+                        // THIS IS THE HEATMAP COLUMN
+                        if (k === heatColumn) {
+                          const range = maxValue - minValue || 1;
+                          const intensity =
+                            (numericValue - minValue) / range;
+                          const colorValue = Math.floor(
+                            255 - intensity * 160
+                          );
 
+                          return (
+                            <td
+                              key={j}
+                              className="border px-3 py-2 font-bold text-black text-right"
+                              style={{
+                                backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)`,
+                                width: columnWidths[k] || 150,
+                                minWidth: columnWidths[k] || 150,
+                                maxWidth: columnWidths[k] || 150,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                              title={numericValue.toLocaleString()}
+                            >
+                              {numericValue.toLocaleString()}
+                            </td>
+                          );
+                        }
+
+                        // Other numeric columns → normal numeric cell
                         return (
                           <td
                             key={j}
-                            className="border px-3 py-2 font-bold text-black text-right"
+                            className="border px-3 py-2 text-right"
                             style={{
-                              backgroundColor: `rgb(${colorValue}, ${colorValue}, 255)`,
                               width: columnWidths[k] || 150,
                               minWidth: columnWidths[k] || 150,
                               maxWidth: columnWidths[k] || 150,
@@ -941,15 +1063,6 @@ export default function ModuleChart({
                 )}
               </tbody>
             </table>
-          </div>
-
-          <div className="mt-2">
-            <PaginationControls
-              pageIndex={heatmapPageIndex}
-              pageSize={heatmapPageSize}
-              total={totalRows}
-              setPageIndex={setHeatmapPageIndex}
-            />
           </div>
         </CardWrapper>
       );
@@ -993,10 +1106,6 @@ export default function ModuleChart({
                 </Geographies>
               </ComposableMap>
             </div>
-
-            {/* <div style={{ width: 320 }}>
-              <MiniTable rows={regionList} pageSize={5} colors={[NEON.primary, NEON.accent, ...COLORS]} title="Top regions" />
-            </div> */}
           </div>
         </CardWrapper>
       );

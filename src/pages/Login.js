@@ -13,13 +13,7 @@ import {
     Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
-
-/**
- * Dark / Premium Login Page
- * - Preserves all logic (api calls, onLogin, role-based navigation)
- * - Upgrades UI to match Home page: dark background, glass panels, neon gradients, soft glows
- * - Memoized static pieces to avoid unnecessary re-renders
- */
+import ScreenLoader from "../components/ScreenLoader";
 
 /* ---------- Motion variants ---------- */
 const fadeUp = {
@@ -119,6 +113,7 @@ export default function Login({ onLogin }) {
     const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
     const navigate = useNavigate();
     const location = useLocation();
+    const [loadingLogin, setLoadingLogin] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -134,6 +129,7 @@ export default function Login({ onLogin }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoadingLogin(true);
         setErrors({});
         setMessage("");
         setForgotPasswordMessage("");
@@ -159,6 +155,7 @@ export default function Login({ onLogin }) {
                 }
             }
         } catch (err) {
+            setLoadingLogin(false);
             const errorData = err.response?.data;
             if (errorData?.message) {
                 if (errorData.message.includes("Invalid")) setMessage("❌ Incorrect email or password.");
@@ -186,6 +183,8 @@ export default function Login({ onLogin }) {
 
     return (
         <div className="min-h-screen bg-[#0b0d10] text-white flex items-stretch">
+
+            {loadingLogin && <ScreenLoader text="Logging you in… Please wait." />}
             {/* Left column (dark glass hero) */}
             <MemoizedLeftColumn />
 

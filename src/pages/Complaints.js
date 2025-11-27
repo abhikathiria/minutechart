@@ -150,8 +150,8 @@ export default function Complaints() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white p-6">
-        <div className="text-lg text-white/70 flex items-center gap-3 p-6 bg-white/5 rounded-2xl shadow-lg">
-          <Loader2 className="animate-spin w-5 h-5" /> Loading Complaints...
+        <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
+          <Loader2 className="animate-spin w-6 h-6" /> Loading Complaints...
         </div>
       </div>
     );

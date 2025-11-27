@@ -10,6 +10,8 @@ namespace minutechart.Models
         public string AppUserId { get; set; }
         public virtual AppUser AppUser { get; set; }
         public string ComponentId { get; set; }
+
+        public string? ModuleTitle { get; set; }
         public string SqlQuery { get; set; }
         public DateTime LastUpdated { get; set; }
         public DateTime CreatedAt { get; set; }

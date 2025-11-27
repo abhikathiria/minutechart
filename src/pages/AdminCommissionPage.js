@@ -208,8 +208,8 @@ function AdminCommissionPage() {
         {/* LOADING */}
         {loading && (
           <div className="bg-white/5 border border-white/10 p-6 rounded-2xl shadow-lg flex items-center gap-4">
-            <Loader2 className="w-6 h-6 animate-spin text-indigo-300" />
-            <p className="text-gray-300">Loading…</p>
+            <Loader2 className="animate-spin w-6 h-6" />
+            <p className="text-white">Loading Bills...</p>
           </div>
         )}
 

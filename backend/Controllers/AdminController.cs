@@ -666,10 +666,10 @@ namespace minutechart.Controllers
                 CustomerCode = user.UserProfile.CustomerCode ?? "",
                 ServerName = user.UserProfile.ServerName,
                 ProfilePhotoUrl = user.UserProfile.ProfilePhotoUrl,
+                CompanyLogoUrl = user.UserProfile.CompanyLogoUrl,
                 DatabaseName = user.UserProfile.DatabaseName,
                 DbUsername = user.UserProfile.DbUsername,
                 DbPassword = user.UserProfile.DbPassword,
-                RefreshTime = user.UserProfile.RefreshTime
             };
 
             return Ok(dto);
@@ -720,7 +720,6 @@ namespace minutechart.Controllers
                     DatabaseName = model.DatabaseName,
                     DbUsername = model.DbUsername,
                     DbPassword = model.DbPassword,
-                    RefreshTime = model.RefreshTime,
                     CustomerGST = model.CustomerGST ?? user.GST ?? "",
                     CustomerCode = customerCode
                 };
@@ -756,7 +755,7 @@ namespace minutechart.Controllers
                 profile.DatabaseName = model.DatabaseName;
                 profile.DbUsername = model.DbUsername;
                 profile.DbPassword = model.DbPassword;
-                profile.RefreshTime = model.RefreshTime;
+                profile.CompanyLogoUrl = model.CompanyLogoUrl ?? profile.CompanyLogoUrl;
                 profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
 
                 // Update AppUser fields if they were present in the model and changed
@@ -1716,6 +1715,7 @@ Nchart Team";
     public class UserProfileDto
     {
         public string? ProfilePhotoUrl { get; set; }
+        public string? CompanyLogoUrl { get; set; }
         public string CompanyName { get; set; }
         public string? Email { get; set; }
         public string CustomerName { get; set; } = "";
@@ -1726,6 +1726,6 @@ Nchart Team";
         public string DatabaseName { get; set; }
         public string DbUsername { get; set; }
         public string DbPassword { get; set; }
-        public int RefreshTime { get; set; } = 60000;
+
     }
 }

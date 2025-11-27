@@ -14,7 +14,7 @@ import {
   FaChevronDown,
   FaChevronUp,
 } from "react-icons/fa";
-import { CheckCircle2, TrendingUp, IndianRupee, Clock, User, Briefcase, FileText } from "lucide-react";
+import { CheckCircle2, TrendingUp, Loader2, Clock, User, Briefcase, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 
@@ -153,6 +153,7 @@ export default function MyProfile() {
   const [success, setSuccess] = useState(null);
   const [photoFile, setPhotoFile] = useState(null); // New state for holding the selected file
   const [uploadingPhoto, setUploadingPhoto] = useState(false); // New state for upload status
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // NEW FUNCTION: Handle File Selection
   const handleFileChange = (e) => {
@@ -163,6 +164,32 @@ export default function MyProfile() {
       handlePhotoUpload(file);
     }
   };
+
+  const handleLogoChange = async (file) => {
+    if (!file) return;
+    setUploadingLogo(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await api.post("/account/upload-company-logo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setProfile(prev => ({
+        ...prev,
+        companyLogoUrl: res.data.newUrl,
+      }));
+
+      toast.success("Company logo updated!");
+    } catch (err) {
+      toast.error("Failed to upload logo.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
 
   // NEW FUNCTION: Handle Photo Upload (Requires C# Backend Endpoint)
   const handlePhotoUpload = async (file) => {
@@ -257,8 +284,8 @@ export default function MyProfile() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0d1117]">
-        <div className="text-xl text-blue-400 font-medium flex items-center gap-2">
-          <FaSpinner className="animate-spin w-6 h-6" /> Loading Your Profile...
+        <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
+          <Loader2 className="animate-spin w-6 h-6" /> Loading Profile...
         </div>
       </div>
     );
@@ -309,7 +336,7 @@ export default function MyProfile() {
               <div className="bg-gray-900 text-white p-6 sm:p-8 flex items-center gap-4 border-b border-gray-700">
                 <label htmlFor="photo-upload" className="relative cursor-pointer group">
                   {/* The visible profile photo / initial block */}
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-600 flex items-center justify-center text-xl sm:text-2xl font-extrabold text-white shadow-xl overflow-hidden transition duration-300 transform group-hover:scale-105">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gray-900 flex items-center justify-center text-xl sm:text-2xl font-extrabold text-white shadow-xl overflow-hidden transition duration-300 transform group-hover:scale-105">
                     {profile.profilePhotoUrl ? (
                       <img
                         src={profile.profilePhotoUrl}
@@ -342,6 +369,7 @@ export default function MyProfile() {
                     disabled={uploadingPhoto}
                   />
                 </label>
+
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold leading-tight">{profile.companyName || "Your Company"}</h2>
                   <p className="text-sm text-gray-400">Account: <span className="font-mono text-blue-300">{profile.email}</span></p>
@@ -363,18 +391,69 @@ export default function MyProfile() {
 
                 {/* Form Fields Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Company Name */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                      <FaBuilding className="text-blue-400" /> Company Name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-                      value={profile.companyName || ""}
-                      onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
-                      placeholder="Enter your company name"
-                    />
+                  {/* Company Name + Logo Side by Side */}
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+
+                    {/* Company Name */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                        <FaBuilding className="text-blue-400" /> Company Name
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-white 
+                        focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        value={profile.companyName || ""}
+                        onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
+                        placeholder="Enter your company name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                        <FaBuilding className="text-blue-400" /> Company Logo
+                      </label>
+                      <label
+                        htmlFor="company-logo-upload-form-section"
+                        className="relative cursor-pointer group flex flex-col items-center justify-center 
+								bg-gray-900 
+								border border-gray-700 rounded-lg shadow-md 
+								h-20 w-full overflow-hidden transition hover:scale-[1.02]"
+                      >
+                        {profile.companyLogoUrl ? (
+                          <img
+                            src={profile.companyLogoUrl}
+                            alt="company logo"
+                            className="object-contain w-full h-full p-2"
+                          />
+                        ) : (
+                          <div className="text-gray-500 flex flex-col items-center text-sm">
+                            <FaBuilding className="text-blue-500 mb-1 text-xl" />
+                            Upload Logo
+                          </div>
+                        )}
+
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
+								flex items-center justify-center text-white text-xs font-semibold 
+								transition">
+                          {uploadingLogo ? (
+                            <FaSpinner className="animate-spin w-6 h-6" />
+                          ) : (
+                            "Click to Upload"
+                          )}
+                        </div>
+
+                        <input
+                          id="company-logo-upload-form-section"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleLogoChange(e.target.files[0])}
+                          className="hidden"
+                          disabled={uploadingLogo}
+                        />
+                      </label>
+                    </div>
                   </div>
 
                   {/* Customer Name */}

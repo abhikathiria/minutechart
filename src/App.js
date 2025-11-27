@@ -1,6 +1,6 @@
 import React, { useState, useEffect, memo, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
-import { FaArrowRight, FaPlay, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe, FaHome, FaChartArea, FaTags, FaInfoCircle, FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaEnvelope, FaPhone } from "react-icons/fa";
+import { FaArrowRight, FaSpinner, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe, FaHome, FaChartArea, FaTags, FaInfoCircle, FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaEnvelope, FaPhone } from "react-icons/fa";
 import ProductDashboard from "./pages/ProductDashboard";
 import HRDashboard from "./pages/HRDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -44,6 +44,7 @@ import SubscriptionAddonPage from "./pages/SubscriptionAddonPage";
 import ReportRenderer from './pages/ReportRenderer';
 import SalesAnalyticsPage from "./pages/SalesAnalyticsPage";
 import SalesAnalyticsModules from "./pages/SalesAnalyticsModules";
+import ScreenLoader from "./components/ScreenLoader";
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -195,6 +196,7 @@ function Footer() {
 function AppContent() {
     const [dashboardOpen, setDashboardOpen] = useState(false);
     const [user, setUser] = useState(null);
+    const [loadingUser, setLoadingUser] = useState(true);
     const [companies, setCompanies] = useState([]);
     const navigate = useNavigate();
     const dashboardButtonRef = useRef(null);
@@ -202,12 +204,39 @@ function AppContent() {
     const PublicRoute = ({ children }) => children;
 
     const PrivateRoute = ({ children }) => {
+        if (loadingUser) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-[#0d1117]">
+                    {/* Spinner */}
+                    <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
+
+                    {/* Message */}
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                        Loading...
+                    </p>
+                </div>
+            );
+        }
         if (!user) return <Navigate to="/login" replace />;
         return children;
     };
 
+
     // SuperAdminRoute: Only accessible by SuperAdmins
     const SuperAdminRoute = ({ children }) => {
+        if (loadingUser) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-[#0d1117]">
+                    {/* Spinner */}
+                    <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
+
+                    {/* Message */}
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                        Loading...
+                    </p>
+                </div>
+            );
+        }
         if (!user) return <Navigate to="/login" replace />;
         if (!user.roles?.includes("SuperAdmin")) return <Navigate to="/" replace />;
         return children;
@@ -215,28 +244,59 @@ function AppContent() {
 
     // AdminRoute: Accessible by both SuperAdmins and Admins (Union logic)
     const AdminRoute = ({ children }) => {
+        if (loadingUser) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-[#0d1117]">
+                    {/* Spinner */}
+                    <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
+
+                    {/* Message */}
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                        Loading...
+                    </p>
+                </div>
+            );
+        }
+
         if (!user) return <Navigate to="/login" replace />;
+
         const isSuperAdmin = user.roles?.includes("SuperAdmin");
         const isAdmin = user.roles?.includes("Admin");
 
-        // If the user is neither SuperAdmin nor Admin, redirect them.
         if (!isSuperAdmin && !isAdmin) return <Navigate to="/" replace />;
 
         return children;
     };
 
+
     // AdminRestrictedRoute: Accessible by SuperAdmins only (for the routes you removed from standard Admin)
     const AdminRestrictedRoute = ({ children }) => {
+        if (loadingUser) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-[#0d1117]">
+                    {/* Spinner */}
+                    <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
+
+                    {/* Message */}
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                        Loading...
+                    </p>
+                </div>
+            );
+        }
         if (!user) return <Navigate to="/login" replace />;
         if (!user.roles?.includes("SuperAdmin")) return <Navigate to="/" replace />;
         return children;
     };
 
+
     useEffect(() => {
         api.get("/account/me")
-            .then((response) => setUser(response.data))
-            .catch(() => setUser(null));
+            .then(res => setUser(res.data))
+            .catch(() => setUser(null))
+            .finally(() => setLoadingUser(false));
     }, []);
+
 
     useEffect(() => {
         // Check for SuperAdmin OR Admin when deciding whether to fetch user list
@@ -303,7 +363,7 @@ function AppContent() {
                 <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
                 <Route path="/subscription/addon" element={<PrivateRoute><SubscriptionAddonPage /></PrivateRoute>} />
                 <Route path="/report/render" element={<PrivateRoute><ReportRenderer /></PrivateRoute>} />
-                <Route path="/salesanalytics/:id" element={<PrivateRoute><SalesAnalyticsPage /></PrivateRoute>} />   
+                <Route path="/salesanalytics/:id" element={<PrivateRoute><SalesAnalyticsPage /></PrivateRoute>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

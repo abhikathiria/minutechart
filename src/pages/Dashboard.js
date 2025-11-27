@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { FaGripVertical, FaFileExcel, FaBars, FaTimes, FaHistory, FaChartLine, FaExclamationTriangle } from "react-icons/fa";
 import { Reorder, motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Clock, Calendar, RefreshCw, AlertTriangle, RefreshCcw } from "lucide-react";
+import { Loader2, Calendar, RefreshCw, AlertTriangle, RefreshCcw } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -399,7 +399,9 @@ export default function Dashboard() {
     if (subscriptionStatus === null) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#05070D] text-white">
-                <div className="text-lg text-white/60 animate-pulse">Checking Subscription...</div>
+                <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
+                    <Loader2 className="animate-spin w-6 h-6" /> Checking Subscription...
+                </div>
             </div>
         );
     }
@@ -566,7 +568,7 @@ export default function Dashboard() {
 
                     {/* Subscription Banners (Kept as is) */}
                     {showSubscriptionBanner && (
-                        <div className="w-full md:w-auto p-3 rounded-xl shadow-md bg-gradient-to-r from-[#0f4b87] to-[#3b2f8a]/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
+                        <div className="w-full md:w-auto p-3 rounded-xl shadow-md bg-[#0a2345] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
                             <div className="flex items-center space-x-3">
                                 <Calendar className="w-6 h-6 text-teal-300 shrink-0" />
                                 <div>
@@ -580,7 +582,7 @@ export default function Dashboard() {
                             </div>
                             <Link
                                 to="/pricing"
-                                className="bg-white text-indigo-700 font-semibold px-4 py-1.5 rounded-lg shadow-lg transition hover:bg-gray-200 w-full sm:w-auto text-center text-sm"
+                                className="bg-teal-300 text-black font-semibold px-4 py-1.5 rounded-lg shadow-lg transition hover:bg-gray-200 w-full sm:w-auto text-center text-sm"
                             >
                                 Renew / Upgrade
                             </Link>
@@ -724,13 +726,6 @@ export default function Dashboard() {
                                                 </button>
                                             </div>
                                         </div>
-                                        {/* {refreshRules[q.userQueryId]?.canRefresh === false && (
-                                            <div className="text-xs text-yellow-500 mb-2 flex items-center gap-1">
-                                                <AlertTriangle className="w-3 h-3" />
-                                                Next refresh at:{" "}
-                                                {refreshRules[q.userQueryId]?.nextAllowedAt?.toLocaleTimeString()}
-                                            </div>
-                                        )} */}
 
                                         {/* Chart / Table area */}
                                         <div className={`flex-1 ${overflowClass} flex items-center justify-center ${limitHeight ? "max-h-[500px]" : ""}`}>

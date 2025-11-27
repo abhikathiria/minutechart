@@ -2,166 +2,220 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, Line
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, Line, Customized, LineChart
 } from "recharts";
-import api from "../api";
-import { format, parseISO, subDays, differenceInCalendarDays, addMonths, subYears } from "date-fns";
-import { useParams } from "react-router-dom";
 
-/* === CONFIG / Constants === */
-const REPORT_PDF_URL = "/mnt/data/Meera_Group_-_MIS_Report.pdf";
+import { useParams } from "react-router-dom";
+import api from "../api";
+
+import {
+  format,
+  parseISO,
+  subDays,
+  differenceInCalendarDays,
+} from "date-fns";
+
+import {
+  ComposableMap,
+  Geographies,
+  Geography
+} from "react-simple-maps";
+
+import { scaleLinear } from "d3-scale";
+
+/* ------------------------------------------------------------------
+   CONFIG (Blue theme)
+-------------------------------------------------------------------*/
+
+const INDIA_GEOJSON = "/india_state_geo.json";
 
 const NGRAPH_THEME = {
-  primary: "#E97F2C",
-  primarySoft: "#FDF6F1",
-  accent: "#B35A24",
-  grid: "#EFEFEF",
-  textPrimary: "#222222",
-  kpiBorder: "#E6B886",
+  primary: "#2B6CB0",        // mid blue
+  primarySoft: "#E6F0FB",    // very light blue background
+  accent: "#1E40AF",         // stronger blue
+  grid: "#E8F1FB",
+  textPrimary: "#0B2447",
   tooltipBg: "#ffffff",
-  tooltipBorder: "#E0D2C0",
-  background: "#ffffff"
+  tooltipBorder: "#cfe3fb",
+  background: "#F7FBFF",
+  kpiBorder: "#CDE1FB",
+  header: "#0a2345"
 };
 
 const COMPONENT_IDS = [
-  "sa_kpi_clients", "sa_kpi_agents", "sa_kpi_invoices", "sa_kpi_sales", "sa_kpi_qty", "sa_kpi_rate",
-  "sa_filter_client", "sa_filter_consignee", "sa_filter_agent", "sa_filter_product",
-  "sa_pie_branch", "sa_pie_costcenter", "sa_pie_channel", "sa_map_sales", "sa_line_sales_qty",
-  "sa_table_book", "sa_table_category", "sa_table_product", "sa_table_client", "sa_table_delivery", "sa_table_agent"
+  "sa_kpi_clients",
+  "sa_kpi_agents",
+  "sa_kpi_invoices",
+  "sa_kpi_sales",
+  "sa_kpi_qty",
+  "sa_kpi_rate",
+
+  "sa_filter_client",
+  "sa_filter_consignee",
+  "sa_filter_agent",
+  "sa_filter_product",
+
+  "sa_pie_branch",
+  "sa_pie_costcenter",
+  "sa_pie_channel",
+
+  "sa_map_sales",
+  "sa_line_sales_qty",
+
+  "sa_table_book",
+  "sa_table_category",
+  "sa_table_product",
+  "sa_table_client",
+  "sa_table_delivery",
+  "sa_table_agent",
 ];
 
-/* === Dummy data (keeps UI usable when backend not available) */
-const DUMMY = {
-  sa_kpi_clients: { id: "sa_kpi_clients", label: "Clients", value: 479, previousValue: 474 },
-  sa_kpi_agents: { id: "sa_kpi_agents", label: "Agents", value: 119, previousValue: 117 },
-  sa_kpi_invoices: { id: "sa_kpi_invoices", label: "Invoices", value: 8000, previousValue: 11860 },
-  sa_kpi_sales: { id: "sa_kpi_sales", label: "Sales", value: 1200000000, previousValue: 1100000000 },
-  sa_kpi_qty: { id: "sa_kpi_qty", label: "Qty", value: 8000000, previousValue: 7200000 },
-  sa_kpi_rate: { id: "sa_kpi_rate", label: "Rate", value: 149, previousValue: 150 },
+const TABLE_PAGE_SIZE = 5;
 
-  sa_filter_client: { values: ["All", "Client A", "Client B", "Client C"] },
-  sa_filter_consignee: { values: ["All", "Consignee X", "Consignee Y"] },
-  sa_filter_agent: { values: ["All", "Agent 1", "Agent 2", "Agent 3"] },
-  sa_filter_product: { values: ["All", "Product 1", "Product 2", "Product 3"] },
+/* ------------------------------------------------------------------
+   UTILITIES
+-------------------------------------------------------------------*/
 
-  sa_pie_branch: {
-    items: [
-      { label: "MEERA COTTON", value: 888000000 },
-      { label: "KNITTING DISPATCH", value: 872170000 },
-      { label: "BRANCH B", value: 250000000 }
-    ]
-  },
-  sa_pie_costcenter: {
-    items: [
-      { label: "CostCenter A", value: 500000000 },
-      { label: "CostCenter B", value: 400000000 },
-      { label: "Other", value: 250000000 }
-    ]
-  },
-  sa_pie_channel: {
-    items: [
-      { label: "Retail", value: 700000000 },
-      { label: "Wholesale", value: 400000000 },
-      { label: "Online", value: 200000000 }
-    ]
-  },
-
-  sa_map_sales: {
-    locations: [
-      { id: "surat", name: "Surat", lat: 21.1702, lng: 72.8311, sales: 600490000 },
-      { id: "mumbai", name: "Mumbai", lat: 19.0760, lng: 72.8777, sales: 450000000 },
-      { id: "delhi", name: "Delhi", lat: 28.7041, lng: 77.1025, sales: 320000000 }
-    ]
-  },
-
-  sa_line_sales_qty: {
-    timeUnit: "month",
-    current: [
-      { x: "2025-07-01", sales: 300000000, qty: 2300000 },
-      { x: "2025-08-01", sales: 420000000, qty: 2800000 },
-      { x: "2025-09-01", sales: 480000000, qty: 2900000 }
-    ],
-    previous: [
-      { x: "2025-04-01", sales: 270000000, qty: 2100000 },
-      { x: "2025-05-01", sales: 380000000, qty: 2500000 },
-      { x: "2025-06-01", sales: 450000000, qty: 2600000 }
-    ]
-  },
-
-  sa_table_book: {
-    columns: ["Rank", "Book", "Sales", "Pct"],
-    rows: [
-      [1, "KNITTING DISPATCH", 872170000, "29%"],
-      [2, "MEERA COTTON", 600490000, "20%"]
-    ]
-  },
-  sa_table_category: {
-    columns: ["Rank", "Category", "Sales", "Pct"],
-    rows: [
-      [1, "YARN", 500000000, "17%"],
-      [2, "FABRIC", 420000000, "14%"]
-    ]
-  },
-  sa_table_product: {
-    columns: ["Rank", "Product", "Sales", "Pct"],
-    rows: [
-      [1, "Product 1", 300000000, "10%"],
-      [2, "Product 2", 240000000, "8%"]
-    ]
-  },
-  sa_table_client: {
-    columns: ["Rank", "Client", "Sales", "Pct"],
-    rows: [
-      [1, "Client A", 400000000, "13%"],
-      [2, "Client B", 250000000, "8%"]
-    ]
-  },
-  sa_table_delivery: {
-    columns: ["Rank", "Delivery Mode", "Sales", "Pct"],
-    rows: [
-      [1, "Road", 800000000, "27%"],
-      [2, "Rail", 200000000, "7%"]
-    ]
-  },
-  sa_table_agent: {
-    columns: ["Rank", "Agent", "Sales", "Pct"],
-    rows: [
-      [1, "Agent 1", 450000000, "15%"],
-      [2, "Agent 2", 350000000, "11%"]
-    ]
-  }
-};
-
-/* === UTILITIES === */
 function money(v) {
-  if (v === null || v === undefined) return "-";
-  return v >= 1e9 ? `₹${(v / 1e9).toFixed(2)}B` :
-    v >= 1e6 ? `₹${(v / 1e6).toFixed(2)}M` :
-      `₹${v.toLocaleString()}`;
-}
-function numberFmt(v) {
-  if (v === null || v === undefined) return "-";
-  if (typeof v === "number") return v.toLocaleString();
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toLocaleString() : String(v);
-}
-function rateFmt(v) {
   if (v === null || v === undefined) return "-";
   const n = Number(v);
   if (!Number.isFinite(n)) return String(v);
-  return n.toFixed(2);
-}
-function pct(prev, curr) {
-  if (prev === null || prev === undefined || prev === 0) return "n/a";
-  const p = ((curr - prev) / Math.abs(prev)) * 100;
-  return `${p >= 0 ? "+" : ""}${p.toFixed(1)}%`;
-}
-function formatDateShort(d) {
-  if (!d) return "";
-  try { return format(parseISO(d), "MMM yyyy"); } catch { return d; }
+
+  const sign = n < 0 ? "-" : "";
+  const absN = Math.abs(n);
+
+  if (absN >= 1e9) return `${sign}₹${(absN / 1e9).toFixed(2)}B`;
+  if (absN >= 1e6) return `${sign}₹${(absN / 1e6).toFixed(2)}M`;
+
+  return `${sign}₹${absN.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
-/* === API helper === */
+function numberFmt(v) {
+  if (v === null || v === undefined) return "-";
+  const n = Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString("en-IN", { maximumFractionDigits: 0 })
+    : String(v);
+}
+
+function rateFmt(v) {
+  if (v === null || v === undefined) return "-";
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2) : String(v);
+}
+
+function pct(prev, curr) {
+  if (!prev) return { text: "n/a", color: "#666" };
+
+  const raw = ((curr - prev) / Math.abs(prev)) * 100;
+  const rounded = Math.round(raw * 10) / 10;
+
+  const color = rounded >= 0 ? "#0B6623" : "#d12b2b";
+
+  return { text: `${rounded >= 0 ? "+" : ""}${rounded.toFixed(1)}%`, color };
+}
+
+
+function formatDateShort(d) {
+  if (!d) return "";
+  try {
+    return format(parseISO(d), "MMM yy");
+  } catch {
+    return d;
+  }
+}
+
+function formatDateFull(d) {
+  if (!d) return "";
+  try {
+    return format(parseISO(d), "d MMM, yyyy");
+  } catch {
+    return d;
+  }
+}
+
+
+function inferColumns(rows) {
+  if (!rows.length) return [];
+  return Object.keys(rows[0]);
+}
+
+/* ------------------------------------------------------------------
+   DATA NORMALIZATION HELPERS
+-------------------------------------------------------------------*/
+
+function normalizeToPie(rows) {
+  if (!rows.length) return { items: [] };
+
+  const cols = inferColumns(rows);
+
+  let labelCol = cols.find(c => typeof rows[0][c] === "string") || cols[0];
+  let valueCol =
+    cols.find(c => typeof rows[0][c] === "number") ||
+    cols.find(c => String(rows[0][c]).match(/^-?\d+(\.\d+)?$/)) ||
+    cols[1];
+
+  const items = rows
+    .map(r => ({
+      label: String(r[labelCol] ?? ""),
+      value: Number(r[valueCol]) || 0
+    }))
+    .filter(r => r.label && Number.isFinite(r.value));
+
+  if (!items.length) return { items: [] };
+
+  const total = items.reduce((s, x) => s + x.value, 0);
+
+  return {
+    items: items.map(i => ({
+      ...i,
+      percentage: total > 0 ? (i.value / total) * 100 : 0
+    }))
+  };
+}
+
+function normalizeToTable(rows) {
+  const cols = inferColumns(rows);
+  return {
+    columns: cols,
+    rows: rows.map(r => cols.map(c => r[c]))
+  };
+}
+
+function normalizeKpi(rows, componentId) {
+  if (!rows || !rows.length) return null;
+  const src = rows[0];
+
+  const keys = Object.keys(src);
+  const numeric = keys.filter(k =>
+    String(src[k]).match(/^-?\d+(\.\d+)?$/)
+  );
+
+  const priority = ["value", "sales", "amount", "total", "count", "qty"];
+  const valueKey = numeric.find(k =>
+    priority.includes(k.toLowerCase())
+  ) || numeric[0];
+
+  const stringKeys = keys.filter(k => typeof src[k] === "string");
+  const labelKey =
+    stringKeys.find(k =>
+      ["name", "title", "client", "branch"].some(x =>
+        k.toLowerCase().includes(x)
+      )
+    ) || stringKeys[0] || valueKey;
+
+  return {
+    id: componentId,
+    label: src[labelKey],
+    value: Number(src[valueKey]) || 0,
+    previousValue: Number(src.previousValue) || null,
+    title: src.title || src[labelKey]
+  };
+}
+
+/* ------------------------------------------------------------------
+   API CALL
+-------------------------------------------------------------------*/
 async function postExecuteSalesComponent(userId, body) {
   try {
     const res = await api.post(
@@ -172,182 +226,86 @@ async function postExecuteSalesComponent(userId, body) {
     return res.data;
   } catch (err) {
     console.warn("execute-sales-component error", err);
-    return { success: false, dummy: true };
+    return null;
   }
 }
 
-/* === Generic normalizers === */
-function inferColumns(rows = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return [];
-  return Object.keys(rows[0]);
-}
+/* ------------------------------------------------------------------
+   COMPONENT DATA FETCHER (WITH FIXED LINE CHART LOGIC)
+-------------------------------------------------------------------*/
 
-function normalizeToPie(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return { items: [] };
-  const cols = inferColumns(rows);
-  let labelCol = null;
-  let valueCol = null;
-  for (const c of cols) {
-    for (let i = 0; i < rows.length; i++) {
-      const v = rows[i][c];
-      if (v === null || v === undefined) continue;
-      if (typeof v === "string" && !labelCol) labelCol = c;
-      if (typeof v === "number" && !valueCol) valueCol = c;
-      if (!valueCol && typeof v === "string" && String(v).match(/^-?\d+(\.\d+)?$/)) valueCol = c;
-      if (labelCol && valueCol) break;
-    }
-    if (labelCol && valueCol) break;
-  }
-  if (!labelCol) labelCol = cols[0];
-  if (!valueCol) valueCol = cols[1] ?? cols[0];
-  const items = rows.map(r => {
-    const rawLabel = r[labelCol];
-    const rawValue = r[valueCol];
-    const label = rawLabel != null ? String(rawLabel) : "";
-    const value = (rawValue === null || rawValue === undefined) ? 0 : Number(rawValue) || 0;
-    return { label, value };
-  }).filter(it => it.label !== "" && !Number.isNaN(it.value));
-  return { items };
-}
-
-function normalizeToTable(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return { columns: [], rows: [] };
-  const cols = inferColumns(rows);
-  const outRows = rows.map(r => cols.map(c => r[c]));
-  return { columns: cols, rows: outRows };
-}
-
-function normalizeKpi(rows, componentId) {
-  if (!rows) return null;
-  let src = null;
-  if (Array.isArray(rows) && rows.length > 0) src = rows[0];
-  else if (!Array.isArray(rows) && typeof rows === "object") src = rows;
-  if (!src) return null;
-
-  const keys = Object.keys(src);
-  const numericCandidates = keys.filter(k => typeof src[k] === "number" || (typeof src[k] === "string" && String(src[k]).match(/^-?\d+(\.\d+)?$/)));
-  const priority = ["value", "sales", "amount", "total", "count", "number", "qty", "quantity", "numberoforders"];
-  let valueKey = numericCandidates.find(k => priority.includes(k.toLowerCase())) || numericCandidates[0];
-
-  const labelCandidates = keys.filter(k => typeof src[k] === "string");
-  const labelPriority = ["name", "label", "title", "customername", "customer", "client", "branch"];
-  let labelKey = labelCandidates.find(k => labelPriority.some(p => k.toLowerCase().includes(p))) || labelCandidates[0] || valueKey;
-
-  const value = valueKey ? (typeof src[valueKey] === "number" ? src[valueKey] : Number(src[valueKey]) || 0) : 0;
-  const label = labelKey ? String(src[labelKey]) : componentId;
-  const previousValue = (typeof src.previousValue === "number") ? src.previousValue : undefined;
-
-  return { id: componentId, label, value, previousValue };
-}
-
-/* === Core fetch & normalization === */
 async function fetchComponentData(componentId, { userId, dateRange, filters }) {
-  const startISO = dateRange?.start ? `${dateRange.start}T00:00:00` : null;
-  const endISO = dateRange?.end ? `${dateRange.end}T23:59:59` : null;
+  const startISO = dateRange.start ? `${dateRange.start}T00:00:00` : null;
+  const endISO = dateRange.end ? `${dateRange.end}T23:59:59` : null;
 
-  // Special: line chart wants previous period too (with fallback attempts)
+  /* ----------------------------------------------
+     FIXED LINE CHART LOGIC
+  ------------------------------------------------*/
   if (componentId === "sa_line_sales_qty") {
     try {
       const start = dateRange.start ? parseISO(dateRange.start) : null;
       const end = dateRange.end ? parseISO(dateRange.end) : null;
-      if (!start || !end) return { datasource: "db", data: { current: [], previous: [] } };
+      if (!start || !end) return { datasource: "db", data: null };
 
-      const days = Math.max(1, differenceInCalendarDays(end, start) + 1);
+      const days = differenceInCalendarDays(end, start) + 1;
+
+      // Correct previous period shift
       const prevEnd = subDays(start, 1);
       const prevStart = subDays(prevEnd, days - 1);
 
-      const currentBody = {
+      const common = {
         componentId,
-        startDate: startISO,
-        endDate: endISO,
         clientId: filters.client === "All" ? null : filters.client,
         agentId: filters.agent === "All" ? null : filters.agent,
         productId: filters.product === "All" ? null : filters.product,
         consigneeId: filters.consignee === "All" ? null : filters.consignee
+      };
+
+      const currentBody = {
+        ...common,
+        startDate: startISO,
+        endDate: endISO
       };
 
       const previousBody = {
-        componentId,
+        ...common,
         startDate: `${format(prevStart, "yyyy-MM-dd")}T00:00:00`,
-        endDate: `${format(prevEnd, "yyyy-MM-dd")}T23:59:59`,
-        clientId: filters.client === "All" ? null : filters.client,
-        agentId: filters.agent === "All" ? null : filters.agent,
-        productId: filters.product === "All" ? null : filters.product,
-        consigneeId: filters.consignee === "All" ? null : filters.consignee
+        endDate: `${format(prevEnd, "yyyy-MM-dd")}T23:59:59`
       };
 
-      const currRes = await postExecuteSalesComponent(userId, currentBody);
-      let prevRes = await postExecuteSalesComponent(userId, previousBody);
+      const curr = await postExecuteSalesComponent(userId, currentBody);
+      const prev = await postExecuteSalesComponent(userId, previousBody);
 
-      // fallback: if previous empty try a month-shift then year-shift
-      if (prevRes?.success && Array.isArray(prevRes.data) && prevRes.data.length === 0) {
-        const altPrevStart = addMonths(start, -1);
-        const altPrevEnd = addMonths(end, -1);
-        const altBody = {
-          componentId,
-          startDate: `${format(altPrevStart, "yyyy-MM-dd")}T00:00:00`,
-          endDate: `${format(altPrevEnd, "yyyy-MM-dd")}T23:59:59`,
-          clientId: filters.client === "All" ? null : filters.client,
-          agentId: filters.agent === "All" ? null : filters.agent,
-          productId: filters.product === "All" ? null : filters.product,
-          consigneeId: filters.consignee === "All" ? null : filters.consignee
-        };
-        const altRes = await postExecuteSalesComponent(userId, altBody);
-        if (altRes?.success && Array.isArray(altRes.data) && altRes.data.length > 0) prevRes = altRes;
-        else {
-          const yearStart = subYears(start, 1);
-          const yearEnd = subYears(end, 1);
-          const yBody = {
-            componentId,
-            startDate: `${format(yearStart, "yyyy-MM-dd")}T00:00:00`,
-            endDate: `${format(yearEnd, "yyyy-MM-dd")}T23:59:59`,
-            clientId: filters.client === "All" ? null : filters.client,
-            agentId: filters.agent === "All" ? null : filters.agent,
-            productId: filters.product === "All" ? null : filters.product,
-            consigneeId: filters.consignee === "All" ? null : filters.consignee
-          };
-          const yRes = await postExecuteSalesComponent(userId, yBody);
-          if (yRes?.success && Array.isArray(yRes.data) && yRes.data.length > 0) prevRes = yRes;
-        }
-      }
+      const normalizeLine = (res) =>
+        Array.isArray(res?.data)
+          ? res.data.map(r => ({
+            x: r.x || r.X || r.date || Object.values(r)[0],
+            sales: r.sales ?? r.Sales ?? r.amount ?? null,
+            qty: r.qty ?? r.Qty ?? r.quantity ?? null
+          }))
+          : [];
 
-      const normalizeLine = (res) => {
-        if (!res?.success || !Array.isArray(res.data)) return [];
-        return res.data.map((row) => {
-          const x = row.x ?? row.date ?? row.month ?? Object.values(row)[0];
-          return {
-            x: String(x),
-            sales:
-              row.sales ??
-              row.Sales ??
-              row.total ??
-              row.Total ??
-              row.amount ??
-              null,
-            qty:
-              row.qty ??
-              row.Qty ??
-              row.quantity ??
-              row.Quantity ??
-              null
-          };
-        });
-      };
+      const current = normalizeLine(curr);
+      const previous = normalizeLine(prev);
+
+      if (!current.length && !previous.length)
+        return { datasource: "db", data: null };
 
       return {
         datasource: "db",
-        data: {
-          current: normalizeLine(currRes),
-          previous: normalizeLine(prevRes)
-        }
+        data: { current, previous },
+        title: curr?.title || "Monthly Sales <> Qty"
       };
     } catch (err) {
-      console.warn("line component error", err);
-      return { datasource: "dummy", data: DUMMY[componentId] };
+      console.warn("line error:", err);
+      return { datasource: "db", data: null };
     }
   }
 
-  // Normal components
+  /* ----------------------------------------------
+     NORMAL COMPONENTS
+  ------------------------------------------------*/
+
   try {
     const body = {
       componentId,
@@ -360,111 +318,212 @@ async function fetchComponentData(componentId, { userId, dateRange, filters }) {
     };
 
     const res = await postExecuteSalesComponent(userId, body);
+    if (!res?.success || res.data == null)
+      return { datasource: "db", data: null };
 
-    // if endpoint failed or returned dummy -> use dummy
-    if (!res || res.dummy || res.success !== true) return { datasource: "dummy", data: DUMMY[componentId] };
+    const rows = Array.isArray(res.data)
+      ? res.data
+      : typeof res.data === "object"
+        ? [res.data]
+        : [];
 
-    const rows = Array.isArray(res.data) ? res.data : [];
-
-    /* FILTER DROPDOWN LOGIC
-        Support both single-column returns (value strings) and two-column returns (id,name).
-        We'll return values as array of { label, value } to preserve ids when available.
-     */
-    if (componentId === "sa_filter_client" ||
-      componentId === "sa_filter_agent" ||
-      componentId === "sa_filter_consignee" ||
-      componentId === "sa_filter_product") {
-
-      if (!rows || rows.length === 0) return { datasource: "db", data: { values: [{ label: "All", value: "All" }] } };
+    // FILTER DROPDOWNS
+    if (componentId.startsWith("sa_filter_")) {
+      if (!rows.length) return { datasource: "db", data: null };
 
       const cols = inferColumns(rows);
-      const firstCol = cols[0];
-      const secondCol = cols[1];
+      const first = cols[0];
+      const second = cols[1];
 
-      const values = rows.map(r => {
-        if (secondCol && (typeof r[secondCol] === "string")) {
-          return { label: String(r[secondCol]), value: r[firstCol] ?? String(r[secondCol]) };
-        }
-        return { label: String(r[firstCol] ?? ""), value: r[firstCol] ?? String(r[firstCol]) };
-      }).filter(v => v.label);
+      const values = rows
+        .map(r => ({
+          label: r[second] ?? r[first],
+          value: r[first]
+        }))
+        .filter(v => v.label);
 
-      const seen = new Set();
       const uniq = [];
+      const seen = new Set();
       for (const v of values) {
-        const key = String(v.value);
-        if (!seen.has(key)) { seen.add(key); uniq.push(v); }
+        if (!seen.has(v.value)) {
+          uniq.push(v);
+          seen.add(v.value);
+        }
       }
-      return { datasource: "db", data: { values: [{ label: "All", value: "All" }, ...uniq] } };
+
+      return {
+        datasource: "db",
+        data: { values: uniq },
+        title: res.title || componentId
+      };
     }
 
-    /* PIE */
-    if (componentId === "sa_pie_branch" || componentId === "sa_pie_costcenter" || componentId === "sa_pie_channel") {
+    // PIE
+    if (
+      componentId === "sa_pie_branch" ||
+      componentId === "sa_pie_costcenter" ||
+      componentId === "sa_pie_channel"
+    ) {
       const pie = normalizeToPie(rows);
-      return { datasource: "db", data: pie };
+      return {
+        datasource: "db",
+        data: pie.items.length ? pie : null,
+        title: res.title
+      };
     }
 
-    /* TABLES */
+    // TABLE
     if (componentId.startsWith("sa_table_")) {
-      return { datasource: "db", data: normalizeToTable(rows) };
+      const table = normalizeToTable(rows);
+      return {
+        datasource: "db",
+        data: table.columns.length ? table : null,
+        title: res.title
+      };
     }
 
-    /* MAP */
+    // MAP
     if (componentId === "sa_map_sales") {
-      if (!rows || rows.length === 0) return { datasource: "db", data: { locations: [] } };
+      if (!rows.length) return { datasource: "db", data: null };
+
       const cols = inferColumns(rows);
-      const latKey = cols.find(c => /lat/i.test(c)) || cols.find(c => /latitude/i.test(c)) || cols.find(c => /y/i.test(c));
-      const lngKey = cols.find(c => /(lng|lon|longitude|x)/i.test(c)) || cols[cols.length - 1];
-      const nameKey = cols.find(c => /(name|city|place)/i.test(c)) || cols[0];
-      const valueKey = cols.find(c => /sales|amount|value|total|orders/i.test(c.toLowerCase())) || cols[cols.length - 1];
+      const nameKey = cols.find(c => /(name|state|region|city)/i.test(c)) || cols[0];
+      const valKey = cols.find(c =>
+        /(sales|amount|value|total)/i.test(c.toLowerCase())
+      ) || cols[1];
 
-      const locations = rows.map((r, i) => {
-        const lat = Number(r[latKey]);
-        const lng = Number(r[lngKey]);
-        return {
-          id: String(r[nameKey] ?? i),
-          name: String(r[nameKey] ?? ""),
-          lat: Number.isFinite(lat) ? lat : 0,
-          lng: Number.isFinite(lng) ? lng : 0,
-          sales: Number(r[valueKey]) || 0
-        };
-      }).filter(l => l.name);
+      const locations = rows.map(r => ({
+        id: r[nameKey],
+        name: r[nameKey],
+        sales: Number(r[valKey]) || 0
+      }));
 
-      return { datasource: "db", data: { locations } };
+      return {
+        datasource: "db",
+        data: { locations },
+        title: res.title
+      };
     }
 
-    /* KPI */
+    // KPI
     if (componentId.startsWith("sa_kpi_")) {
-      return { datasource: "db", data: normalizeKpi(rows, componentId) };
+      const kpi = normalizeKpi(rows, componentId);
+      return {
+        datasource: "db",
+        data: {
+          ...kpi,
+          title: res.title || kpi.title   // keep title from API if present
+        },
+        title: res.title || kpi.title
+      };
     }
 
-    /* default pass-through */
+
     return { datasource: "db", data: rows };
   } catch (err) {
     console.warn("component fetch error", err);
-    return { datasource: "dummy", data: DUMMY[componentId] };
+    return { datasource: "db", data: null };
   }
 }
 
-/* === Small subcomponents === */
+/* ------------------------------------------------------------------
+   UI COMPONENTS (Header, Filters, KPI, Donut, Line, Map, Table)
+-------------------------------------------------------------------*/
+
+/* Creative No-Logo Placeholder A */
+function NoLogoPlaceholder({ width = 120, height = 44 }) {
+  return (
+    <div
+      style={{
+        width,
+        height,
+        borderRadius: 8,
+        background: NGRAPH_THEME.primarySoft,
+        border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        padding: 6,
+        boxSizing: "border-box",
+        flexDirection: "column"
+      }}
+    >
+      <svg width="20" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <rect x="2" y="6" width="20" height="12" rx="2" stroke={NGRAPH_THEME.primary} strokeWidth="1.5" fill="transparent" />
+        <path d="M6 10h12" stroke={NGRAPH_THEME.primary} strokeWidth="1.2" />
+        <path d="M8 14v2" stroke={NGRAPH_THEME.primary} strokeWidth="1.2" />
+      </svg>
+      <div style={{ fontSize: 11, color: NGRAPH_THEME.primary, fontWeight: 600 }}>No Logo</div>
+    </div>
+  );
+}
+
 function Header({ companyLogoUrl, dateRange, onDateChange }) {
   return (
-    <div style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12
-    }}>
-      <div>
-        <h1 style={{ margin: 0, fontSize: 20, color: NGRAPH_THEME.textPrimary }}>Sales Analytics</h1>
-        <div style={{ fontSize: 12, color: "#666" }}>Dashboard</div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        marginBottom: 12,
+        background: NGRAPH_THEME.header,
+        padding: 8,
+        borderRadius: 8,
+        border: `1px solid ${NGRAPH_THEME.kpiBorder}`
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexGrow: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 600,
+              color: "white",
+            }}
+          >
+            Sales Analytics
+          </h1>
+          {/* <div style={{ fontSize: 12, color: "#2962A3" }}>Insights · Location · Channels</div> */}
+        </div>
+
+        <div style={{ marginLeft: 12 }}>
+          {/* Logo area: rectangular container */}
+          {companyLogoUrl ? (
+            <img
+              src={companyLogoUrl}
+              alt="company"
+              style={{
+                height: 44,
+                width: 160,
+                objectFit: "contain",
+                borderRadius: 6,
+                border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
+                background: "#0a2345"
+              }}
+              onError={(e) => {
+                // fallback to placeholder if image fails to load
+                e.target.onerror = null;
+                e.target.style.display = "none";
+              }}
+            />
+          ) : (
+            <NoLogoPlaceholder width={160} height={44} />
+          )}
+        </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-          <small style={{ color: "#666" }}>Date range</small>
-          <DateRangeInput value={dateRange} onChange={onDateChange} />
-        </div>
-        <img src={companyLogoUrl} alt="company" style={{ height: 40, borderRadius: 4, objectFit: "contain" }} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          borderRadius: 8,
+          padding: "4px 8px",
+          background: NGRAPH_THEME.primarySoft
+        }}
+      >
+        <DateRangeInput value={dateRange} onChange={onDateChange} />
       </div>
     </div>
   );
@@ -472,92 +531,140 @@ function Header({ companyLogoUrl, dateRange, onDateChange }) {
 
 function DateRangeInput({ value, onChange }) {
   const [local, setLocal] = useState(value || { start: "", end: "" });
+
   useEffect(() => setLocal(value || { start: "", end: "" }), [value]);
 
+  const style = {
+    padding: "4px 6px",
+    borderRadius: 6,
+    border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
+    fontSize: 12,
+    width: 110,
+    background: "#fff"
+  };
+
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <input
         type="date"
-        value={local.start ?? ""}
-        onChange={(e) => {
-          const nv = { ...local, start: e.target.value ?? "" };
-          setLocal(nv);
-          onChange && onChange(nv);
+        value={local.start}
+        onChange={e => {
+          const v = { ...local, start: e.target.value };
+          setLocal(v);
+          onChange && onChange(v);
         }}
-        style={{ padding: 6, borderRadius: 4, border: "1px solid #ddd" }}
+        style={style}
       />
-      <span style={{ color: "#999" }}>—</span>
+
+      <span style={{ color: "#2962A3", fontSize: 12 }}>to</span>
+
       <input
         type="date"
-        value={local.end ?? ""}
-        onChange={(e) => {
-          const nv = { ...local, end: e.target.value ?? "" };
-          setLocal(nv);
-          onChange && onChange(nv);
+        value={local.end}
+        onChange={e => {
+          const v = { ...local, end: e.target.value };
+          setLocal(v);
+          onChange && onChange(v);
         }}
-        style={{ padding: 6, borderRadius: 4, border: "1px solid #ddd" }}
+        style={style}
       />
     </div>
   );
 }
 
+/* KPI GRID */
 function KpiGrid({ items }) {
+  if (!items || !items.length) return null;
+
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(6, 1fr)",
-      gap: 12,
-      marginBottom: 12
-    }}>
-      {items.map(it => (
-        <div key={it.id} style={{
-          background: NGRAPH_THEME.primarySoft,
-          border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
-          borderRadius: 8,
-          padding: 12,
-          minHeight: 72,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between"
-        }}>
-          <div style={{ fontSize: 12, color: "#666" }}>{it.label}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: NGRAPH_THEME.textPrimary }}>
-              {(() => {
-                if (!it || it.value === undefined || it.value === null) return "-";
-                if (it.id === "sa_kpi_sales") return money(it.value);
-                if (it.id === "sa_kpi_rate") return rateFmt(it.value);
-                return numberFmt(it.value);
-              })()}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(6,1fr)",
+        gap: 12,
+        marginBottom: 12
+      }}
+    >
+      {items.map((it, i) => {
+        const diff =
+          it.previousValue != null
+            ? pct(it.previousValue, it.value)
+            : { text: "—", color: "#666" };
+
+        return (
+          <div
+            key={i}
+            style={{
+              border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
+              padding: 10,
+              borderRadius: 8,
+              background: "#fff",
+              boxShadow: "0 1px 4px rgba(43,108,176,0.06)"
+            }}
+          >
+            <div style={{ fontSize: 11, color: "#356FAF", marginBottom: 6 }}>
+              {it.title || it.label}
             </div>
-            <div style={{ fontSize: 12, color: it.previousValue != null ? (it.value >= it.previousValue ? "#138000" : "#d12b2b") : "#666" }}>
-              {it.previousValue != null ? pct(it.previousValue, it.value) : "—"}
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between"
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 700, color: NGRAPH_THEME.textPrimary }}>
+                {["sa_kpi_sales", "sa_kpi_invoices"].includes(it.id)
+                  ? money(it.value)
+                  : it.id === "sa_kpi_rate"
+                    ? rateFmt(it.value)
+                    : numberFmt(it.value)}
+              </div>
+
+              <div style={{ fontSize: 12, color: diff.color, fontWeight: 600 }}>
+                {diff.text}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
+/* Filters Row */
 function FiltersRow({ filters, options, onChange }) {
   const keys = ["client", "consignee", "agent", "product"];
+
   return (
     <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-      {keys.map(key => {
-        const opts = options[`sa_filter_${key}`]?.values ?? ["All"];
-        const selected = filters[key] ?? "All";
+      {keys.map(k => {
+        const optObj = options[`sa_filter_${k}`] || { values: [] };
+        const list = [
+          { label: optObj.title || k, value: "All" },
+          ...optObj.values
+        ];
+
         return (
-          <select key={key}
-            value={selected}
-            onChange={(e) => onChange({ ...filters, [key]: e.target.value })}
-            style={{ padding: 8, borderRadius: 6, border: "1px solid #ddd", minWidth: 180 }}>
-            {opts.map((v, i) => {
-              if (typeof v === "object" && v !== null) {
-                return <option key={String(v.value) + i} value={String(v.value)}>{v.label}</option>;
-              }
-              return <option key={String(v) + i} value={String(v)}>{String(v)}</option>;
-            })}
+          <select
+            key={k}
+            value={filters[k]}
+            onChange={e => onChange({ ...filters, [k]: e.target.value })}
+            style={{
+              padding: "6px 8px",
+              borderRadius: 8,
+              border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
+              fontSize: 13,
+              background: "#fff",
+              color: NGRAPH_THEME.textPrimary,
+              minWidth: 160
+            }}
+          >
+            {list.map((v, i) => (
+              <option key={i} value={String(v.value)}>
+                {v.label}
+              </option>
+            ))}
           </select>
         );
       })}
@@ -565,34 +672,113 @@ function FiltersRow({ filters, options, onChange }) {
   );
 }
 
+/* DONUT WIDGET (blue palette) */
+const DONUT_COLORS = [
+  "#2B6CB0",
+  "#1E90FF",
+  "#60A5FA",
+  "#93C5FD",
+  "#BEE3F8",
+  "#E6F0FB"
+];
+
 function DonutWidget({ title, data }) {
-  const COLORS = ["#E97F2C", "#F3B17A", "#FFD9B2", "#B35A24", "#E5A66D", "#F7EDE6"];
-  if (!data || !Array.isArray(data.items) || data.items.length === 0) return <div style={{ padding: 12, borderRadius: 8, border: "1px solid #eee" }}>No data</div>;
+  if (!data?.items?.length)
+    return (
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 8,
+          border: "1px solid #eef6ff",
+          padding: 12
+        }}
+      >
+        <div style={{ fontWeight: 600, color: "#0B3A66" }}>{title}</div>
+        <div style={{ padding: 12, color: "#6b8fbf" }}>No data</div>
+      </div>
+    );
+
+  const items = [...data.items].sort((a, b) => b.value - a.value);
+
   return (
-    <div style={{ background: "#fff", padding: 12, borderRadius: 8, border: "1px solid #eee" }}>
-      <div style={{ fontSize: 13, marginBottom: 8 }}>{title}</div>
-      <div style={{ height: 180 }}>
+    <div
+      style={{
+        background: "#fff",
+        padding: 12,
+        borderRadius: 8,
+        border: "1px solid #eef6ff"
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 6, color: "#0B3A66" }}>{title}</div>
+
+      <div style={{ height: 200 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie dataKey="value" data={data.items} cx="50%" cy="50%" outerRadius={60} innerRadius={28} paddingAngle={2}>
-              {data.items.map((entry, index) => <Cell key={entry.label + index} fill={COLORS[index % COLORS.length]} />)}
+            <Pie
+              dataKey="value"
+              data={items}
+              cx="50%"
+              cy="50%"
+              outerRadius={70}
+              innerRadius={40}
+            >
+              {items.map((e, i) => (
+                <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+              ))}
             </Pie>
-            <ReTooltip
-              formatter={(value, name, props) => {
-                const label = props?.payload?.label || "";
-                return [money(value), label];
+
+            <Customized>
+              {({ width, height }) => {
+                const total = items.reduce((s, x) => s + x.value, 0);
+                return (
+                  <g>
+                    <text
+                      x={width / 2}
+                      y={height / 2 - 10}
+                      textAnchor="middle"
+                      style={{ fontSize: 14, fontWeight: 700, fill: "#0B3A66" }}
+                    >
+                      {money(total)}
+                    </text>
+
+                    <text
+                      x={width / 2}
+                      y={height / 2 + 10}
+                      textAnchor="middle"
+                      style={{ fontSize: 12, fill: "#6b8fbf" }}
+                    >
+                      Total
+                    </text>
+                  </g>
+                );
               }}
-              wrapperStyle={{ borderRadius: 8 }}
+            </Customized>
+
+            <ReTooltip
+              wrapperStyle={{ outline: "none" }}
+              formatter={(v, n, p) => [
+                money(v),
+                `${p.payload.label} (${p.payload.percentage.toFixed(1)}%)`
+              ]}
             />
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-        {data.items.map((it, i) => (
-          <div key={it.label + i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#444" }}>
-            <div style={{ width: 12, height: 12, background: COLORS[i % COLORS.length], borderRadius: 3 }} />
-            <div>{it.label}</div>
-            <div style={{ color: "#888", marginLeft: 6 }}>{money(it.value)}</div>
+
+      <div style={{ marginTop: 6, fontSize: 12 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                background: DONUT_COLORS[i % DONUT_COLORS.length],
+                borderRadius: "50%",
+                boxShadow: "0 0 6px rgba(0,0,0,0.03)"
+              }}
+            />
+            <div style={{ flexGrow: 1, color: "#0B3A66" }}>{it.label}</div>
+            <strong style={{ color: "#0B3A66" }}>{it.percentage.toFixed(1)}%</strong>
           </div>
         ))}
       </div>
@@ -600,283 +786,673 @@ function DonutWidget({ title, data }) {
   );
 }
 
+function getDateRange(arr) {
+  if (!arr?.length) return "";
+  const first = arr[0].realPrevDate || arr[0].x;
+  const last = arr[arr.length - 1].realPrevDate || arr[arr.length - 1].x;
+  return `${formatDateShort(first)} - ${formatDateShort(last)}`;
+}
+
+
+
+function CustomLineLegend({ payload }) {
+  const prevRange = getDateRange(window.__prevData);
+
+  return (
+    <ul style={{ display: "flex", justifyContent: "center", gap: 20, listStyle: "none" }}>
+      {payload.map((p, i) => {
+        if (p.dataKey === "sales") {
+          return (
+            <li key={i}>
+              <span style={{ width: 12, height: 2, marginBottom: 3, background: p.color, display: "inline-block", marginRight: 6 }} />
+              Sales
+            </li>
+          );
+        }
+
+        if (p.dataKey === "prevSales") {
+          return (
+            <li key={i}>
+              <span style={{ width: 12, height: 2, marginBottom: 3, background: p.color, display: "inline-block", marginRight: 6 }} />
+              Prev Sales ({prevRange})
+            </li>
+          );
+        }
+      })}
+    </ul>
+  );
+}
+
+
+
+// -----------------------
+//  MAIN WIDGET
+// -----------------------
 function LineAreaWidget({ title, data }) {
   const merged = useMemo(() => {
-    if (!data || (!data.current && !data.previous)) return [];
-    const xs =
-      data?.current?.length
-        ? data.current.map(d => d.x)
-        : data?.previous?.length
-          ? data.previous.map(d => d.x)
-          : [];
+    const curr = data?.current || [];
+    const prev = data?.previous || [];
 
-    const mapPrev = (data.previous || []).reduce((acc, cur) => { acc[cur.x] = cur; return acc; }, {});
-    const mapCur = (data.current || []).reduce((acc, cur) => { acc[cur.x] = cur; return acc; }, {});
+    if (!curr.length) return [];
 
-    return xs.map(x => ({
+    const xs = curr.map((d) => d.x);
+
+    return xs.map((x, i) => ({
       x,
-      sales: (mapCur[x] && mapCur[x].sales != null) ? mapCur[x].sales : (mapPrev[x]?.sales ?? 0),
-      qty: (mapCur[x] && mapCur[x].qty != null) ? mapCur[x].qty : (mapPrev[x]?.qty ?? 0),
-      prevSales: mapPrev[x]?.sales ?? null
+
+      // current
+      sales: curr[i]?.sales ?? null,
+      qty: curr[i]?.qty ?? null,
+      realCurrDate: curr[i]?.x ?? null,
+
+      // previous aligned but keep real date
+      prevSales: prev[i]?.sales ?? null,
+      realPrevDate: prev[i]?.x ?? null
     }));
   }, [data]);
 
-  if (!data) {
+  window.__prevData = data?.previous || [];
+
+  if (!merged.length)
     return (
-      <div style={{ background: "#fff", padding: 12, borderRadius: 8, border: "1px solid #eee" }}>
-        {title}
-        <div style={{ padding: 12 }}>No data</div>
+      <div
+        style={{
+          background: "#fff",
+          padding: 12,
+          borderRadius: 10,
+          border: "1px solid #dae7ff"
+        }}
+      >
+        <div style={{ fontWeight: 600, color: "#0B3A66" }}>{title}</div>
+        <div style={{ padding: 12, color: "#6b8fbf" }}>No data</div>
       </div>
     );
-  }
 
   return (
-    <div style={{ background: "#fff", padding: 12, borderRadius: 8, border: "1px solid #eee" }}>
-      <div style={{ fontSize: 13, marginBottom: 8 }}>{title}</div>
+    <div
+      style={{
+        background: "#fff",
+        padding: 14,
+        borderRadius: 10,
+        border: "1px solid #dae7ff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 600,
+          marginBottom: 6,
+          color: "#0B3A66",
+          fontSize: 15
+        }}
+      >
+        {title}
+      </div>
+
       <div style={{ height: 260 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={merged} margin={{ top: 8, right: 30, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={NGRAPH_THEME.primary} stopOpacity={0.6} />
-                <stop offset="95%" stopColor={NGRAPH_THEME.primary} stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
+          <LineChart data={merged}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e6efff" />
 
-            <CartesianGrid strokeDasharray="3 3" stroke={NGRAPH_THEME.grid} />
-            <XAxis dataKey="x" tickFormatter={formatDateShort} />
-            <YAxis tickFormatter={v => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v} />
+            <XAxis
+              dataKey="x"
+              fontSize={11}
+              tick={{ fill: "#33527a" }}
+              axisLine={{ stroke: "#c3d7ff" }}
+              tickLine={{ stroke: "#c3d7ff" }}
+              tickFormatter={formatDateShort}
+            />
+
+            <YAxis
+              tickFormatter={(v) =>
+                v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v
+              }
+              fontSize={11}
+              tick={{ fill: "#33527a" }}
+              axisLine={{ stroke: "#c3d7ff" }}
+              tickLine={{ stroke: "#c3d7ff" }}
+            />
 
             <ReTooltip
-              formatter={(value, name) => {
-                if (name === "prevSales") return [money(value), "Prev Sales"];
-                if (name === "sales") return [money(value), "Sales"];
-                if (name === "qty") return [value?.toLocaleString?.() ?? value, "Qty"];
-                return [value, name];
+              content={props => {
+                const p = props?.payload?.[0];
+                if (!p) return null;
+
+                const row = p.payload;
+
+                return (
+                  <div style={{ background: "#fff", padding: 8, border: "1px solid #ddd", borderRadius: 6 }}>
+                    {/* CURRENT */}
+                    {row.sales != null && (
+                      <div style={{ marginBottom: 4 }}>
+                        <div style={{ fontWeight: 600 }}>Sales ({formatDateShort(row.realCurrDate)})</div>
+                        <div>{money(row.sales)}</div>
+                      </div>
+                    )}
+
+                    {/* PREVIOUS */}
+                    {row.prevSales != null && (
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Prev Sales ({formatDateShort(row.realPrevDate)})</div>
+                        <div>{money(row.prevSales)}</div>
+                      </div>
+                    )}
+                  </div>
+                );
               }}
             />
 
-            <Area type="monotone" dataKey="sales" stroke={NGRAPH_THEME.primary} fillOpacity={1} fill="url(#colorSales)" />
-            <Line type="monotone" dataKey="prevSales" stroke="#888" strokeDasharray="4 4" dot={false} />
-            <Legend />
-          </AreaChart>
+            {/* CURRENT SALES (LINE) */}
+            <Line
+              type="monotone"
+              dataKey="sales"
+              stroke="#2563eb"
+              strokeWidth={3}
+              dot={{ r: 4, stroke: "#2563eb", fill: "#fff" }}
+              activeDot={{ r: 5 }}
+            />
+
+            {/* PREVIOUS SALES (DASHED LINE) */}
+            <Line
+              type="monotone"
+              dataKey="prevSales"
+              stroke="#8dabecff"
+              strokeWidth={3}
+              dot={{ r: 4, stroke: "#8dabecff", fill: "#fff" }}
+              activeDot={{ r: 5 }}
+            />
+
+            <Legend
+              content={<CustomLineLegend />}
+              verticalAlign="top"
+              height={30}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>
   );
 }
 
-// ----------------------------------------------------------------------
-// MODIFIED MAP COMPONENT
-// Renamed to ProfessionalMap to use a geographic-aware projection simulation
-// ----------------------------------------------------------------------
 
-// Bounding box for India (approximate values for projection scale)
-const INDIA_BOUNDS = {
-  minLat: 8.0,  // Kanyakumari
-  maxLat: 37.0, // Kashmir
-  minLng: 68.0, // Gujarat
-  maxLng: 98.0, // Arunachal Pradesh
-};
+/* ------------------------------------------------------------------
+   REPLACED PROFESSIONAL MAP (blue palette)
+-------------------------------------------------------------------*/
 
 function ProfessionalMap({ title, data }) {
-  if (!data || !data.locations) return <div style={{ padding: 12 }}>No map data</div>;
-  const locs = data.locations;
-  if (!locs || locs.length === 0) return <div style={{ padding: 12 }}>No map data</div>;
+  const [tooltip, setTooltip] = useState(null);
+  const mapRef = React.useRef(null);
 
-  const width = 450, height = 300; // Adjusted for a better aspect ratio for India
-  const maxSales = Math.max(...locs.map(l => l.sales || 0));
-
-  // Projection function scaled to India bounds
-  function projectToIndiaMap(lat, lng) {
-    const { minLat, maxLat, minLng, maxLng } = INDIA_BOUNDS;
-    const latRange = maxLat - minLat;
-    const lngRange = maxLng - minLng;
-
-    // Use an internal padding/margin (e.g., 40 units total, 20 on each side)
-    const padding = 20;
-    const chartWidth = width - 2 * padding;
-    const chartHeight = height - 2 * padding;
-
-    // Scaling Lng (X-axis)
-    let x = ((lng - minLng) / lngRange) * chartWidth + padding;
-
-    // Scaling Lat (Y-axis), inverted for screen coordinates (Y=0 is top)
-    let y = (1 - (lat - minLat) / latRange) * chartHeight + padding;
-
-    return { x, y };
+  if (!data || !data.locations || data.locations.length === 0) {
+    return (
+      <div style={{ background: "#fff", padding: 12, borderRadius: 8 }}>
+        <div style={{ fontWeight: 600, color: "#0B3A66" }}>{title}</div>
+        <div style={{ padding: 12, color: "#6b8fbf" }}>No map data</div>
+      </div>
+    );
   }
 
-  // Simple SVG path data representing the outline of India
-  // NOTE: This is a simplified placeholder. A real map uses thousands of coordinates.
-  // This path simulates the general shape of India for a professional look.
-  const indiaOutlinePath = "M70 280 L120 290 L150 240 L190 250 L230 220 L260 180 L290 140 L310 120 L330 170 L350 200 L370 180 L390 140 L370 100 L330 70 L290 40 L260 30 L210 30 L160 60 L110 90 L80 130 L70 190 L70 250 Z";
+  const regionData = {};
+  data.locations.forEach((loc) => {
+    const name = String(loc.name || "").trim();
+    const value = Number(loc.sales) || 0;
+    if (name) regionData[name] = (regionData[name] || 0) + value;
+  });
+
+  const values = Object.values(regionData);
+  const min = values.length ? Math.min(...values) : 0;
+  const max = values.length ? Math.max(...values) : 1;
+
+  const colorScale = scaleLinear()
+    .domain([min, max])
+    .range(["#E9F6FF", "#08306B"]);
+
 
   return (
-    <div style={{ background: "#fff", padding: 12, borderRadius: 8, border: "1px solid #eee" }}>
-      <div style={{ fontSize: 13, marginBottom: 8 }}>{title}</div>
-      <div style={{ position: 'relative', height: height, width: "100%", overflow: 'hidden' }}>
-        <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: height }}>
-          {/* Background: Simulate a map appearance */}
-          <rect x="0" y="0" width={width} height={height} fill="#EAEAEA" />
 
-          {/* Map Outline (Styled to look like a shaded map region) */}
-          <path d={indiaOutlinePath} fill="#F7EDE6" stroke="#D1CFCF" strokeWidth="0.5" />
+    <div
+      ref={mapRef}
+      style={{
+        background: "#fff",
+        padding: 12,
+        borderRadius: 8,
+        border: "1px solid #eef6ff",
+        position: "relative"
+      }}
+    >
 
-          {/* Plotting the data points */}
-          {locs.map(loc => {
-            const p = projectToIndiaMap(loc.lat, loc.lng);
-            // Scale radius: min 4, max 16
-            const r = 4 + (loc.sales / (maxSales || 1)) * 12;
+      <div style={{ fontWeight: 600, marginBottom: 6, color: "#0B3A66" }}>{title}</div>
 
-            return (
-              <g key={loc.id}>
-                <circle cx={p.x} cy={p.y} r={r} fill={NGRAPH_THEME.primary} opacity={0.8} stroke="#fff" strokeWidth="1.5" />
-                {/* Position the name tag outside the bubble */}
-                <text x={p.x + r + 2} y={p.y + 4} fontSize="12" fontWeight="500" fill="#222">{loc.name}</text>
-              </g>
-            );
-          })}
+      {tooltip && (
+        <div
+          style={{
+            position: "absolute",
+            top: tooltip.y,
+            left: tooltip.x,
+            background: "#fff",
+            padding: "6px 10px",
+            border: "1px solid #dcefff",
+            borderRadius: 4,
+            fontSize: 12,
+            pointerEvents: "none"
+            // zIndex: 10
+          }}
+        >
+          <strong style={{ color: "#0B3A66" }}>{tooltip.state}</strong>
+          <br />
+          {money(tooltip.value)}
+        </div>
+      )}
 
-          {/* Simple Legend/Scale for visual reference */}
-          <g transform={`translate(${width - 150}, ${height - 20})`}>
-            <text x="0" y="0" fontSize="10" fill="#666">Sales Scale:</text>
-            <rect x="40" y="-10" width="10" height="10" fill={NGRAPH_THEME.primary} opacity="0.8" />
-            <text x="55" y="0" fontSize="10" fill="#666">Size = Sales</text>
-          </g>
-        </svg>
+      <div style={{ width: "100%", overflowX: "auto" }}>
+        <ComposableMap
+          projection="geoMercator"
+          projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }}
+          style={{ width: "100%", height: 400, background: "#ffffff" }}
+        >
+          <Geographies geography={INDIA_GEOJSON}>
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const stateName =
+                  geo.properties.NAME_1 ||
+                  geo.properties.name ||
+                  geo.properties.STATE ||
+                  "";
+
+                const value = regionData[stateName] || 0;
+
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    onMouseEnter={(evt) => {
+                      const rect = mapRef.current.getBoundingClientRect();
+
+                      setTooltip({
+                        state: stateName,
+                        value,
+                        x: evt.clientX - rect.left + 10,  // relative to map
+                        y: evt.clientY - rect.top - 10    // relative to map
+                      });
+                    }}
+
+                    onMouseLeave={() => setTooltip(null)}
+                    style={{
+                      default: {
+                        outline: "none",
+                        fill: value > 0 ? colorScale(value) : "#ffffff",
+                        stroke: "#000",
+                        strokeWidth: 0.8
+                      },
+                      hover: {
+                        outline: "none",
+                        fill: value ? colorScale(value) : "#ffffff",
+                        stroke: "#000",
+                        strokeWidth: 1
+                      },
+                      pressed: {
+                        outline: "none",
+                        stroke: "#000",
+                        strokeWidth: 1
+                      }
+                    }}
+                  />
+                );
+              })
+            }
+          </Geographies>
+        </ComposableMap>
       </div>
     </div>
   );
 }
 
+/* TABLE WIDGET */
 function TableWidget({ title, data }) {
-  if (!data) return <div style={{ padding: 12 }}>No data</div>;
+  const [page, setPage] = useState(1);
+
+  if (!data?.columns?.length)
+    return (
+      <div
+        style={{
+          background: "#fff",
+          padding: 12,
+          borderRadius: 8,
+          border: "1px solid #eef6ff",
+          display: "flex",
+          flexDirection: "column",
+          height: 260
+        }}
+      >
+
+        <div style={{ fontWeight: 600, color: "#0B3A66" }}>{title}</div>
+        <div style={{ padding: 12, color: "#6b8fbf" }}>No data</div>
+      </div>
+    );
+
+  const total = data.rows.length;
+  const pages = Math.ceil(total / TABLE_PAGE_SIZE);
+
+  const start = (page - 1) * TABLE_PAGE_SIZE;
+  const visible = data.rows.slice(start, start + TABLE_PAGE_SIZE);
+
   return (
-    <div style={{ background: "#fff", padding: 12, borderRadius: 8, border: "1px solid #eee" }}>
-      <div style={{ fontSize: 13, marginBottom: 8 }}>{title}</div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr>
-              {data.columns.map(c => <th key={c} style={{ textAlign: "left", padding: "6px 8px", color: "#666" }}>{c}</th>)}
+    <div
+      style={{
+        background: "#fff",
+        padding: 12,
+        borderRadius: 8,
+        border: "1px solid #eef6ff"
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 8, color: "#0B3A66" }}>{title}</div>
+
+      <table style={{ width: "100%", fontSize: 12 }}>
+        <thead>
+          <tr>
+            {data.columns.slice(0, 4).map(c => (
+              <th
+                key={c}
+                style={{
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  borderBottom: "1px solid #e6f2ff",
+                  color: "#6b8fbf",
+                  fontSize: 11
+                }}
+              >
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody>
+          {visible.map((row, i) => (
+            <tr
+              key={i}
+              style={{
+                background:
+                  i % 2 === 1 ? NGRAPH_THEME.primarySoft : "#fff",
+                borderBottom: "1px solid #f2f8ff"
+              }}
+            >
+              {row.slice(0, 4).map((v, j) => {
+                const idx = start + i + 1;
+
+                const style = {
+                  padding: "6px 8px",
+                  whiteSpace: "nowrap",
+                  color: NGRAPH_THEME.textPrimary
+                };
+
+                if (j === 0) return <td key={j} style={style}>{`${idx}`}</td>;
+                if (j === 2) return <td key={j} style={{ ...style, fontWeight: 600 }}>{money(v)}</td>;
+                if (j === 3) {
+                  const color = String(v).includes("-")
+                    ? "#d12b2b"
+                    : "#0B6623";
+                  return <td key={j} style={{ ...style, color, fontWeight: 700 }}>{v}</td>;
+                }
+
+                return <td key={j} style={style}>{v}</td>;
+              })}
             </tr>
-          </thead>
-          <tbody>
-            {data.rows.map((r, i) => <tr key={i} style={{ borderTop: "1px solid #f2f2f2" }}>
-              {r.map((cell, j) => <td key={j} style={{ padding: "8px", verticalAlign: "middle" }}>{(typeof cell === "number" && j === 2) ? money(cell) : (cell === null || cell === undefined ? "-" : String(cell))}</td>)}
-            </tr>)}
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+        <span style={{ marginRight: 8, color: "#6b8fbf" }}>
+          {start + 1}–{Math.min(start + TABLE_PAGE_SIZE, total)} of {total}
+        </span>
+
+        <button
+          disabled={page === 1}
+          onClick={() => setPage(p => p - 1)}
+          style={{ padding: "4px 8px", marginRight: 6, borderRadius: 6, border: `1px solid ${NGRAPH_THEME.kpiBorder}`, background: "#fff", color: NGRAPH_THEME.primary }}
+        >
+          {"<"}
+        </button>
+
+        <button
+          disabled={page === pages}
+          onClick={() => setPage(p => p + 1)}
+          style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${NGRAPH_THEME.kpiBorder}`, background: "#fff", color: NGRAPH_THEME.primary }}
+        >
+          {">"}
+        </button>
       </div>
     </div>
   );
 }
 
-/* === Main Page Component === */
-export default function SalesAnalyticsPage({ userId: propUserId, companyLogoUrl = "/assets/company-logo.png" }) {
+/* ------------------------------------------------------------------
+   PAGE ROOT
+-------------------------------------------------------------------*/
+
+export default function SalesAnalyticsPage({
+  userId: propUserId
+}) {
   const { id: routeUserId } = useParams();
   const userId = routeUserId || propUserId || "demo_tenant";
 
-  // default: no date selected (empty) — backend sees null
-  const [dateRange, setDateRange] = useState({ start: "", end: "" });
-  const [filters, setFilters] = useState({ client: "All", consignee: "All", agent: "All", product: "All" });
+  const [dateRange, setDateRange] = useState({
+    start: "",
+    end: ""
+  });
+
+  const [filters, setFilters] = useState({
+    client: "All",
+    consignee: "All",
+    agent: "All",
+    product: "All"
+  });
+
   const [dataMap, setDataMap] = useState({});
-  const [loading, setLoading] = useState({});
   const [error, setError] = useState(null);
+
+  // new: company logo from profile
+  const [companyLogoUrl, setCompanyLogoUrl] = useState(null);
+
+  useEffect(() => {
+    // fetch profile to get company logo first
+    let mounted = true;
+
+    (async () => {
+      try {
+        const res = await api.get("/account/my-profile");
+        if (!mounted) return;
+        if (res?.data?.companyLogoUrl) {
+          setCompanyLogoUrl(res.data.companyLogoUrl);
+        } else {
+          setCompanyLogoUrl(null);
+        }
+      } catch (err) {
+        // ignore — we'll show placeholder
+        setCompanyLogoUrl(null);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
-    let mounted = true;
 
-    setLoading(prev => {
-      const nv = { ...prev };
-      COMPONENT_IDS.forEach(id => nv[id] = true);
-      return nv;
-    });
-
+    let cancel = false;
     setError(null);
 
-    Promise.all(COMPONENT_IDS.map(id => fetchComponentData(id, { userId, dateRange, filters })))
-      .then(results => {
-        if (!mounted) return;
-        const map = {};
-        COMPONENT_IDS.forEach((id, idx) => {
-          const r = results[idx];
-          if (!r || r.datasource === "dummy" || !r.data) map[id] = { datasource: "dummy", data: DUMMY[id] };
-          else map[id] = { datasource: "db", data: r.data };
+    Promise.all(
+      COMPONENT_IDS.map(cid =>
+        fetchComponentData(cid, { userId, dateRange, filters })
+      )
+    )
+      .then(res => {
+        if (cancel) return;
+
+        const obj = {};
+        COMPONENT_IDS.forEach((cid, i) => {
+          obj[cid] = res[i] || { data: null };
         });
-        setDataMap(map);
-        setLoading({});
-      }).catch(err => {
-        console.error("Failed to load components:", err);
-        setError("Failed to load some components");
-        const map = {};
-        COMPONENT_IDS.forEach(id => map[id] = { datasource: "dummy", data: DUMMY[id] });
-        setDataMap(map);
-        setLoading({});
-      });
 
-    return () => { mounted = false; };
-  }, [userId, dateRange.start, dateRange.end, filters.client, filters.consignee, filters.agent, filters.product]);
+        setDataMap(obj);
+      })
+      .catch(() => setError("Failed to load components"));
 
-  // assemble KPI array for UI (dataMap.*.data is normalized to {id,label,value})
+    return () => {
+      cancel = true;
+    };
+  }, [
+    userId,
+    dateRange.start,
+    dateRange.end,
+    filters.client,
+    filters.consignee,
+    filters.agent,
+    filters.product
+  ]);
+
   const kpiItems = [
-    (dataMap.sa_kpi_clients?.data) ?? DUMMY.sa_kpi_clients,
-    (dataMap.sa_kpi_agents?.data) ?? DUMMY.sa_kpi_agents,
-    (dataMap.sa_kpi_invoices?.data) ?? DUMMY.sa_kpi_invoices,
-    (dataMap.sa_kpi_sales?.data) ?? DUMMY.sa_kpi_sales,
-    (dataMap.sa_kpi_qty?.data) ?? DUMMY.sa_kpi_qty,
-    (dataMap.sa_kpi_rate?.data) ?? DUMMY.sa_kpi_rate
-  ];
+    dataMap.sa_kpi_clients?.data,
+    dataMap.sa_kpi_agents?.data,
+    dataMap.sa_kpi_invoices?.data,
+    dataMap.sa_kpi_sales?.data,
+    dataMap.sa_kpi_qty?.data,
+    dataMap.sa_kpi_rate?.data
+  ].filter(Boolean);
 
-  // filters options (normalized) — values array may contain objects {label,value}
   const filterOptions = {
-    sa_filter_client: dataMap.sa_filter_client?.data ?? DUMMY.sa_filter_client,
-    sa_filter_consignee: dataMap.sa_filter_consignee?.data ?? DUMMY.sa_filter_consignee,
-    sa_filter_agent: dataMap.sa_filter_agent?.data ?? DUMMY.sa_filter_agent,
-    sa_filter_product: dataMap.sa_filter_product?.data ?? DUMMY.sa_filter_product
+    sa_filter_client: {
+      values: dataMap.sa_filter_client?.data?.values || [],
+      title: "Client"
+    },
+    sa_filter_consignee: {
+      values: dataMap.sa_filter_consignee?.data?.values || [],
+      title: "Consignee"
+    },
+    sa_filter_agent: {
+      values: dataMap.sa_filter_agent?.data?.values || [],
+      title: "Agent"
+    },
+    sa_filter_product: {
+      values: dataMap.sa_filter_product?.data?.values || [],
+      title: "Product"
+    }
   };
 
   return (
-    <div style={{ padding: 18, fontFamily: "Inter, Roboto, Arial, sans-serif", background: NGRAPH_THEME.background }}>
-      <Header companyLogoUrl={companyLogoUrl} dateRange={dateRange} onDateChange={setDateRange} />
+    <div
+      style={{
+        padding: 20,
+        fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
+        background: NGRAPH_THEME.background,
+        maxWidth: 1400,
+        margin: "0 auto"
+      }}
+    >
+      <Header
+        companyLogoUrl={companyLogoUrl}
+        dateRange={dateRange}
+        onDateChange={setDateRange}
+      />
 
-      {error && <div style={{ color: "#a31b1b", marginBottom: 8 }}>{error}</div>}
+      {error && (
+        <div style={{ color: "#a31b1b", marginBottom: 12 }}>{error}</div>
+      )}
 
       <KpiGrid items={kpiItems} />
 
-      <FiltersRow filters={filters} options={filterOptions} onChange={setFilters} />
+      <FiltersRow
+        filters={filters}
+        options={filterOptions}
+        onChange={setFilters}
+      />
 
-      {/* Three donuts (dynamic) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-        <DonutWidget title="Branch-wise Sales" data={dataMap.sa_pie_branch?.data ?? DUMMY.sa_pie_branch} />
-        <DonutWidget title="Cost Center-wise Sales" data={dataMap.sa_pie_costcenter?.data ?? DUMMY.sa_pie_costcenter} />
-        <DonutWidget title="Channel-wise Sales" data={dataMap.sa_pie_channel?.data ?? DUMMY.sa_pie_channel} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+        <DonutWidget
+          title={dataMap.sa_pie_branch?.title || "Branch-wise Sales"}
+          data={dataMap.sa_pie_branch?.data}
+        />
+
+        <DonutWidget
+          title={dataMap.sa_pie_costcenter?.title || "Cost Center-wise Sales"}
+          data={dataMap.sa_pie_costcenter?.data}
+        />
+
+        <DonutWidget
+          title={dataMap.sa_pie_channel?.title || "Channel-wise Sales"}
+          data={dataMap.sa_pie_channel?.data}
+        />
       </div>
 
-      {/* Map + Line */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-        <ProfessionalMap title="Location-wise Sales" data={dataMap.sa_map_sales?.data ?? DUMMY.sa_map_sales} />
-        <LineAreaWidget title="Monthly Sales <> Qty (current vs previous)" data={dataMap.sa_line_sales_qty?.data ?? DUMMY.sa_line_sales_qty} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 12,
+          marginTop: 12
+        }}
+      >
+        <ProfessionalMap
+          title={dataMap.sa_map_sales?.title || "Location-wise Sales"}
+          data={dataMap.sa_map_sales?.data}
+        />
+
+        <LineAreaWidget
+          title={dataMap.sa_line_sales_qty?.title || "Monthly Sales <> Qty"}
+          data={dataMap.sa_line_sales_qty?.data}
+        />
       </div>
 
-      {/* Lower 6 tables */}
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-        <TableWidget title="Book-wise Sales" data={dataMap.sa_table_book?.data ?? DUMMY.sa_table_book} />
-        <TableWidget title="Category-wise Sales" data={dataMap.sa_table_category?.data ?? DUMMY.sa_table_category} />
-        <TableWidget title="Product-wise Sales" data={dataMap.sa_table_product?.data ?? DUMMY.sa_table_product} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3,1fr)",
+          gap: 12,
+          marginTop: 12
+        }}
+      >
+        <TableWidget
+          title={dataMap.sa_table_book?.title || "Book-wise Sales"}
+          data={dataMap.sa_table_book?.data}
+        />
+
+        <TableWidget
+          title={dataMap.sa_table_category?.title || "Category-wise Sales"}
+          data={dataMap.sa_table_category?.data}
+        />
+
+        <TableWidget
+          title={dataMap.sa_table_product?.title || "Product-wise Sales"}
+          data={dataMap.sa_table_product?.data}
+        />
       </div>
 
-      <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-        <TableWidget title="Client-wise Sales" data={dataMap.sa_table_client?.data ?? DUMMY.sa_table_client} />
-        <TableWidget title="Delivery-wise Sales" data={dataMap.sa_table_delivery?.data ?? DUMMY.sa_table_delivery} />
-        <TableWidget title="Agent-wise Sales" data={dataMap.sa_table_agent?.data ?? DUMMY.sa_table_agent} />
-      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3,1fr)",
+          gap: 12,
+          marginTop: 12
+        }}
+      >
+        <TableWidget
+          title={dataMap.sa_table_client?.title || "Client-wise Sales"}
+          data={dataMap.sa_table_client?.data}
+        />
 
-      <div style={{ marginTop: 16, fontSize: 12, color: "#666" }}>
-        <div>Note: Components use backend SQL when configured. Filters (Client/Agent/etc.) are populated from admin-provided SQL.</div>
-        <div>PDF reference: <a href={REPORT_PDF_URL} target="_blank" rel="noreferrer">Meera MIS PDF</a></div>
+        <TableWidget
+          title={dataMap.sa_table_delivery?.title || "Delivery-wise Sales"}
+          data={dataMap.sa_table_delivery?.data}
+        />
+
+        <TableWidget
+          title={dataMap.sa_table_agent?.title || "Agent-wise Sales"}
+          data={dataMap.sa_table_agent?.data}
+        />
       </div>
     </div>
   );

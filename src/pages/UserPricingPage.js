@@ -2,10 +2,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, ChevronDown, Rocket, Zap, Shield, HelpCircle } from "lucide-react";
+import { Check, X, ChevronDown, Rocket, Zap, Shield, HelpCircle, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { FaTimes, FaArrowRight, FaSpinner } from "react-icons/fa";
-
 
 // --- Component Definitions (PricingButton, FeatureCell, FAQ remain the same) ---
 
@@ -311,8 +310,9 @@ export default function PricingPage() {
     if (loading) {
         return (
             <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
-                <div className="text-lg text-indigo-600 mt-4">Loading premium plans...</div>
+                <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
+                    <Loader2 className="animate-spin w-6 h-6" /> Loading Plans...
+                </div>
             </div>
         );
     }

@@ -6,13 +6,13 @@ namespace minutechart.Models
 
         public string? CustomerCode { get; set; }
         public string? ProfilePhotoUrl { get; set; }
+        public string? CompanyLogoUrl { get; set; }
         public string? CustomerGST { get; set; }
         public string CompanyName { get; set; }
         public string ServerName { get; set; }
         public string DatabaseName { get; set; }
         public string DbUsername { get; set; }
         public string DbPassword { get; set; }
-        public int RefreshTime { get; set; }
         public string AppUserId { get; set; }
         public virtual AppUser AppUser { get; set; }
 

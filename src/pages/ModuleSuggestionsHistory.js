@@ -114,8 +114,8 @@ export default function ModuleSuggestionsHistory() {
             <div className="max-w-4xl mx-auto space-y-4">
                 {isLoading && !error && history.length === 0 ? (
                     <div className="text-center p-10 bg-white rounded-xl shadow-md">
-                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4"/>
-                        <p className="text-lg text-gray-700">Loading your suggestions...</p>
+                        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mx-auto mb-4"/>
+                        <p className="text-lg text-gray-700">Loading Suggestions...</p>
                     </div>
                 ) : history.length === 0 ? (
                     <div className="text-center p-10 bg-white rounded-xl shadow-md border-t-4 border-yellow-500">

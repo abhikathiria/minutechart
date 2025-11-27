@@ -28,7 +28,7 @@ namespace minutechart.Services
 
         public string BuildConnectionString(string server, string database, string username, string password)
         {
-            return $"Server={server};Database={database};User Id={username};Password={password};TrustServerCertificate=True;";
+            return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Column Encryption Setting=Disabled;";
         }
 
         // ✅ This is what you were missing

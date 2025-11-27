@@ -57,6 +57,7 @@ namespace minutechart.Controllers
                     {
                         id = r.Id,
                         componentId = r.ComponentId,
+                        moduleTitle = r.ModuleTitle,
                         sqlQuery = r.SqlQuery,
                         lastUpdated = r.LastUpdated,
                         createdAt = r.CreatedAt,
@@ -77,6 +78,7 @@ namespace minutechart.Controllers
         public class SaveRequest
         {
             public string ComponentId { get; set; }
+            public string? ModuleTitle { get; set; }
             public string SqlQuery { get; set; }
         }
 
@@ -131,6 +133,7 @@ namespace minutechart.Controllers
 
             if (existing != null)
             {
+                existing.ModuleTitle = req.ModuleTitle;
                 existing.SqlQuery = req.SqlQuery;
                 existing.LastUpdated = DateTimeHelper.GetIndianTime();
                 existing.UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? existing.UserIpAddress;
@@ -146,6 +149,7 @@ namespace minutechart.Controllers
             {
                 AppUserId = userId,
                 ComponentId = req.ComponentId,
+                ModuleTitle = req.ModuleTitle,
                 SqlQuery = req.SqlQuery,
                 CreatedAt = DateTimeHelper.GetIndianTime(),
                 LastUpdated = DateTimeHelper.GetIndianTime(),
@@ -227,7 +231,7 @@ namespace minutechart.Controllers
                 await _db.SaveChangesAsync();
 
                 await _activityLogger.LogAsync("executed sales module", "SalesModule", req.ComponentId, targetUser);
-                return Ok(new { success = true, data = table });
+                return Ok(new { success = true, title = module.ModuleTitle, data = table });
             }
             catch (Exception ex)
             {

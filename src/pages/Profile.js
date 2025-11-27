@@ -10,7 +10,7 @@ import {
   FaEyeSlash,
   FaArrowLeft,
 } from "react-icons/fa";
-import { Loader, Save, CheckCircle, XCircle } from "lucide-react";
+import { Loader, Loader2, Save, CheckCircle, XCircle } from "lucide-react";
 import api from "../api";
 
 // --- Helper Component for Input Fields ---
@@ -198,9 +198,8 @@ export default function Profile() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-2xl text-indigo-600 font-semibold flex items-center gap-3 p-6 bg-white rounded-xl shadow-lg">
-          <Loader className="animate-spin w-6 h-6" />
-          Loading User Database Profile...
+        <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
+          <Loader2 className="animate-spin w-6 h-6" /> Loading User Database Profile...
         </div>
       </div>
     );

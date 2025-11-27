@@ -5,6 +5,7 @@ import api from "../api";
 import { FaSearch, FaPlus, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSortUp, FaSortDown, FaBars, FaTimes, FaSort, FaFileExport } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { Loader2 } from "lucide-react";
 
 // --- Custom Components ---
 
@@ -249,7 +250,9 @@ function UserList() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <p className="text-xl text-indigo-600 font-semibold">Loading Users...</p>
+                <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
+                    <Loader2 className="animate-spin w-6 h-6" /> Loading Users...
+                </div>
             </div>
         );
     }
