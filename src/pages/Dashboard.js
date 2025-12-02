@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import ModuleChart from "../components/modules/ModuleChart";
 import PlanPage from "./PlanPage";
@@ -14,6 +14,19 @@ import html2canvas from "html2canvas";
 // 1. Define the sidebar width (fixed size for clean transitions)
 const SIDEBAR_WIDTH_DESKTOP = 288; // md:w-72 (72 * 4px = 288px)
 const SIDEBAR_STORAGE_KEY = 'dashboardSidebarOpen';
+
+const NGRAPH_THEME = {
+    primary: "#2B6CB0",        // mid blue
+    primarySoft: "#E6F0FB",    // very light blue background
+    accent: "#1E40AF",         // stronger blue
+    grid: "#E8F1FB",
+    textPrimary: "#0B2447",
+    tooltipBg: "#ffffff",
+    tooltipBorder: "#cfe3fb",
+    background: "#F7FBFF",
+    kpiBorder: "#2B6CB0",
+    header: "#0a2345"
+};
 
 function AmbientBackground({ mouseX, mouseY }) {
     // small motion transforms for the blobs
@@ -39,6 +52,47 @@ function AmbientBackground({ mouseX, mouseY }) {
                 </defs>
                 <rect width="100%" height="100%" fill="url(#g1)" />
             </svg>
+        </div>
+    );
+}
+
+function NoLogoPlaceholder({ width = 120, height = 44 }) {
+    return (
+        <div
+            style={{
+                width,
+                height,
+                borderRadius: 8,
+                background: NGRAPH_THEME.primarySoft,
+                border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: 6,
+                boxSizing: "border-box",
+                flexDirection: "column",
+            }}
+        >
+            <svg width="20" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <rect
+                    x="2"
+                    y="6"
+                    width="20"
+                    height="12"
+                    rx="2"
+                    stroke={NGRAPH_THEME.primary}
+                    strokeWidth="1.5"
+                    fill="transparent"
+                />
+                <path d="M6 10h12" stroke={NGRAPH_THEME.primary} strokeWidth="1.2" />
+                <path d="M8 14v2" stroke={NGRAPH_THEME.primary} strokeWidth="1.2" />
+            </svg>
+            <div
+                style={{ fontSize: 11, color: NGRAPH_THEME.primary, fontWeight: 600 }}
+            >
+                No Logo
+            </div>
         </div>
     );
 }
@@ -194,8 +248,32 @@ export default function Dashboard() {
     const [countdown, setCountdown] = useState("");
     const [refreshRules, setRefreshRules] = useState({});
     const [queriesLoaded, setQueriesLoaded] = useState(false);
+    const navigate = useNavigate();
+    const [companyLogoUrl, setCompanyLogoUrl] = useState(null);
 
-    // In Dashboard.jsx, replace the existing downloadPdf function:
+    useEffect(() => {
+        // fetch profile to get company logo first
+        let mounted = true;
+
+        (async () => {
+            try {
+                const res = await api.get("/account/my-profile");
+                if (!mounted) return;
+                if (res?.data?.companyLogoUrl) {
+                    setCompanyLogoUrl(res.data.companyLogoUrl);
+                } else {
+                    setCompanyLogoUrl(null);
+                }
+            } catch (err) {
+                // ignore — we'll show placeholder
+                setCompanyLogoUrl(null);
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const downloadPdfReport = async () => {
         try {
@@ -531,80 +609,158 @@ export default function Dashboard() {
 
             {/* 5. Main Content Area (Kept as is, but without suggestion box) */}
             <main
-                className="flex-1 p-4 md:p-6 transition-all duration-300 relative"
+                className="flex-1 transition-all duration-300 relative"
                 style={{
                     marginLeft: !isMobile ? 0 : `${mainContentMargin}px`,
                     minHeight: '100vh',
                 }}
             >
-                {/* Dashboard Header/Banners */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div
+                    style={{
+                        position: "sticky",
+                        top: "96px",
+                        zIndex: 90,
+                        background: NGRAPH_THEME.header,
+                    }}
+                >
+                    {/* TOP HEADER ROW: Bars + Title (left) and Logo (right) */}
+                    <div
+                        className="flex flex-wrap justify-between items-center gap-4"
+                        style={{
+                            background: NGRAPH_THEME.header,
+                            padding: "1rem 1.25rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            minHeight: "4rem",
+                        }}
+                    >
+                        {/* Left: Menu Button + Title */}
+                        <div className="flex items-center gap-3">
+                            {!isSidebarOpen && (
+                                <button
+                                    onClick={() => {
+                                        setIsSidebarOpen(true);
+                                        localStorage.setItem(SIDEBAR_STORAGE_KEY, 'true');
+                                    }}
+                                    className="p-3 bg-[#152342] text-white rounded-lg hover:bg-gray-800 transition shadow-lg"
+                                    title="Open Sidebar"
+                                >
+                                    <FaBars size={20} />
+                                </button>
+                            )}
 
-                    {/* Menu Button & Title */}
-                    <div className="flex items-center">
-                        {!isSidebarOpen && (
-                            <button
-                                onClick={() => {
-                                    setIsSidebarOpen(true);
-                                    localStorage.setItem(SIDEBAR_STORAGE_KEY, 'true');
+                            <h1
+                                style={{
+                                    margin: 0,
+                                    fontSize: "1.625rem",
+                                    fontWeight: 700,
+                                    color: "white",
+                                    flexGrow: 1,
+                                    fontFamily:
+                                        "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
                                 }}
-                                className="p-3 bg-[#152342] text-white rounded-lg hover:bg-gray-800 transition mr-4 shadow-lg"
-                                title="Open Sidebar"
                             >
-                                <FaBars size={20} />
-                            </button>
-                        )}
-                        <h2 className="text-3xl font-bold text-black">
-                            Your Dashboard
-                        </h2>
-                        {/* <button
-                            onClick={downloadPdfReport}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md"
-                        >
-                            Download PDF
-                        </button> */}
+                                Custom Analytics
+                            </h1>
+                        </div>
 
+                        {/* Right: Company Logo */}
+                        <div className="flex-shrink-0">
+                            {companyLogoUrl ? (
+                                <img
+                                    src={companyLogoUrl}
+                                    alt="company"
+                                    className="object-contain"
+                                    style={{
+                                        height: "48px",
+                                        width: "180px",
+                                        maxWidth: "100%",
+                                        background: "#0a2345"
+                                    }}
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.style.display = "none";
+                                    }}
+                                />
+                            ) : (
+                                <NoLogoPlaceholder width={180} height={48} />
+                            )}
+                        </div>
                     </div>
+                </div>
 
-                    {/* Subscription Banners (Kept as is) */}
+                {/* SECOND ROW: Back Button + Subscription/Trial Banner */}
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "0.75rem 1.25rem",
+                        background: NGRAPH_THEME.primarySoft,
+                        borderBottom: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                    }}
+                >
+                    {/* Back Button (Left Side) */}
+                    <button
+                        onClick={() => navigate("/")}
+                        style={{
+                            padding: "0.375rem 0.875rem", // RELATIVE PADDING (6px 14px)
+                            background: NGRAPH_THEME.accent,
+                            color: "white",
+                            fontWeight: 600,
+                            border: "none",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            flexShrink: 0, // Prevent shrinking
+                        }}
+                    >
+                        ← Back
+                    </button>
+
+                    {/* Subscription Banner */}
                     {showSubscriptionBanner && (
-                        <div className="w-full md:w-auto p-3 rounded-xl shadow-md bg-[#0a2345] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
+                        <div className="w-full md:w-auto p-3 rounded-xl shadow-md bg-[#0a2345] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div className="flex items-center space-x-3">
                                 <Calendar className="w-6 h-6 text-teal-300 shrink-0" />
                                 <div>
                                     <div className="text-sm font-semibold whitespace-nowrap">
                                         Subscription Active: {activePlanDaysRemaining} {activePlanDaysRemaining === 1 ? "day" : "days"} left
                                     </div>
-                                    <div className="text-xs opacity-90">
-                                        {activePlanDaysRemaining === 1 ? `Expires in: ${countdown}` : `Expires ${subscriptionEnd?.toLocaleDateString('en-GB')}`}
+                                    <div className="text-xs">
+                                        {activePlanDaysRemaining === 1 ? `Expires in: ${countdown}` : `Expires: ${subscriptionEnd?.toLocaleDateString('en-GB')}`}
                                     </div>
                                 </div>
                             </div>
                             <Link
                                 to="/pricing"
-                                className="bg-teal-300 text-black font-semibold px-4 py-1.5 rounded-lg shadow-lg transition hover:bg-gray-200 w-full sm:w-auto text-center text-sm"
+                                className="bg-teal-300 text-black font-semibold px-4 py-1.5 rounded-lg shadow-lg hover:bg-gray-200 w-full sm:w-auto text-center text-sm"
                             >
                                 Renew / Upgrade
                             </Link>
                         </div>
                     )}
 
+                    {/* Trial Banner */}
                     {showTrialBanner && (
-                        <div className="w-full md:w-auto p-3 rounded-xl shadow-md bg-yellow-700/90 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
+                        <div className="w-full md:w-auto p-3 rounded-xl shadow-md bg-yellow-700/90 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div className="flex items-center space-x-3">
                                 <AlertTriangle className="w-6 h-6 text-white shrink-0" />
                                 <div>
                                     <div className="text-sm font-semibold whitespace-nowrap">
                                         FREE TRIAL: {trialDaysRemaining} {trialDaysRemaining === 1 ? "day" : "days"} left
                                     </div>
-                                    <div className="text-xs opacity-90">
-                                        {trialDaysRemaining === 1 ? `Time remaining: ${countdown}` : `Ends ${trialEnd?.toLocaleDateString('en-GB')}`}
+                                    <div className="text-xs">
+                                        {trialDaysRemaining === 1 ? `Time remaining: ${countdown}` : `Ends: ${trialEnd?.toLocaleDateString('en-GB')}`}
                                     </div>
                                 </div>
                             </div>
                             <Link
                                 to="/pricing"
-                                className="bg-white text-yellow-700 font-semibold px-4 py-1.5 rounded-lg shadow-lg transition hover:bg-gray-200 w-full sm:w-auto text-center text-sm"
+                                className="bg-white text-yellow-700 font-semibold px-4 py-1.5 rounded-lg shadow-lg hover:bg-gray-200 w-full sm:w-auto text-center text-sm"
                             >
                                 Upgrade Now
                             </Link>
@@ -628,14 +784,14 @@ export default function Dashboard() {
 
                 {/* Module Grid Area (Kept as is) */}
                 {queries.length === 0 ? (
-                    <div className="text-slate-300 text-xl text-center py-20 bg-[#061018] rounded-xl shadow">
+                    <div className="text-slate-300 text-xl text-center py-20 bg-[#061018] rounded-xl shadow p-4 md:p-6">
                         <FaExclamationTriangle className="inline w-8 h-8 mb-4 text-orange-400" />
                         <p>No active modules have been configured for your dashboard yet.</p>
                         <p className="text-sm mt-2">Please contact your administrator for module setup.</p>
                     </div>
                 ) : (
                     <div id="dashboard-export-container">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 p-4 md:p-6">
                             {queries.map((q) => {
                                 const data = results[q.userQueryId];
                                 const isDataLoading = data === undefined || data === null;
@@ -673,9 +829,16 @@ export default function Dashboard() {
                                 return (
                                     <div
                                         key={q.userQueryId}
-                                        className={`bg-white shadow-lg p-5 flex flex-col hover:shadow-[0_16px_60px_rgba(0,240,255,0.06)] transition ${spanClasses} h-auto min-h-[300px] border border-black`}
+                                        className={`bg-white shadow-lg p-5 flex flex-col hover:shadow-[0_16px_60px_rgba(0,240,255,0.06)] transition ${spanClasses} h-auto min-h-[300px]`}
+                                        style={{
+                                            border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                                        }}
                                     >
-                                        <div className="flex items-center justify-between mb-1 border-b border-black pb-2">
+                                        <div className="flex items-center justify-between mb-1 pb-2"
+                                            style={{
+                                                borderBottom: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                                            }}
+                                        >
                                             {/* Left Spacer (Invisible) - Takes up space equal to the button group */}
                                             <div className="flex gap-2 invisible opacity-0 pointer-events-none">
                                                 {/* Duplicate the structure of the button group to match its width */}
@@ -746,7 +909,7 @@ export default function Dashboard() {
                                                     limitHeight={limitHeight}
                                                 />
                                             ) : (
-                                                <p className="text-gray-400 text-md text-center py-10">
+                                                <p className="text-[#0B3A66] text-md text-center py-10">
                                                     No data returned for this module.
                                                 </p>
                                             )}

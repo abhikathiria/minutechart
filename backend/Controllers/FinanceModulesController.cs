@@ -13,22 +13,24 @@ namespace minutechart.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class SalesModulesController : ControllerBase
+    public class FinanceModulesController : ControllerBase
     {
         private readonly MinutechartDbContext _db;
         private readonly DatabaseService _dbService;
         private readonly ActivityLogger _activityLogger;
 
         // Fixed list of component ids (same as frontend)
-        private static readonly List<string> SALES_COMPONENT_IDS = new()
+        private static readonly List<string> FINANCE_COMPONENT_IDS = new()
         {
-            "sa_kpi_clients","sa_kpi_agents","sa_kpi_invoices","sa_kpi_sales","sa_kpi_qty","sa_kpi_rate",
-            "sa_filter_client","sa_filter_consignee","sa_filter_agent","sa_filter_product",
-            "sa_pie_branch","sa_pie_costcenter","sa_pie_channel","sa_map_sales","sa_line_sales_qty",
-            "sa_table_book","sa_table_category","sa_table_product","sa_table_client","sa_table_delivery","sa_table_agent"
+            "fa_line_debttoequity","fa_bar_debtandequity","fa_table_debt",
+            "fa_line_cashturnoverratio","fa_bar_salesvscashandbank","fa_table_cashandbank",
+            "fa_line_faturnoverratio","fa_bar_salesvsfixedassets","fa_table_fixedassets",
+            "fa_line_debtors","fa_bar_debtorsvssales","fa_table_debtors",
+            "fa_line_creditors","fa_bar_creditorsvspurchase","fa_table_creditors",
+            "fa_line_commission","fa_bar_commissionandcreditors","fa_table_creditorscommission"
         };
 
-        public SalesModulesController(MinutechartDbContext db, DatabaseService dbService, ActivityLogger activityLogger)
+        public FinanceModulesController(MinutechartDbContext db, DatabaseService dbService, ActivityLogger activityLogger)
         {
             _db = db;
             _dbService = dbService;
@@ -42,13 +44,13 @@ namespace minutechart.Controllers
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null) return NotFound(new { message = "User not found" });
 
-            var rows = await _db.SalesModules
+            var rows = await _db.FinanceModules
                 .Where(x => x.AppUserId == userId && !x.HideQuery) // return visible by default for non-admins?
                 .ToListAsync();
 
             // Build response merging fixed component list
             var dict = new Dictionary<string, object>();
-            foreach (var comp in SALES_COMPONENT_IDS)
+            foreach (var comp in FINANCE_COMPONENT_IDS)
             {
                 var r = rows.FirstOrDefault(x => x.ComponentId == comp);
                 if (r != null)
@@ -70,7 +72,7 @@ namespace minutechart.Controllers
                 }
             }
 
-            await _activityLogger.LogAsync("viewed sales modules list for", "User", user.UserName ?? user.Email);
+            await _activityLogger.LogAsync("viewed finance modules list for", "User", user.UserName ?? user.Email);
             return Ok(dict);
         }
 
@@ -85,7 +87,7 @@ namespace minutechart.Controllers
         [HttpPost("save/{userId}")]
         public async Task<IActionResult> Save(string userId, [FromBody] SaveRequest req)
         {
-            if (req == null || string.IsNullOrEmpty(req.ComponentId) || !SALES_COMPONENT_IDS.Contains(req.ComponentId))
+            if (req == null || string.IsNullOrEmpty(req.ComponentId) || !FINANCE_COMPONENT_IDS.Contains(req.ComponentId))
                 return BadRequest(new { success = false, message = "Invalid ComponentId" });
 
             var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
@@ -114,10 +116,6 @@ namespace minutechart.Controllers
                 // Add safe defaults (dates and nulls)
                 addParam("@startDate", DateTime.Now.AddYears(-1));
                 addParam("@endDate", DateTime.Now);
-                addParam("@clientId", DBNull.Value);
-                addParam("@agentId", DBNull.Value);
-                addParam("@productId", DBNull.Value);
-                addParam("@consigneeId", DBNull.Value);
 
                 var reader = await cmd.ExecuteReaderAsync();
                 await reader.CloseAsync();
@@ -128,7 +126,7 @@ namespace minutechart.Controllers
             }
 
 
-            var existing = await _db.SalesModules
+            var existing = await _db.FinanceModules
                 .FirstOrDefaultAsync(x => x.AppUserId == userId && x.ComponentId == req.ComponentId);
 
             if (existing != null)
@@ -138,14 +136,14 @@ namespace minutechart.Controllers
                 existing.LastUpdated = DateTimeHelper.GetIndianTime();
                 existing.UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? existing.UserIpAddress;
 
-                _db.SalesModules.Update(existing);
+                _db.FinanceModules.Update(existing);
                 await _db.SaveChangesAsync();
 
-                await _activityLogger.LogAsync("updated sales module", "SalesModule", req.ComponentId, targetUser);
+                await _activityLogger.LogAsync("updated finance module", "FinanceModule", req.ComponentId, targetUser);
                 return Ok(new { success = true, message = "Updated", id = existing.Id });
             }
 
-            var newRow = new SalesModule
+            var newRow = new FinanceModule
             {
                 AppUserId = userId,
                 ComponentId = req.ComponentId,
@@ -156,10 +154,10 @@ namespace minutechart.Controllers
                 UserIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
             };
 
-            _db.SalesModules.Add(newRow);
+            _db.FinanceModules.Add(newRow);
             await _db.SaveChangesAsync();
 
-            await _activityLogger.LogAsync("created sales module", "SalesModule", req.ComponentId, targetUser);
+            await _activityLogger.LogAsync("created finance module", "FinanceModule", req.ComponentId, targetUser);
             return Ok(new { success = true, message = "Created", id = newRow.Id });
         }
 
@@ -169,10 +167,6 @@ namespace minutechart.Controllers
             public string ComponentId { get; set; }
             public DateTime? StartDate { get; set; }
             public DateTime? EndDate { get; set; }
-            public string? ClientId { get; set; }
-            public string? AgentId { get; set; }
-            public string? ProductId { get; set; }
-            public string? ConsigneeId { get; set; }
         }
 
         [HttpPost("test-raw/{userId}")]
@@ -199,10 +193,6 @@ namespace minutechart.Controllers
 
                 addParam("@startDate", DateTime.Now.AddYears(-1));
                 addParam("@endDate", DateTime.Now);
-                addParam("@clientId", DBNull.Value);
-                addParam("@agentId", DBNull.Value);
-                addParam("@productId", DBNull.Value);
-                addParam("@consigneeId", DBNull.Value);
 
                 var reader = await cmd.ExecuteReaderAsync();
                 var table = new List<Dictionary<string, object>>();
@@ -233,7 +223,7 @@ namespace minutechart.Controllers
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
             var targetUser = user?.UserName ?? user?.Email ?? userId;
 
-            var module = await _db.SalesModules.FirstOrDefaultAsync(x => x.AppUserId == userId && x.ComponentId == req.ComponentId && !x.HideQuery);
+            var module = await _db.FinanceModules.FirstOrDefaultAsync(x => x.AppUserId == userId && x.ComponentId == req.ComponentId && !x.HideQuery);
 
             // If not configured -> let frontend fallback to dummy
             if (module == null)
@@ -258,10 +248,6 @@ namespace minutechart.Controllers
 
                 addParam("@startDate", (object?)req.StartDate ?? DBNull.Value);
                 addParam("@endDate", (object?)req.EndDate ?? DBNull.Value);
-                addParam("@clientId", (object?)req.ClientId ?? DBNull.Value);
-                addParam("@agentId", (object?)req.AgentId ?? DBNull.Value);
-                addParam("@productId", (object?)req.ProductId ?? DBNull.Value);
-                addParam("@consigneeId", (object?)req.ConsigneeId ?? DBNull.Value);
 
                 var reader = await cmd.ExecuteReaderAsync();
                 var table = new List<Dictionary<string, object>>();
@@ -276,15 +262,15 @@ namespace minutechart.Controllers
 
                 // update last refreshed
                 module.LastRefreshedAt = DateTimeHelper.GetIndianTime();
-                _db.SalesModules.Update(module);
+                _db.FinanceModules.Update(module);
                 await _db.SaveChangesAsync();
 
-                await _activityLogger.LogAsync("executed sales module", "SalesModule", req.ComponentId, targetUser);
+                await _activityLogger.LogAsync("executed finance module", "FinanceModule", req.ComponentId, targetUser);
                 return Ok(new { success = true, title = module.ModuleTitle, data = table });
             }
             catch (Exception ex)
             {
-                await _activityLogger.LogAsync("failed execute sales module", "SalesModule", req.ComponentId, targetUser);
+                await _activityLogger.LogAsync("failed execute finance module", "FinanceModule", req.ComponentId, targetUser);
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
@@ -293,13 +279,13 @@ namespace minutechart.Controllers
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var row = await _db.SalesModules.FirstOrDefaultAsync(x => x.Id == id);
+            var row = await _db.FinanceModules.FirstOrDefaultAsync(x => x.Id == id);
             if (row == null) return NotFound(new { success = false, message = "Not found" });
 
-            _db.SalesModules.Remove(row);
+            _db.FinanceModules.Remove(row);
             await _db.SaveChangesAsync();
 
-            await _activityLogger.LogAsync("deleted sales module", "SalesModule", row.ComponentId, row.AppUserId);
+            await _activityLogger.LogAsync("deleted finance module", "FinanceModule", row.ComponentId, row.AppUserId);
             return Ok(new { success = true, message = "Deleted" });
         }
 
@@ -309,16 +295,16 @@ namespace minutechart.Controllers
         [HttpPost("toggle-hide/{id}")]
         public async Task<IActionResult> ToggleHide(int id, [FromBody] ToggleHideRequest req)
         {
-            var row = await _db.SalesModules.FirstOrDefaultAsync(x => x.Id == id);
+            var row = await _db.FinanceModules.FirstOrDefaultAsync(x => x.Id == id);
             if (row == null) return NotFound(new { success = false, message = "Not found" });
 
             row.HideQuery = req.Hide;
             row.LastUpdated = DateTimeHelper.GetIndianTime();
-            _db.SalesModules.Update(row);
+            _db.FinanceModules.Update(row);
             await _db.SaveChangesAsync();
 
-            var action = req.Hide ? "hid sales module" : "made sales module visible";
-            await _activityLogger.LogAsync(action, "SalesModule", row.ComponentId, row.AppUserId);
+            var action = req.Hide ? "hide finance module" : "made finance module visible";
+            await _activityLogger.LogAsync(action, "FinanceModule", row.ComponentId, row.AppUserId);
 
             return Ok(new { success = true, message = req.Hide ? "Hidden" : "Visible" });
         }

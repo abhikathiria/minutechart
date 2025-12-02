@@ -1,4 +1,4 @@
-// src/pages/SalesAnalyticsModules.jsx
+// src/pages/ProductionModules.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api";
@@ -16,34 +16,22 @@ import {
 } from "react-icons/fa";
 
 const COMPONENTS = [
-  { id: "sa_kpi_clients", title: "Clients KPI" },
-  { id: "sa_kpi_agents", title: "Agents KPI" },
-  { id: "sa_kpi_invoices", title: "Invoices KPI" },
-  { id: "sa_kpi_sales", title: "Sales KPI" },
-  { id: "sa_kpi_qty", title: "Quantity KPI" },
-  { id: "sa_kpi_rate", title: "Rate KPI" },
+  { id: "pa_kpi_grossproduction", title: "Gross Production KPI" },
+  { id: "pa_kpi_netproduction", title: "Net Production KPI" },
+  { id: "pa_kpi_grade", title: "Grade KPI" },
+  { id: "pa_kpi_machines", title: "Machines KPI" },
+  { id: "pa_kpi_items", title: "Items KPI" },
+  { id: "pa_kpi_lots", title: "Lots KPI" },
 
-  { id: "sa_filter_client", title: "Client Filter" },
-  { id: "sa_filter_consignee", title: "Consignee Filter" },
-  { id: "sa_filter_agent", title: "Agent Filter" },
-  { id: "sa_filter_product", title: "Product Filter" },
-
-  { id: "sa_pie_branch", title: "Branch Pie" },
-  { id: "sa_pie_costcenter", title: "Cost Center Pie" },
-  { id: "sa_pie_channel", title: "Channel Pie" },
-
-  { id: "sa_map_sales", title: "Sales Map" },
-  { id: "sa_line_sales_qty", title: "Sales vs Qty (Line)" },
-
-  { id: "sa_table_book", title: "Book Table" },
-  { id: "sa_table_category", title: "Category Table" },
-  { id: "sa_table_product", title: "Product Table" },
-  { id: "sa_table_client", title: "Client Table" },
-  { id: "sa_table_delivery", title: "Delivery Table" },
-  { id: "sa_table_agent", title: "Agent Table" }
+  { id: "pa_pie_production", title: "Production Pie" },
+  { id: "pa_line_month", title: "Month Wise (Line)" },
+  { id: "pa_pie_grade", title: "Grade Pie" },
+  
+  { id: "pa_table_machine", title: "Machine Table" },
+  { id: "pa_table_item", title: "Item Table" }
 ];
 
-export default function SalesAnalyticsModules() {
+export default function ProductionModules() {
   const { id: userId } = useParams();
   const [configMap, setConfigMap] = useState({});
   const [selected, setSelected] = useState(null);
@@ -77,7 +65,7 @@ export default function SalesAnalyticsModules() {
     setLoadingList(true);
     setMessage(null);
     try {
-      const res = await api.get(`/salesmodules/list/${encodeURIComponent(userId)}`);
+      const res = await api.get(`/productionmodules/list/${encodeURIComponent(userId)}`);
       setConfigMap(res.data || {});
       const first = COMPONENTS[0]?.id;
       setSelected(prev => prev ?? first);
@@ -111,7 +99,7 @@ export default function SalesAnalyticsModules() {
         setCustomerName("");
       }
     } catch (err) {
-      console.error("Failed to load sales modules list", err);
+      console.error("Failed to load production modules list", err);
       setConfigMap({});
       setMessage({ type: "error", text: "Failed to load components" });
       setCompanyName("Unknown Company");
@@ -171,7 +159,7 @@ export default function SalesAnalyticsModules() {
       };
 
       const res = await api.post(
-        `/salesmodules/test-raw/${encodeURIComponent(userId)}`,
+        `/productionmodules/test-raw/${encodeURIComponent(userId)}`,
         body
       );
 
@@ -195,7 +183,7 @@ export default function SalesAnalyticsModules() {
 
     try {
       const payload = { componentId: selected, moduleTitle: moduleTitle, sqlQuery: sqlText };
-      const res = await api.post(`/salesmodules/save/${encodeURIComponent(userId)}`, payload);
+      const res = await api.post(`/productionmodules/save/${encodeURIComponent(userId)}`, payload);
       if (res.data?.success) {
         await loadList();
         showMessage("success", "Saved successfully");
@@ -220,7 +208,7 @@ export default function SalesAnalyticsModules() {
     setActionLoading(true);
     try {
       const id = cfg.id;
-      const res = await api.post(`/salesmodules/toggle-hide/${id}`, { hide: !cfg.hideQuery });
+      const res = await api.post(`/productionmodules/toggle-hide/${id}`, { hide: !cfg.hideQuery });
       if (res.data?.success) {
         const updated = { ...configMap };
         updated[selected] = { ...updated[selected], hideQuery: !cfg.hideQuery, lastUpdated: new Date().toISOString() };
@@ -253,7 +241,7 @@ export default function SalesAnalyticsModules() {
     }
     setActionLoading(true);
     try {
-      const res = await api.delete(`/salesmodules/delete/${moduleToDelete.cfg.id}`);
+      const res = await api.delete(`/productionmodules/delete/${moduleToDelete.cfg.id}`);
       if (res.data?.success) {
         const updated = { ...configMap };
         updated[moduleToDelete.compId] = null;
@@ -317,7 +305,7 @@ export default function SalesAnalyticsModules() {
         }
         try {
           // call toggle for each saved record
-          await api.post(`/salesmodules/toggle-hide/${cfg.id}`, { hide: makeHide });
+          await api.post(`/productionmodules/toggle-hide/${cfg.id}`, { hide: makeHide });
           // update local map
           setConfigMap(prev => {
             const copy = { ...prev };
@@ -352,7 +340,7 @@ export default function SalesAnalyticsModules() {
           continue;
         }
         try {
-          await api.delete(`/salesmodules/delete/${cfg.id}`);
+          await api.delete(`/productionmodules/delete/${cfg.id}`);
           setConfigMap(prev => {
             const copy = { ...prev };
             copy[compId] = null;
@@ -460,7 +448,7 @@ export default function SalesAnalyticsModules() {
     }
     setActionLoading(true);
     try {
-      const res = await api.post(`/salesmodules/toggle-hide/${cfg.id}`, { hide: !cfg.hideQuery });
+      const res = await api.post(`/productionmodules/toggle-hide/${cfg.id}`, { hide: !cfg.hideQuery });
       if (res.data?.success) {
         setConfigMap(prev => {
           const copy = { ...prev };
@@ -486,7 +474,7 @@ export default function SalesAnalyticsModules() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 max-w-7xl mx-auto">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 flex items-center gap-2">
-              <FaCog className="text-indigo-600" /> Sales Modules for <span className="text-indigo-600">{companyName}</span>
+              <FaCog className="text-indigo-600" /> Production Modules for <span className="text-indigo-600">{companyName}</span>
             </h1>
             {customerName && <p className="text-sm sm:text-lg text-gray-500 mt-1 ml-8">Customer Name: {customerName}</p>}
           </div>
@@ -513,7 +501,7 @@ export default function SalesAnalyticsModules() {
         <section className="flex-1 lg:w-4/12 flex flex-col space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
             <div className="flex justify-between items-center mb-4 border-b pb-3">
-              <h2 className="text-xl font-bold text-gray-700">Sales Modules ({COMPONENTS.length})</h2>
+              <h2 className="text-xl font-bold text-gray-700">Production Modules ({COMPONENTS.length})</h2>
               <div className="flex items-center gap-3">
                 <div className="text-sm text-gray-500">{selectedModules.length > 0 ? `Selected: ${selectedModules.length}` : null}</div>
                 <button
@@ -611,7 +599,7 @@ export default function SalesAnalyticsModules() {
                       <textarea
                         value={sqlText}
                         onChange={(e) => setSqlText(e.target.value)}
-                        placeholder={`Write SQL for ${selected}. Use named params: @startDate, @endDate, @clientId, @agentId, @productId, @consigneeId`}
+                        placeholder={`Write SQL for ${selected}. Use named params: @startDate, @endDate`}
                         className="w-full min-h-[250px] p-3 font-mono text-sm rounded border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                       />
                       <button

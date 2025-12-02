@@ -14,6 +14,7 @@
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.16",
+    "gsap": "^3.13.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.12.1",
     "jspdf": "^3.0.4",
@@ -30,6 +31,7 @@
     "react-simple-maps": "^3.0.0",
     "react-window": "^1.8.11",
     "recharts": "^3.5.0",
+    "three": "^0.181.2",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },

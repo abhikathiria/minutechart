@@ -3,11 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import {
     FaUserCircle, FaSignOutAlt, FaSignInAlt, FaChevronDown, FaUserPlus, FaUserShield,
     FaBars, FaTimes, FaCog, FaChevronUp, FaChartArea, FaHome, FaTags, FaLock, FaHistory, FaEnvelope,
-    FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaTachometerAlt, FaPlug
+    FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaTachometerAlt, FaPlug, FaChartLine, FaIndustry,
+    FaMoneyBillWave, FaChartPie, FaScrewdriver, FaPercentage, FaPlus
 } from "react-icons/fa";
 // Assuming 'api' is not needed directly in the component structure, keeping it imported for completeness
 import api from "../api";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaScrewdriverWrench } from "react-icons/fa6";
 
 // --- FUTURISTIC DESIGN VARIABLES & COMPONENTS ---
 
@@ -111,19 +113,29 @@ const NavLinkDesktop = ({ to, children }) => (
 function Header({ user, onLogout }) {
     const [profileOpen, setProfileOpen] = useState(false);
     const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
-    const [navOpen, setNavOpen] = useState(false); // Mobile Nav State
+    const [navOpen, setNavOpen] = useState(false);
     const navigate = useNavigate();
+    const [dashboardOpen, setDashboardOpen] = useState(false);
+    const [mobileDashOpen, setMobileDashOpen] = useState(false);
+    const [mobileAdminOpen, setMobileAdminOpen] = useState(false);
 
     // Refs (KEEPING ALL EXISTING LOGIC)
     const profileRef = useRef(null);
+    const dashRef = useRef(null);
+    const mobiledashRef = useRef(null);
+    const mobileadminRef = useRef(null);
     const adminSettingsRef = useRef(null);
     const adminSettingsButtonRef = useRef(null);
     const profileButtonRef = useRef(null);
+    const dashButtonRef = useRef(null);
+    const mobiledashButtonRef = useRef(null);
+    const mobileadminButtonRef = useRef(null);
     const navRef = useRef(null);
     const navToggleButtonRef = useRef(null);
 
     const roles = user?.roles || [];
-    const isSuperAdmin = roles.includes("SuperAdmin"); // DEFINED HERE
+    const isUser = roles.includes("User");
+    const isSuperAdmin = roles.includes("SuperAdmin");
     const isAdmin = roles.includes("Admin");
     const isAnyAdmin = isSuperAdmin || isAdmin;
 
@@ -146,6 +158,15 @@ function Header({ user, onLogout }) {
             if (isClickOutside(profileRef, profileButtonRef)) {
                 setProfileOpen(false);
             }
+            if (isClickOutside(dashRef, dashButtonRef)) {
+                setDashboardOpen(false);
+            }
+            if (isClickOutside(mobiledashRef, mobiledashButtonRef)) {
+                setMobileDashOpen(false);
+            }
+            if (isClickOutside(mobileadminRef, mobileadminButtonRef)) {
+                setMobileAdminOpen(false);
+            }
             if (navOpen && isClickOutside(navRef, navToggleButtonRef)) {
                 setNavOpen(false);
             }
@@ -165,6 +186,9 @@ function Header({ user, onLogout }) {
 
     const closeAllMenus = (callback) => {
         setProfileOpen(false);
+        setDashboardOpen(false);
+        setMobileDashOpen(false);
+        setMobileAdminOpen(false);
         setAdminSettingsOpen(false);
         setNavOpen(false);
         if (callback) callback();
@@ -175,6 +199,9 @@ function Header({ user, onLogout }) {
         setNavOpen(p => !p);
         setProfileOpen(false);
         setAdminSettingsOpen(false);
+        setDashboardOpen(false);
+        setMobileDashOpen(false);
+        setMobileAdminOpen(false);
     };
 
     // **HOLOGRAPHIC DROPDOWN SURFACE**
@@ -204,7 +231,7 @@ function Header({ user, onLogout }) {
                     <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
                     <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
                     <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
-                    <AdminDropdownItem to="/superadmin/admin-commission" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Commission</AdminDropdownItem>
+                    <AdminDropdownItem to="/superadmin/admin-commission" icon={<FaPercentage className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Commission</AdminDropdownItem>
                 </>
             )}
             {isAdmin && !isSuperAdmin && (
@@ -213,8 +240,8 @@ function Header({ user, onLogout }) {
                     <AdminDropdownItem to="/admin/complaintsmanagement" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints Management</AdminDropdownItem>
                     <AdminDropdownItem to="/admin/admindashboard" icon={<FaTachometerAlt className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Admin Dashboard</AdminDropdownItem>
                     <AdminDropdownItem to="/admin/activitylogs" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Activity Log</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/my-commission" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Commission</AdminDropdownItem>
-                    <AdminDropdownItem to="/admin/payout-details" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Payment Details</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/my-commission" icon={<FaPercentage className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Commission</AdminDropdownItem>
+                    <AdminDropdownItem to="/admin/payout-details" icon={<FaMoneyBillWave className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Payment Details</AdminDropdownItem>
                 </>
             )}
         </div>
@@ -232,8 +259,7 @@ function Header({ user, onLogout }) {
                         <DropdownItem to="/purchase-history" icon={<FaHistory className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Purchase History</DropdownItem>
                         <DropdownItem to="/complaints" icon={<FaEnvelope className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Complaints</DropdownItem>
                         <DropdownItem to="/suggestions-history" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Suggestions History</DropdownItem>
-                        <DropdownItem to="/subscription/addon" icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Add Ons</DropdownItem>
-                        {/* <DropdownItem to={`/salesanalytics/${user?.id}`}  icon={<FaClipboardList className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Sales Dashboard</DropdownItem> */}
+                        <DropdownItem to="/subscription/addon" icon={<FaPlus className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Add Ons</DropdownItem>
                     </>
                 )}
                 <DropdownItem to="/change-password" icon={<FaLock className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Change Password</DropdownItem>
@@ -310,7 +336,54 @@ function Header({ user, onLogout }) {
                                 )}
 
                                 {/* Dashboard Link for non-admins */}
-                                {!isAnyAdmin && <NavLinkDesktop to="/dashboard">DASHBOARD</NavLinkDesktop>}
+                                {isUser && (
+                                    <div className="relative h-full flex items-center">
+                                        <button
+                                            ref={dashButtonRef}
+                                            onClick={(e) => {
+                                                e.preventDefault(); e.stopPropagation();
+                                                setDashboardOpen((p) => !p);
+                                                setProfileOpen(false);
+                                                setAdminSettingsOpen(false);
+                                            }}
+                                            className="flex items-center gap-1 p-2 transition-colors text-lg font-medium rounded-full text-white/80 hover:text-cyan-400 hover:bg-cyan-900/30 border-2 border-transparent hover:border-cyan-400"
+                                            aria-expanded={dashboardOpen}
+                                        >
+                                            DASHBOARDS
+                                            <FaChevronDown
+                                                className={`text-sm transition-transform duration-200 ${dashboardOpen ? "rotate-180 text-cyan-400" : "rotate-0"
+                                                    }`}
+                                            />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {dashboardOpen && (
+                                                <motion.div
+                                                    className="absolute top-full left-0 mt-2 bg-black/70 backdrop-blur-lg shadow-[0_0_30px_rgba(0,240,255,0.4)] rounded-lg w-60 z-[60] border border-cyan-400/30 overflow-hidden"
+                                                    initial={{ opacity: 0, y: -10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                >
+                                                    <DropdownItem to="/dashboard" icon={<FaScrewdriverWrench />} onClick={() => closeAllMenus()}>
+                                                        Custom Dashboard
+                                                    </DropdownItem>
+                                                    <DropdownItem to={`/expenseanalytics/${user?.id}`} icon={<FaMoneyBillWave />} onClick={() => closeAllMenus()}>
+                                                        Expense Dashboard
+                                                    </DropdownItem>
+                                                    <DropdownItem to={`/financeanalytics/${user?.id}`} icon={<FaChartPie />} onClick={() => closeAllMenus()}>
+                                                        Finance Dashboard
+                                                    </DropdownItem>
+                                                    <DropdownItem to={`/productionanalytics/${user?.id}`} icon={<FaIndustry />} onClick={() => closeAllMenus()}>
+                                                        Production Dashboard
+                                                    </DropdownItem>
+                                                    <DropdownItem to={`/salesanalytics/${user?.id}`} icon={<FaChartLine />} onClick={() => closeAllMenus()}>
+                                                        Sales Dashboard
+                                                    </DropdownItem>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
 
                                 {/* Pricing Links (Combined Logic) */}
                                 {isSuperAdmin && <NavLinkDesktop to="/superadmin/pricing">PRICING</NavLinkDesktop>}
@@ -405,59 +478,111 @@ function Header({ user, onLogout }) {
                             </Link>
 
                             {/* ADMIN/SUPERADMIN Links (Mobile) */}
-                            {(isAnyAdmin) && (
-                                <div className="space-y-1 border-t border-red-700/50 pt-2">
-                                    <h3 className="px-3 text-lg font-semibold text-red-400 tracking-wider">
-                                        {isSuperAdmin ? 'SUPER ADMIN TOOLS' : 'ADMIN TOOLS'}
-                                    </h3>
-                                    {isSuperAdmin && (
-                                        <>
-                                            <Link to="/superadmin/user-management" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaUsers className="inline mr-3 text-red-400" /> User Management
-                                            </Link>
-                                            <Link to="/admin/emailsettings" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaAt className="inline mr-3 text-red-400" /> Email Settings
-                                            </Link>
-                                            <Link to="/admin/invoicesettings" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaFileInvoice className="inline mr-3 text-red-400" /> Invoice Settings
-                                            </Link>
-                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaClipboardList className="inline mr-3 text-red-400" /> Complaints Management
-                                            </Link>
-                                            <Link to="/admin/admindashboard" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaTachometerAlt className="inline mr-3 text-red-400" /> Admin Dashboard
-                                            </Link>
-                                            <Link to="/admin/activitylogs" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaHistory className="inline mr-3 text-red-400" /> Activity Log
-                                            </Link>
-                                        </>
-                                    )}
-                                    {isAdmin && !isSuperAdmin && (
-                                        <>
-                                            <Link to="/admin/users" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaUsers className="inline mr-3 text-red-400" /> User Management
-                                            </Link>
-                                            <Link to="/admin/complaintsmanagement" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaClipboardList className="inline mr-3 text-red-400" /> Complaints Management
-                                            </Link>
-                                            <Link to="/admin/admindashboard" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaTachometerAlt className="inline mr-3 text-red-400" /> Admin Dashboard
-                                            </Link>
-                                            <Link to="/admin/activitylogs" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaHistory className="inline mr-3 text-red-400" /> Activity Log
-                                            </Link>
-                                            <Link to="/admin/payout-details" className="block px-3 py-3 rounded-md text-lg font-medium text-white hover:bg-red-900/30 transition-colors border-l-4 border-transparent hover:border-red-400" onClick={() => closeAllMenus()}>
-                                                <FaHistory className="inline mr-3 text-red-400" /> Admin Payout Details
-                                            </Link>
-                                        </>
+                            {isAnyAdmin && (
+                                <div className="border-t border-red-700/50 pt-2">
+                                    {/* Header button */}
+                                    <button
+                                        onClick={() => setMobileAdminOpen((p) => !p)}
+                                        className="w-full px-3 py-3 text-left text-xl text-white flex items-center justify-between rounded-md hover:bg-red-900/30 border-l-4 border-transparent hover:border-red-400"
+                                    >
+                                        <span className="flex items-center">
+                                            <FaUserShield className="inline mr-3 text-red-400" />
+                                            {isSuperAdmin ? "SUPER ADMIN TOOLS" : "ADMIN TOOLS"}
+                                        </span>
+
+                                        <FaChevronDown
+                                            className={`transition-transform ${mobileAdminOpen ? "rotate-180" : ""}`}
+                                        />
+                                    </button>
+
+                                    {/* Submenu */}
+                                    {mobileAdminOpen && (
+                                        <div className="pl-8 py-1 flex flex-col gap-2">
+                                            {isSuperAdmin && (
+                                                <>
+                                                    <Link to="/superadmin/user-management" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaUsers className="inline mr-1 text-red-400" /> User Management
+                                                    </Link>
+                                                    <Link to="/admin/emailsettings" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaAt className="inline mr-1 text-red-400" /> Email Settings
+                                                    </Link>
+                                                    <Link to="/admin/invoicesettings" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaFileInvoice className="inline mr-1 text-red-400" /> Invoice Settings
+                                                    </Link>
+                                                    <Link to="/admin/complaintsmanagement" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaClipboardList className="inline mr-1 text-red-400" /> Complaints Management
+                                                    </Link>
+                                                    <Link to="/admin/admindashboard" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaTachometerAlt className="inline mr-1 text-red-400" /> Admin Dashboard
+                                                    </Link>
+                                                    <Link to="/admin/activitylogs" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaHistory className="inline mr-1 text-red-400" /> Activity Log
+                                                    </Link>
+                                                    <Link to="/superadmin/admin-commission" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaPercentage className="inline mr-1 text-red-400" /> Admin Commission
+                                                    </Link>
+                                                </>
+                                            )}
+
+                                            {isAdmin && !isSuperAdmin && (
+                                                <>
+                                                    <Link to="/admin/users" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaUsers className="inline mr-1 text-red-400" /> User Management
+                                                    </Link>
+                                                    <Link to="/admin/complaintsmanagement" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaClipboardList className="inline mr-1 text-red-400" /> Complaints Management
+                                                    </Link>
+                                                    <Link to="/admin/admindashboard" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaTachometerAlt className="inline mr-1 text-red-400" /> Admin Dashboard
+                                                    </Link>
+                                                    <Link to="/admin/activitylogs" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaHistory className="inline mr-1 text-red-400" /> Activity Log
+                                                    </Link>
+                                                    <Link to="/admin/payout-details" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
+                                                        <FaMoneyBillWave className="inline mr-1 text-red-400" /> Admin Payout Details
+                                                    </Link>
+                                                </>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             )}
 
                             {/* Dashboard/Pricing for non-admins */}
-                            {!isAnyAdmin && <Link to="/dashboard" className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 transition-colors border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}>
-                                <FaChartArea className="inline mr-3 text-cyan-400" /> DASHBOARD
-                            </Link>}
+                            {isUser && (
+                                <div className="border-t border-cyan-700/50 pt-2">
+                                    <button
+                                        onClick={() => setMobileDashOpen((p) => !p)}
+                                        className="w-full px-3 py-3 text-left text-xl text-white flex items-center justify-between rounded-md hover:bg-cyan-900/30 border-l-4 border-transparent hover:border-cyan-400"
+                                    >
+                                        <span><FaChartArea className="inline mr-3 text-cyan-400" /> DASHBOARDS</span>
+                                        <FaChevronDown
+                                            className={`transition-transform ${mobileDashOpen ? "rotate-180" : ""}`}
+                                        />
+                                    </button>
+
+                                    {/* Submenu */}
+                                    {mobileDashOpen && (
+                                        <div className="pl-8 py-1 flex flex-col gap-2">
+                                            <Link to="/dashboard" className="text-white hover:text-cyan-300 py-2" onClick={() => closeAllMenus()}>
+                                                <span><FaScrewdriver className="inline mr-1 text-cyan-400" /> Custom Dashboard</span>
+                                            </Link>
+                                            <Link to={`/expenseanalytics/${user?.id}`} className="text-white hover:text-cyan-300 py-2" onClick={() => closeAllMenus()}>
+                                                <span><FaMoneyBillWave className="inline mr-1 text-cyan-400" /> Expense Dashboard</span>
+                                            </Link>
+                                            <Link to={`/financeanalytics/${user?.id}`} className="text-white hover:text-cyan-300 py-2" onClick={() => closeAllMenus()}>
+                                                <span><FaChartPie className="inline mr-1 text-cyan-400" /> Finance Dashboard</span>
+                                            </Link>
+                                            <Link to={`/productionanalytics/${user?.id}`} className="text-white hover:text-cyan-300 py-2" onClick={() => closeAllMenus()}>
+                                                <span><FaIndustry className="inline mr-1 text-cyan-400" /> Production Dashboard</span>
+                                            </Link>
+                                            <Link to={`/salesanalytics/${user?.id}`} className="text-white hover:text-cyan-300 py-2" onClick={() => closeAllMenus()}>
+                                                <span><FaChartLine className="inline mr-1 text-cyan-400" /> Sales Dashboard</span>
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Pricing Links (Mobile) */}
                             {(isSuperAdmin || isAdmin || !isAnyAdmin) && <Link to={isSuperAdmin ? "/superadmin/pricing" : "/pricing"} className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 transition-colors border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}>
@@ -476,7 +601,7 @@ function Header({ user, onLogout }) {
                                     {!isAnyAdmin && <Link to="/purchase-history" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaHistory className="text-cyan-400 w-5 h-5 shrink-0" /> Purchase History</Link>}
                                     {!isAnyAdmin && <Link to="/complaints" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-5 h-5 shrink-0" /> My Complaints</Link>}
                                     {!isAnyAdmin && <Link to="/suggestions-history" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-5 h-5 shrink-0" /> Suggestions History</Link>}
-                                    {!isAnyAdmin && <Link to="/subscription/addon" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaPlug className="text-cyan-400 w-5 h-5 shrink-0" /> Add Ons</Link>}
+                                    {!isAnyAdmin && <Link to="/subscription/addon" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaPlus className="text-cyan-400 w-5 h-5 shrink-0" /> Add Ons</Link>}
 
                                     <Link to="/change-password" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaLock className="text-cyan-400 w-5 h-5 shrink-0" /> Change Password</Link>
 
@@ -484,7 +609,7 @@ function Header({ user, onLogout }) {
                                         onClick={() => closeAllMenus(handleLogout)}
                                         className="w-full text-left px-3 py-3 text-red-400 bg-red-800/20 hover:bg-red-800/40 font-bold transition-colors rounded-lg mt-4 flex items-center gap-3"
                                     >
-                                        <FaSignOutAlt className="text-lg drop-shadow-[0_0_5px_#FF6347]" /> TERMINATE SESSION
+                                        <FaSignOutAlt className="text-lg drop-shadow-[0_0_5px_#FF6347]" /> LOG OUT
                                     </button>
                                 </div>
                             ) : (

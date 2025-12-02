@@ -23,7 +23,7 @@ namespace minutechart.Services
             }
 
             var connectionString =
-                $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;Column Encryption Setting=Disabled;MultipleActiveResultSets=True;";
+                $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;Column Encryption Setting=Disabled;Persist Security Info=False;MultipleActiveResultSets=True";
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, memo, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
 import { FaArrowRight, FaSpinner, FaSignInAlt, FaChevronDown, FaTwitter, FaLinkedin, FaUserPlus, FaUserShield, FaWhatsapp, FaGlobe, FaHome, FaChartArea, FaTags, FaInfoCircle, FaUsers, FaAt, FaFileInvoice, FaClipboardList, FaEnvelope, FaPhone } from "react-icons/fa";
 import ProductDashboard from "./pages/ProductDashboard";
@@ -44,7 +45,14 @@ import SubscriptionAddonPage from "./pages/SubscriptionAddonPage";
 import ReportRenderer from './pages/ReportRenderer';
 import SalesAnalyticsPage from "./pages/SalesAnalyticsPage";
 import SalesAnalyticsModules from "./pages/SalesAnalyticsModules";
+import ProductionAnalyticsPage from "./pages/ProductionAnalyticsPage";
+import ProductionModules from "./pages/ProductionModules";
 import ScreenLoader from "./components/ScreenLoader";
+import UserToolsPage from "./pages/UserToolsPage";
+import ExpenseModules from "./pages/ExpenseModules";
+import ExpenseAnalyticsPage from "./pages/ExpenseAnalyticsPage";
+import FinanceModules from "./pages/FinanceModules";
+import FinanceAnalyticsPage from "./pages/FinanceAnalyticsPage";
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -59,27 +67,94 @@ const FooterLink = memo(({ to, label }) => (
 
 // --- Main Footer Component ---
 
-function Footer() {
+function Footer({ user }) {
     const currentYear = new Date().getFullYear();
-    // Note: Removed user fetch logic as it's not strictly needed for static link rendering
 
-    // Define link groups based on the image structure
-    const productLinks = [
-        // { to: "/service", label: "Features" },
-        { to: "/dashboard", label: "Dashboard" },
-        { to: "/information", label: "Information" },
-        { to: "/pricing", label: "Pricing" },
-        // { to: "/support", label: "Support" },
-    ];
+    const roles = user?.roles || [];
+    const isUser = roles.includes("User");
+    const isSuperAdmin = roles.includes("SuperAdmin");
+    const isAdmin = roles.includes("Admin");
+    const isAnyAdmin = isAdmin || isSuperAdmin;
 
-    const companyLinks = [
-        { to: "/", label: "Home" },
-        // { to: "/about", label: "About" },
-        // { to: "/careers", label: "Careers" },
-        // { to: "/press", label: "Press" },
-        // { to: "/contact", label: "Contact" },
-        // { to: "/link-ten", label: "Link Ten" },
-    ];
+    const companyLinks = [];
+
+    // GUEST USER (not logged in)
+    if (!user) {
+        companyLinks.push(
+            { to: "/", label: "Home" },
+            { to: "/login", label: "Login" },
+            { to: "/register", label: "Register" },
+        );
+    }
+
+    // USER
+    if (isUser) {
+        companyLinks.push(
+            { to: "/", label: "Home" },
+            { to: "/information", label: "Information" },
+            { to: "/pricing", label: "Pricing" },
+        );
+    }
+
+    // ADMIN
+    if (isAdmin && !isSuperAdmin) {
+        companyLinks.push(
+            { to: "/", label: "Home" },
+            { to: "/information", label: "Information" },
+            { to: "/pricing", label: "Pricing" },
+        );
+    }
+
+    // SUPER ADMIN
+    if (isSuperAdmin) {
+        companyLinks.push(
+            { to: "/", label: "Home" },
+            { to: "/information", label: "Information" },
+            { to: "/pricing", label: "Pricing Display" },
+        );
+    }
+
+    const productLinks = [];
+
+    // GUEST USER (not logged in)
+    if (!user) {
+        productLinks.push(
+            { to: "/information", label: "Information" },
+            { to: "/pricing", label: "Pricing" },
+        );
+    }
+
+    // USER
+    if (isUser) {
+        productLinks.push(
+            { to: "/dashboard", label: "Custom Dashboard" },
+            { to: "/expenseanalytics/:id", label: "Expense Dashboard" },
+            { to: "/financeanalytics/:id", label: "Finance Dashboard" },
+            { to: "/productionanalytics/:id", label: "Production Dashboard" },
+            { to: "/salesanalytics/:id", label: "Sales Dashboard" },
+        );
+    }
+
+    // ADMIN
+    if (isAdmin && !isSuperAdmin) {
+        productLinks.push(
+            { to: "/admin/users", label: "User Management" },
+            { to: "/admin/complaintsmanagement", label: "Complaints" },
+            { to: "/admin/admindashboard", label: "Admin Dashboard" },
+            { to: "/admin/my-commission", label: "Commission" },
+        );
+    }
+
+    // SUPER ADMIN
+    if (isSuperAdmin) {
+        productLinks.push(
+            { to: "/superadmin/user-management", label: "Users Management" },
+            { to: "/admin/emailsettings", label: "Email Settings" },
+            { to: "/admin/invoicesettings", label: "Invoice Settings" },
+            { to: "/superadmin/pricing", label: "Pricing Settings" },
+            { to: "/superadmin/admin-commission", label: "Admin Commission" },
+        );
+    }
 
     // Placeholder handler for the subscription form
     const handleSubscribe = (e) => {
@@ -109,27 +184,27 @@ function Footer() {
                         </p>
                     </div>
 
-                    {/* Column 2: Product */}
-                    <div className="flex flex-col text-center sm:text-left">
-                        <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Product</h4>
-                        <ul className="space-y-1">
-                            {productLinks.map((item, index) => (
-                                <FooterLink key={index} to={item.to} label={item.label} />
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Column 3: Company */}
+                    {/* Column 2: Company */}
                     <div className="flex flex-col text-center sm:text-left">
                         <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Company</h4>
-                        <ul className="space-y-1">
-                            {companyLinks.map((item, index) => (
-                                <FooterLink key={index} to={item.to} label={item.label} />
+                        <ul>
+                            {companyLinks.map((item, i) => (
+                                <FooterLink key={i} to={item.to} label={item.label} />
                             ))}
                         </ul>
                     </div>
 
-                    {/* Column 5: Subscribe (Takes remaining space on lg screens) */}
+                    {/* Column 3: Product */}
+                    <div className="flex flex-col text-center sm:text-left">
+                        <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Product</h4>
+                        <ul>
+                            {productLinks.map((item, i) => (
+                                <FooterLink key={i} to={item.to} label={item.label} />
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Column 4: Subscribe (Takes remaining space on lg screens) */}
                     <div className="col-span-2 lg:col-span-2 flex flex-col text-center sm:text-left">
                         <h4 className="text-white font-extrabold mb-4 text-lg border-b border-gray-700/50 pb-2">Subscribe</h4>
                         <p className="text-gray-400 text-sm mb-4">
@@ -200,6 +275,12 @@ function AppContent() {
     const [companies, setCompanies] = useState([]);
     const navigate = useNavigate();
     const dashboardButtonRef = useRef(null);
+    const location = useLocation();
+    // const hideMainHeader =
+    //     location.pathname.startsWith("/salesanalytics") ||
+    //     location.pathname.startsWith("/financeanalytics") ||
+    //     location.pathname.startsWith("/expenseanalytics") ||
+    //     location.pathname.startsWith("/productionanalytics");
 
     const PublicRoute = ({ children }) => children;
 
@@ -211,7 +292,7 @@ function AppContent() {
                     <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
 
                     {/* Message */}
-                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4">
                         Loading...
                     </p>
                 </div>
@@ -231,7 +312,7 @@ function AppContent() {
                     <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
 
                     {/* Message */}
-                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4">
                         Loading...
                     </p>
                 </div>
@@ -251,7 +332,7 @@ function AppContent() {
                     <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
 
                     {/* Message */}
-                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4">
                         Loading...
                     </p>
                 </div>
@@ -278,7 +359,7 @@ function AppContent() {
                     <div className="w-12 h-12 border-4 border-blue-300 border-t-blue-700 rounded-full animate-spin"></div>
 
                     {/* Message */}
-                    <p className="text-4xl font-medium text-blue-900 text-center px-4"> 
+                    <p className="text-4xl font-medium text-blue-900 text-center px-4">
                         Loading...
                     </p>
                 </div>
@@ -318,7 +399,12 @@ function AppContent() {
     return (
         <>
             <ScrollToTop />
+            {/* {!hideMainHeader && (
+                <Header user={user} onLogout={handleLogout} />
+            )} */}
+
             <Header user={user} onLogout={handleLogout} />
+
 
             <Routes>
                 {/* Public routes */}
@@ -329,7 +415,6 @@ function AppContent() {
                 <Route path="/terms-of-service" element={<PublicRoute><TermsOfService /></PublicRoute>} />
                 <Route path="/login" element={<PublicRoute><Login onLogin={setUser} /></PublicRoute>} />
                 <Route path="/register" element={<PublicRoute><Register onRegister={setUser} /></PublicRoute>} />
-                <Route path="/dashboard" element={<PublicRoute><Dashboard /></PublicRoute>} />
                 <Route path="/plan" element={<PublicRoute><PlanPage /></PublicRoute>} />
                 <Route path="/subscription/buy" element={<PublicRoute><SubscriptionPage /></PublicRoute>} />
                 <Route path="/pricing" element={<PublicRoute><UserPricingPage /></PublicRoute>} />
@@ -346,6 +431,10 @@ function AppContent() {
                 <Route path="/admin/my-commission" element={<AdminRoute><AdminCommissionPage /></AdminRoute>} />
                 <Route path="/admin/payout-details" element={<AdminRoute><AdminPayoutDetails /></AdminRoute>} />
                 <Route path="/user/:id/sales-modules" element={<AdminRoute><SalesAnalyticsModules /></AdminRoute>} />
+                <Route path="/user/:id/production-modules" element={<AdminRoute><ProductionModules /></AdminRoute>} />
+                <Route path="/user/:id/expense-modules" element={<AdminRoute><ExpenseModules /></AdminRoute>} />
+                <Route path="/user/:id/finance-modules" element={<AdminRoute><FinanceModules /></AdminRoute>} />
+                <Route path="/user/:id/tools" element={<AdminRoute><UserToolsPage /></AdminRoute>} />
 
                 {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
                 <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRestrictedRoute>} />
@@ -363,13 +452,17 @@ function AppContent() {
                 <Route path="/suggestions-history" element={<PrivateRoute><ModuleSuggestionsHistory /></PrivateRoute>} />
                 <Route path="/subscription/addon" element={<PrivateRoute><SubscriptionAddonPage /></PrivateRoute>} />
                 <Route path="/report/render" element={<PrivateRoute><ReportRenderer /></PrivateRoute>} />
+                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
                 <Route path="/salesanalytics/:id" element={<PrivateRoute><SalesAnalyticsPage /></PrivateRoute>} />
+                <Route path="/productionanalytics/:id" element={<PrivateRoute><ProductionAnalyticsPage /></PrivateRoute>} />
+                <Route path="/expenseanalytics/:id" element={<PrivateRoute><ExpenseAnalyticsPage /></PrivateRoute>} />
+                <Route path="/financeanalytics/:id" element={<PrivateRoute><FinanceAnalyticsPage /></PrivateRoute>} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
 
-            <Footer />
+            <Footer user={user} />
         </>
     );
 }

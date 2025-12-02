@@ -19,6 +19,7 @@ export default function UserModules() {
     const [duplicates, setDuplicates] = useState([]);
     const [selectedModules, setSelectedModules] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(id);
+    const [batchDeleteModalOpen, setBatchDeleteModalOpen] = useState(false);
 
     const [returnPath, setReturnPath] = useState("/admin/users");
 
@@ -40,6 +41,7 @@ export default function UserModules() {
     const [formError, setFormError] = useState("");
     const [formSuccess, setFormSuccess] = useState("");
 
+    const [currentUserLimit, setCurrentUserLimit] = useState(0);
 
     const [formData, setFormData] = useState({
         id: 0,
@@ -69,7 +71,12 @@ export default function UserModules() {
             module.sqlQuery.toLowerCase().includes(lowerCaseSearch)
         );
     }, [modules, searchTerm]);
-    // ----------------------------------
+
+    const totalModules = filteredModules.length;
+    const hiddenModules = filteredModules.filter(m => m.hideQuery).length;
+    const shownModules = totalModules - hiddenModules;
+
+    const moduleLimit = currentUserLimit || 0;
 
     const handleCopy = () => {
         navigator.clipboard.writeText(formData.sqlQuery);
@@ -119,6 +126,7 @@ export default function UserModules() {
     const loadUserAndModules = async () => {
         try {
             const modulesRes = await api.get(`/admin/user/${id}/queries`);
+            setCurrentUserLimit(modulesRes.data?.dashboardLimit || 0);
             const normalizedModules = (modulesRes.data || []).map((m) => ({
                 id: m.userQueryId,
                 title: m.userTitle || "Untitled Module",
@@ -484,6 +492,77 @@ export default function UserModules() {
         }
     };
 
+    // 🟣 Batch Hide
+    const handleBatchHide = async () => {
+        if (selectedModules.length === 0) return;
+
+        const failures = [];
+        for (const id of selectedModules) {
+            const module = modules.find(m => m.id === id);
+            if (!module) continue;
+
+            try {
+                await api.post(`/admin/hide-query/${id}`, { HideQuery: true });
+            } catch (err) {
+                failures.push(id);
+            }
+        }
+
+        if (failures.length === 0) showMessages("success", "Selected modules hidden");
+        else showMessages("error", `${failures.length} failed to hide`);
+
+        loadUserAndModules();
+    };
+
+
+    // 🟢 Batch Show
+    const handleBatchShow = async () => {
+        if (selectedModules.length === 0) return;
+
+        const failures = [];
+        for (const id of selectedModules) {
+            const module = modules.find(m => m.id === id);
+            if (!module) continue;
+
+            try {
+                await api.post(`/admin/hide-query/${id}`, { HideQuery: false });
+            } catch (err) {
+                failures.push(id);
+            }
+        }
+
+        if (failures.length === 0) showMessages("success", "Selected modules made visible");
+        else showMessages("error", `${failures.length} failed to show`);
+
+        loadUserAndModules();
+    };
+
+
+    // 🔴 Batch Delete
+    const handleBatchDelete = async () => {
+        if (selectedModules.length === 0) return;
+
+        const failures = [];
+
+        for (const id of selectedModules) {
+            try {
+                await api.delete(`/admin/delete-query/${id}`);
+            } catch (err) {
+                failures.push(id);
+            }
+        }
+
+        if (failures.length === 0) {
+            showMessages("success", "Selected modules deleted");
+        } else {
+            showMessages("error", `${failures.length} deletes failed`);
+        }
+
+        setBatchDeleteModalOpen(false);
+        setSelectedModules([]);
+        loadUserAndModules();
+    };
+
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
@@ -497,11 +576,11 @@ export default function UserModules() {
                         {customerName && <p className="text-sm sm:text-lg text-gray-500 mt-1 ml-8">Customer Name: {customerName}</p>}
                     </div>
                     <Link
-                        to={returnPath}
+                        to={`/user/${id}/tools`}
                         state={{ keepFilters: true }}
                         className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-semibold hover:bg-indigo-200 transition-colors flex items-center gap-1 text-sm"
                     >
-                        <FaUsers className="text-indigo-500" /> Back to Users
+                        <FaUsers className="text-indigo-500" /> Back
                     </Link>
                 </div>
             </header>
@@ -520,13 +599,33 @@ export default function UserModules() {
 
             {/* Content Area: Split into two main columns (33.3% / 66.7% for lg screens) */}
             <div className="flex flex-1 flex-col lg:flex-row max-w-7xl mx-auto w-full p-4 sm:p-6 gap-6">
-
                 {/* Left Column: Module List & Management (33.3%) */}
                 <section className="flex-1 lg:w-4/12 flex flex-col space-y-6">
                     {/* --- Module List Content --- */}
                     <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
                         <div className="flex justify-between items-center mb-4 border-b pb-3">
                             <h2 className="text-xl font-bold text-gray-700">Assigned Modules ({filteredModules.length})</h2>
+                            {/* <div className="flex flex-col gap-1">
+                                <h2 className="text-xl font-bold text-gray-700">Module Overview</h2>
+
+                                <div className="flex flex-wrap gap-3 text-sm text-gray-600 mt-1">
+                                    <span className="px-2 py-1 bg-gray-100 rounded-lg">
+                                        Total: <span className="font-semibold text-gray-800">{totalModules}</span>
+                                    </span>
+
+                                    <span className="px-2 py-1 bg-green-100 rounded-lg">
+                                        Shown: <span className="font-semibold text-green-800">{shownModules}</span>
+                                    </span>
+
+                                    <span className="px-2 py-1 bg-yellow-100 rounded-lg">
+                                        Hidden: <span className="font-semibold text-yellow-800">{hiddenModules}</span>
+                                    </span>
+
+                                    <span className="px-2 py-1 bg-indigo-100 rounded-lg">
+                                        Limit: <span className="font-semibold text-indigo-800">{moduleLimit}</span>
+                                    </span>
+                                </div>
+                            </div> */}
                             <div className="flex gap-3">
                                 <button
                                     onClick={handleAddNew}
@@ -558,23 +657,53 @@ export default function UserModules() {
                         {/* ------------------------- */}
 
 
-                        {/* Select All / Batch Actions */}
-                        <div className="flex items-center gap-3 mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                            <input
-                                type="checkbox"
-                                checked={selectedModules.length === modules.length && modules.length > 0}
-                                onChange={(e) => {
-                                    if (e.target.checked) {
-                                        setSelectedModules(modules.map((m) => m.id));
-                                    } else {
-                                        setSelectedModules([]);
-                                    }
-                                }}
-                                className="w-4 h-4 accent-indigo-600"
-                            />
-                            <label className="text-sm font-medium text-indigo-800">
-                                Select All Modules
-                            </label>
+                        {/* Select All + Batch Actions */}
+                        <div className="space-y-3 mb-4">
+
+                            {/* Select All Row */}
+                            <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedModules.length === filteredModules.length && filteredModules.length > 0}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedModules(filteredModules.map((m) => m.id));
+                                        } else {
+                                            setSelectedModules([]);
+                                        }
+                                    }}
+                                    className="w-4 h-4 accent-indigo-600"
+                                />
+                                <label className="text-sm font-medium text-indigo-800">
+                                    Select All Modules ({filteredModules.length})
+                                </label>
+                            </div>
+
+                            {/* Batch Actions (only visible when one or more modules are selected) */}
+                            {selectedModules.length > 0 && (
+                                <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    <button
+                                        onClick={handleBatchHide}
+                                        className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-md text-sm font-medium"
+                                    >
+                                        🙈 Hide Selected
+                                    </button>
+
+                                    <button
+                                        onClick={handleBatchShow}
+                                        className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium"
+                                    >
+                                        👁 Show Selected
+                                    </button>
+
+                                    <button
+                                        onClick={() => setBatchDeleteModalOpen(true)}
+                                        className="px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-sm font-medium"
+                                    >
+                                        🗑 Delete Selected
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Scrollable Module List */}
@@ -872,7 +1001,7 @@ export default function UserModules() {
                                         Cancel
                                     </button>
                                     <button onClick={handleExecute} className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm">
-                                        ▶ Test Run
+                                        Test Run
                                     </button>
                                     <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold">
                                         {formData.id ? "Update Module" : "Create Module"}
@@ -1001,6 +1130,36 @@ export default function UserModules() {
                     </div>
                 </div>
             )}
+            {batchDeleteModalOpen && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 border-t-4 border-red-500">
+                        <h4 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2">
+                            <FaTrashAlt className="text-red-500" /> Delete Selected Modules
+                        </h4>
+
+                        <p className="text-gray-700 mb-6">
+                            Are you sure you want to delete <strong>{selectedModules.length}</strong> modules?
+                            This action cannot be undone.
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setBatchDeleteModalOpen(false)}
+                                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBatchDelete}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                            >
+                                Yes, Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Transfer User List Modal */}
             {showUserList && (

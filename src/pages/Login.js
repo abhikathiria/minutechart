@@ -151,7 +151,7 @@ export default function Login({ onLogin }) {
                     navigate("/admin/users");
                 }
                 else {
-                    navigate("/dashboard");
+                    navigate("/home");
                 }
             }
         } catch (err) {

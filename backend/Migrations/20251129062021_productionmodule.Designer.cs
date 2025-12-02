@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using minutechart.Data;
 
@@ -11,9 +12,11 @@ using minutechart.Data;
 namespace Backend.Migrations
 {
     [DbContext(typeof(MinutechartDbContext))]
-    partial class MinutechartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251129062021_productionmodule")]
+    partial class productionmodule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -872,104 +875,6 @@ namespace Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("EmailSettings");
-                });
-
-            modelBuilder.Entity("minutechart.Models.ExpenseModule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AppUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CachedJsonData")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ComponentId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("HideQuery")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastRefreshedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("LastUpdated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ModuleTitle")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SqlQuery")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserIpAddress")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AppUserId", "ComponentId")
-                        .IsUnique();
-
-                    b.ToTable("ExpenseModules");
-                });
-
-            modelBuilder.Entity("minutechart.Models.FinanceModule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AppUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CachedJsonData")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ComponentId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("HideQuery")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastRefreshedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("LastUpdated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ModuleTitle")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SqlQuery")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserIpAddress")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AppUserId", "ComponentId")
-                        .IsUnique();
-
-                    b.ToTable("FinanceModules");
                 });
 
             modelBuilder.Entity("minutechart.Models.Invoice", b =>
@@ -2019,28 +1924,6 @@ namespace Backend.Migrations
                         .WithMany()
                         .HasForeignKey("AppUserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("AppUser");
-                });
-
-            modelBuilder.Entity("minutechart.Models.ExpenseModule", b =>
-                {
-                    b.HasOne("minutechart.Models.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AppUser");
-                });
-
-            modelBuilder.Entity("minutechart.Models.FinanceModule", b =>
-                {
-                    b.HasOne("minutechart.Models.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("AppUser");

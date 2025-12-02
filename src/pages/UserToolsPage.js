@@ -1,0 +1,177 @@
+import React, { useState, useEffect, useMemo } from "react";
+import api from "../api";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import {
+    FaArrowLeft,
+    FaToolbox,
+    FaUserCog,
+    FaDollarSign,
+    FaMoneyBillWave,
+    FaReceipt,
+    FaIndustry
+} from "react-icons/fa";
+
+export default function UserToolsPage() {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const [returnPath, setReturnPath] = useState("/admin/users");
+
+    // Define the tool button data with updated modules and distinct colors
+    const buttons = [
+        {
+            name: "User Modules",
+            description: "Access and manage user-specific dashboards and activity logs.",
+            link: `/user/${id}/modules`,
+            icon: <FaUserCog className="w-8 h-8 text-indigo-600" />,
+            color: "indigo"
+        },
+        {
+            name: "Sales Modules",
+            description: "Monitor sales performance, track leads, and manage pipeline activities.",
+            link: `/user/${id}/sales-modules`,
+            icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
+            color: "teal"
+        },
+        {
+            name: "Financial Module",
+            description: "View ledgers, manage accounts, and analyze balance sheets and profitability.",
+            link: `/user/${id}/finance-modules`,
+            icon: <FaMoneyBillWave className="w-8 h-8 text-green-600" />, // Strong green for finance
+            color: "green"
+        },
+        {
+            name: "Expenses Module",
+            description: "Submit, review, and approve employee expense reports and track budget consumption.",
+            link: `/user/${id}/expense-modules`,
+            icon: <FaReceipt className="w-8 h-8 text-red-600" />, // Red often used for expenses/debt
+            color: "red"
+        },
+        {
+            name: "Production Module",
+            description: "Manage manufacturing orders, track inventory levels, and optimize production schedules.",
+            link: `/user/${id}/production-modules`,
+            icon: <FaIndustry className="w-8 h-8 text-orange-600" />, // Orange for industrial/operations
+            color: "orange"
+        },
+    ];
+
+    // Helper function for dynamic Tailwind classes (kept the same)
+    const getCardClasses = (color) => ({
+        iconBg: `bg-${color}-100 group-hover:bg-${color}-200`,
+        nameHover: `group-hover:text-${color}-700`,
+        borderHover: `hover:border-${color}-400`,
+        shadowHover: `hover:shadow-lg-${color}`,
+    });
+
+    const loadUserRoles = async () => {
+        try {
+            const viewerRes = await api.get("/account/me");
+            const viewerRoles = viewerRes.data?.roles || [];
+
+            if (viewerRoles.includes("SuperAdmin")) {
+                setReturnPath("/superadmin/user-management");
+            } else {
+                setReturnPath("/admin/users");
+            }
+        } catch (err) {
+            console.error("Failed to load user role", err);
+            setReturnPath("/admin/users");
+        }
+    };
+
+    useEffect(() => {
+        loadUserRoles();
+    }, []);
+
+
+    return (
+        <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-10">
+            <div className="max-w-7xl mx-auto">
+
+                {/* Header Section */}
+                <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-10 border-b pb-4">
+                    <Link
+                        to={returnPath}
+                        state={{ keepFilters: true }}
+                        className="
+                            flex items-center gap-2 text-sm font-medium 
+                            text-gray-600 bg-white px-4 py-2 rounded-full 
+                            shadow-md transition duration-300 ease-in-out 
+                            hover:bg-gray-100 hover:text-gray-800 
+                            ring-1 ring-gray-200 mb-4 sm:mb-0
+                        "
+                    >
+                        <FaArrowLeft className="w-3 h-3" />
+                        Back to Users
+                    </Link>
+
+                    <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
+                        <FaToolbox className="w-8 h-8 text-purple-600" />
+                        <span>Modules Control Panel</span>
+                    </h1>
+
+                    <div className="w-40 sm:block hidden" />
+                </header>
+
+                <div className="mb-8">
+                    <p className="text-xl text-gray-500 font-light">
+                        Select a module below to manage the user's specific access areas and functionalities.
+                    </p>
+                </div>
+
+                {/* Tool Cards Grid - Adjusted for 5 items (will gracefully fall back to 4/3/2/1 columns) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+                    {buttons.map((btn, index) => {
+                        const { iconBg, nameHover, borderHover } = getCardClasses(btn.color);
+                        return (
+                            <Link
+                                key={index}
+                                to={btn.link}
+                                className={`
+                                    group 
+                                    bg-white 
+                                    rounded-xl 
+                                    p-6 
+                                    shadow-lg 
+                                    border border-gray-100
+                                    transition-all duration-300 ease-in-out
+                                    flex flex-col items-start gap-4 
+                                    ${borderHover}
+                                    hover:translate-y-[-4px]
+                                `}
+                            >
+                                {/* Icon Container */}
+                                <div
+                                    className={`
+                                        w-16 h-16 
+                                        rounded-xl 
+                                        ${iconBg} 
+                                        flex items-center justify-center 
+                                        transition-colors duration-300
+                                    `}
+                                >
+                                    {btn.icon}
+                                </div>
+
+                                {/* Title */}
+                                <span className={`text-xl font-bold text-gray-800 ${nameHover} transition-colors duration-300 mt-2`}>
+                                    {btn.name}
+                                </span>
+
+                                {/* Description */}
+                                <p className="text-sm text-gray-500 leading-relaxed flex-grow">
+                                    {btn.description}
+                                </p>
+
+                                {/* Action link look */}
+                                <div className="text-sm font-semibold text-purple-500 group-hover:text-purple-700 mt-2">
+                                    Explore &rarr;
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}

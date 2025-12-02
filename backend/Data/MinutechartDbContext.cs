@@ -43,6 +43,9 @@ namespace minutechart.Data
         public DbSet<AddonInvoice> AddonInvoices { get; set; }
         public DbSet<RazorpayAddonOrder> RazorpayAddonOrders { get; set; }
         public DbSet<SalesModule> SalesModules { get; set; }
+        public DbSet<ProductionModule> ProductionModules { get; set; }
+        public DbSet<ExpenseModule> ExpenseModules { get; set; }
+        public DbSet<FinanceModule> FinanceModules { get; set; }
         
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -118,6 +121,18 @@ namespace minutechart.Data
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<SalesModule>()
+                .HasIndex(x => new { x.AppUserId, x.ComponentId })
+                .IsUnique();
+
+            builder.Entity<ProductionModule>()
+                .HasIndex(x => new { x.AppUserId, x.ComponentId })
+                .IsUnique();
+
+            builder.Entity<ExpenseModule>()
+                .HasIndex(x => new { x.AppUserId, x.ComponentId })
+                .IsUnique();
+
+            builder.Entity<FinanceModule>()
                 .HasIndex(x => new { x.AppUserId, x.ComponentId })
                 .IsUnique();
 

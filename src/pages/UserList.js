@@ -386,7 +386,7 @@ function UserList() {
                                                 </Link>
 
                                                 {/* Queries Link */}
-                                                {user.accountStatus === "Active" && (
+                                                {/* {user.accountStatus === "Active" && (
                                                     <Link
                                                         to={`/user/${user.id}/modules`}
                                                         state={{ keepFilters: true }}
@@ -395,7 +395,7 @@ function UserList() {
                                                     >
                                                         <FaChartPie className="w-4 h-4" />
                                                     </Link>
-                                                )}
+                                                )} */}
 
                                                 {/* {user.accountStatus === "Active" && (
                                                     <Link
@@ -407,7 +407,19 @@ function UserList() {
                                                         <FaChartPie className="w-4 h-4" />
                                                     </Link>
                                                 )} */}
-                                                
+
+                                                {user.accountStatus === "Active" && (
+                                                    <Link
+                                                        to={`/user/${user.id}/tools`}
+                                                        state={{ keepFilters: true }}
+                                                        className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                                        title="User Tools"
+                                                    >
+                                                        <FaChartPie className="w-4 h-4" />
+                                                    </Link>
+                                                )}
+
+
 
                                                 {/* Purchases Button */}
                                                 {user.accountStatus === "Active" && (
@@ -512,6 +524,14 @@ function UserList() {
                                                 <FaDatabase /> DB Setup
                                             </Link>
                                             <Link
+                                                to={`/user/${user.id}/tools`}
+                                                state={{ keepFilters: true }}
+                                                className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-full hover:bg-purple-700 text-sm"
+                                                title="Set Modules"
+                                            >
+                                                <FaChartPie /> Tools
+                                            </Link>
+                                            {/* <Link
                                                 to={`/user/${user.id}/modules`}
                                                 state={{ keepFilters: true }}
                                                 className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-full hover:bg-purple-700 text-sm"
@@ -519,6 +539,14 @@ function UserList() {
                                             >
                                                 <FaChartPie /> Queries
                                             </Link>
+                                            <Link
+                                                to={`/user/${user.id}/sales-modules`}
+                                                state={{ keepFilters: true }}
+                                                className="flex items-center gap-1 bg-purple-600 text-white px-3 py-1.5 rounded-full hover:bg-purple-700 text-sm"
+                                                title="Set Sales Queries"
+                                            >
+                                                <FaChartPie /> Sales Queries
+                                            </Link> */}
                                             <button
                                                 onClick={() => handleShowPurchases(user.id)}
                                                 className="flex items-center gap-1 bg-yellow-600 text-white px-3 py-1.5 rounded-full hover:bg-yellow-700 text-sm"

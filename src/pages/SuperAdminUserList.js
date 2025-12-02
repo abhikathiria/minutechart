@@ -5,11 +5,12 @@ import api from "../api";
 import {
     FaSearch, FaLock, FaUnlock, FaDatabase, FaChartPie, FaReceipt, FaSortUp,
     FaSortDown, FaSort, FaFileExport, FaUserShield, FaUserCircle, FaArrowRight,
-    FaUsers, FaClipboardCheck, FaUserTag, FaUserPlus, FaTimes
+    FaUsers, FaClipboardCheck, FaUserTag, FaBars, FaTimes
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { toast } from 'react-hot-toast';
+import { Loader2 } from "lucide-react";
 
 // --- Custom Components (Reused) ---
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/([A-Z])/g, ' $1');
@@ -108,6 +109,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
     const [availableAdmins, setAvailableAdmins] = useState([]);
     const [selectedAdminIdMap, setSelectedAdminIdMap] = useState({});
     const [adminUserCounts, setAdminUserCounts] = useState({});
+    const [selectedAdminId, setSelectedAdminId] = useState("");
 
     // 🎯 MODAL STATES
     const [commission, setCommission] = useState(10);
@@ -194,6 +196,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
     const [showPurchases, setShowPurchases] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const usersPerPage = 10;
+    const [expandedRows, setExpandedRows] = useState({});
 
     // --- Core Data Fetch ---
     const fetchUserData = () => {
@@ -311,6 +314,23 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
         }));
     };
 
+    const handleAssignAdmin = (userId) => {
+        if (!selectedAdminId) {
+            toast.error("Please select an Admin to assign.");
+            return;
+        }
+        if (!window.confirm(`CONFIRM: Assign user ${userId} to Admin ID: ${selectedAdminId}?`)) return;
+
+        api.post(`/superadmin/assign-user/${userId}/to-admin/${selectedAdminId}`)
+            .then(() => {
+                toast.success("User successfully assigned.");
+                // Update local state with new AssignedAdminId
+                setUsers(prev => prev.map(u => u.Id === userId ? { ...u, AssignedAdminId: selectedAdminId } : u));
+                setSelectedAdminId(""); // Reset dropdown
+            })
+            .catch(err => toast.error("Assignment failed."));
+    };
+
     // Deactivate/Reactivate handlers remain similar but simplified since they use window.confirm
     const handleDeactivate = (id) => {
         api.post(`/admin/user/${id}/deactivate`).then(() => {
@@ -404,6 +424,13 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
     const indexOfFirstUser = indexOfLastUser - usersPerPage;
     const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
     const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+    const toggleRow = (id) => {
+        setExpandedRows((prev) => ({
+            ...prev,
+            [id]: !prev[id],
+        }));
+    };
 
     // Helper to find Admin Name for display
     const getAdminName = (adminId) => {
@@ -518,7 +545,9 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <p className="text-xl text-red-600 font-semibold">Loading Super Admin List...</p>
+                <div className="text-lg text-white flex items-center gap-2 p-6 bg-red-800 rounded-2xl shadow-lg">
+                    <Loader2 className="animate-spin w-6 h-6" /> Loading Users...
+                </div>
             </div>
         );
     }
@@ -711,7 +740,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                                                                 <Link to={`/profile/${user.id}`} state={{ keepFilters: true }} className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md" title="DB Setup">
                                                                     <FaDatabase className="w-4 h-4" />
                                                                 </Link>
-                                                                <Link to={`/user/${user.id}/modules`} state={{ keepFilters: true }} className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-md" title="Set Queries/Modules">
+                                                                <Link to={`/user/${user.id}/tools`} state={{ keepFilters: true }} className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-md" title="Set Modules">
                                                                     <FaChartPie className="w-4 h-4" />
                                                                 </Link>
                                                                 <button onClick={() => handleShowPurchases(user.id)} className="p-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition shadow-md" title="View Purchases">
@@ -747,9 +776,172 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                         </table>
                     </div>
 
-                    {/* Card View (Mobile) - Redesigned (omitted for brevity, assume updated) */}
+                    {/* Card View (Mobile) */}
                     <div className="block sm:hidden space-y-4">
-                        <p className="text-center text-red-500 font-semibold italic">Mobile card view needs to be updated with the new modal logic for actions.</p>
+                        {currentUsers.map((user, index) => (
+                            <div
+                                key={user.id}
+                                className="border border-gray-300 rounded-xl p-4 shadow-md bg-white"
+                            >
+                                <div
+                                    className="flex justify-between items-center cursor-pointer"
+                                    onClick={() => toggleRow(user.id)}
+                                >
+                                    <div className="flex flex-col">
+                                        {activeTab === "User" ? (
+                                            <>
+                                                <p className="font-bold text-gray-900 text-lg">
+                                                    {user.companyName || "—"}
+                                                </p>
+                                                <p className="text-sm text-gray-600">
+                                                    {user.customerName || "—"}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="font-bold text-gray-900 text-lg">
+                                                    {user.adminName || user.customerName || "Admin"}
+                                                </p>
+                                                <p className="text-sm text-gray-600">
+                                                    {user.email}
+                                                </p>
+                                                <p className="px-2 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 w-fit mt-1">
+                                                    {adminUserCounts[user.id] || 0} Users Assigned
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <RoleBadge role={user.userRole} />
+                                        {expandedRows[user.id] ? (
+                                            <FaTimes className="text-red-500 w-5 h-5" />
+                                        ) : (
+                                            <FaBars className="text-red-500 w-5 h-5" />
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Collapsible Details */}
+                                {expandedRows[user.id] && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200 space-y-3 text-sm">
+                                        <div className="flex justify-between items-start">
+                                            <span className="font-semibold text-gray-700">Email:</span>
+                                            <span className="text-right text-indigo-600 truncate max-w-[60%]">{user.email}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold text-gray-700">Subscription:</span>
+                                            <div className="text-right">
+                                                <SubscriptionDetails user={user} />
+                                            </div>
+                                        </div>
+                                        {user.trialDaysLeft > 0 && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-semibold text-gray-700">Trial Left:</span>
+                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                                    {user.trialDaysLeft} days
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* MOBILE ACTION BUTTONS */}
+                                        <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
+
+                                            {/** 👇 Correct property names everywhere */}
+                                            {(() => {
+                                                const isPendingUser = user.userRole === "User" && user.accountStatus === "Pending";
+                                                const isUnassigned = user.assignedAdminId === null;
+
+                                                const isActive = user.accountStatus === "Active";
+                                                const isBlocked = user.accountStatus === "Blocked";
+
+                                                const hasAdmins = availableAdmins.length > 0;
+
+                                                return (
+                                                    <>
+                                                        {/* --- 1. Promote User → Admin (same condition as desktop) --- */}
+                                                        {isPendingUser && isUnassigned && (
+                                                            <button
+                                                                onClick={() => handlePromoteToAdmin(user.id)}
+                                                                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1"
+                                                            >
+                                                                <FaUserShield /> Promote to Admin
+                                                            </button>
+                                                        )}
+
+                                                        {/* --- 2. Assign/Reassign Admin (same as desktop) --- */}
+                                                        {isPendingUser && hasAdmins && (
+                                                            <button
+                                                                onClick={() => handleAssignAdminClick(user.id)}
+                                                                className="px-3 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition text-xs font-medium w-full flex items-center justify-center gap-1"
+                                                            >
+                                                                <FaUserTag />
+                                                                {user.assignedAdminId ? "Re-assign Admin" : "Assign Admin"}
+                                                            </button>
+                                                        )}
+
+                                                        {/* --- 3. Desktop-equivalent action buttons (DB Setup, Tools, Purchases) --- */}
+                                                        {(user.accountStatus !== "Pending") && (
+                                                            <>
+                                                                <div className="flex flex-col gap-1 mt-1">
+
+                                                                    <Link
+                                                                        to={`/profile/${user.id}`}
+                                                                        state={{ keepFilters: true }}
+                                                                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-xs font-medium flex items-center justify-center gap-1"
+                                                                    >
+                                                                        <FaDatabase /> DB Setup
+                                                                    </Link>
+
+                                                                    <Link
+                                                                        to={`/user/${user.id}/tools`}
+                                                                        state={{ keepFilters: true }}
+                                                                        className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-xs font-medium flex items-center justify-center gap-1"
+                                                                    >
+                                                                        <FaChartPie /> Module Setup
+                                                                    </Link>
+
+                                                                    <button
+                                                                        onClick={() => handleShowPurchases(user.id)}
+                                                                        className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition text-xs font-medium flex items-center justify-center gap-1"
+                                                                    >
+                                                                        <FaReceipt /> View Purchases
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
+
+                                                        {/* --- 4. Block / Reactivate (exact desktop logic) --- */}
+                                                        {isActive && (
+                                                            <button
+                                                                onClick={() => handleDeactivate(user.id)}
+                                                                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1"
+                                                            >
+                                                                <FaLock /> Block Account
+                                                            </button>
+                                                        )}
+
+                                                        {isBlocked && (
+                                                            <button
+                                                                onClick={() => handleReactivate(user.id)}
+                                                                className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs font-medium w-full flex items-center justify-center gap-1"
+                                                            >
+                                                                <FaUnlock /> Reactivate
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {filteredUsers.length === 0 && !loading && (
+                            <p className="text-center text-gray-500 py-6 italic text-lg w-full">
+                                No users match the current search or filters.
+                            </p>
+                        )}
                     </div>
 
                     {/* Pagination Controls */}
@@ -778,17 +970,18 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
 
                 {/* Purchases Modal */}
                 {showPurchases && (
-                    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-full lg:max-w-4xl w-full max-h-[90vh] overflow-y-auto border-t-4 border-yellow-600">
+                    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm mt-4">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-[95vw] sm:max-w-4xl 
+                        p-4 sm:p-6 border-t-4 border-yellow-600 max-h-[90vh] overflow-y-auto">
                             <h3 className="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
                                 <FaReceipt className="text-yellow-600" /> Purchase History
                             </h3>
-                            <p className="text-sm text-gray-500 mb-4">Showing all purchases for User ID: {selectedUser}</p>
+                            {/* <p className="text-sm text-gray-500 mb-4">Showing all purchases for User ID: {selectedUser}</p> */}
 
                             {purchases.length > 0 ? (
-                                <div className="overflow-x-auto border rounded-lg shadow-inner">
+                                <div className="overflow-x-auto border rounded-lg shadow-inner w-full max-w-full">
                                     <table className="min-w-full text-sm divide-y divide-gray-200">
-                                        <thead className="bg-gray-50 whitespace-nowrap">
+                                        <thead className="bg-gray-50 whitespace-normal sm:whitespace-nowrap">
                                             <tr>
                                                 <th className="p-3 text-left font-semibold text-gray-700">Invoice #</th>
                                                 <th className="p-3 text-left font-semibold text-gray-700">Plan Name</th>

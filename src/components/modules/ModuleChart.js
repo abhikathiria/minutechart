@@ -1093,7 +1093,7 @@ export default function ModuleChart({
                     const centroid = geoCentroid(geo);
                     return (
                       <React.Fragment key={geo.rsmKey}>
-                        <Geography geography={geo} fill="#0b1220" stroke="#17354a" style={{ default: { outline: "none" }, hover: { outline: "none" }, pressed: { outline: "none" } }} />
+                        <Geography geography={geo} fill="#fff" stroke="#17354a" style={{ default: { outline: "none" }, hover: { outline: "none" }, pressed: { outline: "none" } }} />
                         {value > 0 && (
                           <Marker coordinates={centroid}>
                             <circle r={sizeScale(value)} fill="#00F0FF" opacity={0.9} stroke="#071017" strokeWidth={1} />

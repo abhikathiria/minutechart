@@ -429,7 +429,7 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <InputGroup
+                {/* <InputGroup
                   label="Refresh Time (ms)"
                   name="refreshTime"
                   type="number"
@@ -439,7 +439,7 @@ export default function Profile() {
                   icon={FaClock}
                   info="Minimum recommended 60000 (60 seconds)."
                   required
-                />
+                /> */}
               </div>
 
               {/* Submit */}
