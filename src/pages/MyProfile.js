@@ -317,12 +317,12 @@ export default function MyProfile() {
             </h1>
             <p className="text-base text-gray-400 mt-2">Manage your profile details and monitor your subscription status.</p>
           </div>
-          <Link
+          {/* <Link
             to="/dashboard"
             className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg flex items-center gap-2 whitespace-nowrap"
           >
             Dashboard ➔
-          </Link>
+          </Link> */}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
