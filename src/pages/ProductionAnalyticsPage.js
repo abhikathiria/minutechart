@@ -13,6 +13,9 @@ import {
     parseISO,
     subDays,
     differenceInCalendarDays,
+    startOfMonth,
+    endOfMonth,
+    subMonths,
 } from "date-fns";
 
 const NGRAPH_THEME = {
@@ -67,10 +70,23 @@ function money(v) {
 function numberFmt(v) {
     if (v === null || v === undefined) return "-";
     const n = Number(v);
-    return Number.isFinite(n)
-        ? n.toLocaleString("en-IN", { maximumFractionDigits: 0 })
-        : String(v);
+    if (!Number.isFinite(n)) return String(v);
+
+    const sign = n < 0 ? "-" : "";
+    const absN = Math.abs(n);
+
+    if (absN >= 1e9) return `${sign}${(absN / 1e9).toFixed(2)}B`;
+    if (absN >= 1e6) return `${sign}${(absN / 1e6).toFixed(2)}M`;
+
+    return `${sign}${absN.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
+// function numberFmt(v) {
+//     if (v === null || v === undefined) return "-";
+//     const n = Number(v);
+//     return Number.isFinite(n)
+//         ? n.toLocaleString("en-IN", { maximumFractionDigits: 0 })
+//         : String(v);
+// }
 
 function rateFmt(v) {
     if (v === null || v === undefined) return "-";
@@ -269,9 +285,13 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
             const current = normalizeLine(curr);
             const previous = normalizeLine(prev);
 
-            if (!current.length && !previous.length)
-                return { datasource: "db", data: null };
-
+            if (!current.length && !previous.length) {
+                return {
+                    datasource: "db",
+                    data: null,
+                    title: curr?.title || "Monthl-wise Production"
+                };
+            }
             return {
                 datasource: "db",
                 data: { current, previous },
@@ -310,9 +330,17 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
             componentId === "pa_pie_grade"
         ) {
             const pie = normalizeToPie(rows);
+            if (!pie.items.length) {
+                return {
+                    datasource: "db",
+                    data: { empty: true },
+                    title: res.title
+                };
+            }
+
             return {
                 datasource: "db",
-                data: pie.items.length ? pie : null,
+                data: pie,
                 title: res.title
             };
         }
@@ -320,21 +348,53 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
         // TABLE
         if (componentId.startsWith("pa_table_")) {
             const table = normalizeToTable(rows);
+            if (!table.columns.length) {
+                return {
+                    datasource: "db",
+                    data: { empty: true },
+                    title: res.title
+                };
+            }
+
             return {
                 datasource: "db",
-                data: table.columns.length ? table : null,
+                data: table,
                 title: res.title
             };
         }
 
         // KPI
         if (componentId.startsWith("pa_kpi_")) {
+            // CASE 1 — COMPONENT HIDDEN → data: null
+            if (!res?.success || res.data == null) {
+                return { datasource: "db", data: null };
+            }
+
+            const rows = Array.isArray(res.data)
+                ? res.data
+                : typeof res.data === "object"
+                    ? [res.data]
+                    : [];
+
+            // CASE 2 — COMPONENT VISIBLE BUT ZERO ROWS → show NoData widget
+            if (!rows.length) {
+                return {
+                    datasource: "db",
+                    data: {
+                        empty: true,
+                        title: res.title || componentId
+                    },
+                    title: res.title || componentId
+                };
+            }
+
+            // CASE 3 — NORMAL KPI WITH DATA
             const kpi = normalizeKpi(rows, componentId);
             return {
                 datasource: "db",
                 data: {
                     ...kpi,
-                    title: res.title || kpi.title   // keep title from API if present
+                    title: res.title || kpi.title
                 },
                 title: res.title || kpi.title
             };
@@ -351,6 +411,36 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
 /* ------------------------------------------------------------------
    UI COMPONENTS (Header, KPI, Donut, Lin, Table)
 -------------------------------------------------------------------*/
+
+function NoDataWidget({ title }) {
+    const widgetStyle = {
+        textAlign: "center",
+        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+        background: "#fff",
+        padding: "1.5rem",
+        color: "#0B3A66",
+        fontWeight: 600,
+        fontSize: 14,
+    };
+
+    const titleStyle = {
+        textAlign: "center",
+        color: "#0B3A66",
+        fontWeight: 600,
+        fontSize: 16,
+        marginBottom: "8px",
+    };
+
+    return (
+        <div>
+            <div style={titleStyle}>{title}</div>
+
+            <div style={widgetStyle}>
+                <div style={{ opacity: 0.7 }}>No data available</div>
+            </div>
+        </div>
+    );
+}
 
 /* Creative No-Logo Placeholder A */
 function NoLogoPlaceholder({ width = 120, height = 44 }) {
@@ -446,6 +536,110 @@ function Header({ companyLogoUrl }) {
     );
 }
 
+function PresetDateButtons({ onSelect }) {
+    const today = new Date();
+    const yr = today.getFullYear();
+    const month = today.getMonth() + 1;
+
+    // YEARLY: previous full year
+    const getYearly = () => ({
+        start: `${yr - 1}-01-01`,
+        end: `${yr - 1}-12-31`,
+    });
+
+    // HALF-YEARLY
+    const getHalfYearly = () => {
+        if (month <= 6) {
+            return {
+                start: `${yr}-01-01`,
+                end: `${yr}-06-30`,
+            };
+        } else {
+            return {
+                start: `${yr}-07-01`,
+                end: `${yr}-12-31`,
+            };
+        }
+    };
+
+    // QUARTERLY
+    const getQuarterly = () => {
+        const q1 = [1, 2, 3];
+        const q2 = [4, 5, 6];
+        const q3 = [7, 8, 9];
+        const q4 = [10, 11, 12];
+
+        let start, end;
+
+        if (q1.includes(month)) {
+            start = `${yr}-01-01`; end = `${yr}-03-31`;
+        } else if (q2.includes(month)) {
+            start = `${yr}-04-01`; end = `${yr}-06-30`;
+        } else if (q3.includes(month)) {
+            start = `${yr}-07-01`; end = `${yr}-09-30`;
+        } else {
+            start = `${yr}-10-01`; end = `${yr}-12-31`;
+        }
+
+        return { start, end };
+    };
+
+    // MONTHLY
+    const getMonthly = () => {
+        const first = new Date(yr, month - 1, 1);
+        const last = new Date(yr, month, 0);
+
+        return {
+            start: format(first, "yyyy-MM-dd"),
+            end: format(last, "yyyy-MM-dd"),
+        };
+    };
+
+    // TODAY + YESTERDAY
+    const getToday = () => {
+        const yest = new Date();
+        yest.setDate(today.getDate());
+
+        return {
+            start: format(yest, "yyyy-MM-dd"),
+            end: format(yest, "yyyy-MM-dd"),
+        };
+    };
+
+    // TODAY + YESTERDAY
+    const getTodayYesterday = () => {
+        const yest = new Date();
+        yest.setDate(today.getDate() - 1);
+
+        return {
+            start: format(yest, "yyyy-MM-dd"),
+            end: format(today, "yyyy-MM-dd"),
+        };
+    };
+
+    const btn = {
+        padding: "6px 10px",
+        background: "#2B6CB0",
+        borderRadius: 6,
+        border: "none",
+        color: "white",
+        cursor: "pointer",
+        fontWeight: 600,
+        fontSize: 14,
+    };
+
+    return (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <button style={btn} onClick={() => onSelect(getYearly())}>Yearly</button>
+            <button style={btn} onClick={() => onSelect(getHalfYearly())}>Half Yearly</button>
+            <button style={btn} onClick={() => onSelect(getQuarterly())}>Quarterly</button>
+            <button style={btn} onClick={() => onSelect(getMonthly())}>Monthly</button>
+            <button style={btn} onClick={() => onSelect(getToday())}>Today</button>
+            <button style={btn} onClick={() => onSelect(getTodayYesterday())}>Today + Yesterday</button>
+        </div>
+    );
+}
+
 function DateRangeInput({ value, onPendingChange, onApply }) {
     const [local, setLocal] = useState(value || { start: "", end: "" });
 
@@ -522,6 +716,20 @@ function DateRangeInput({ value, onPendingChange, onApply }) {
 /* KPI GRID */
 function KpiGrid({ items }) {
     if (!items || !items.length) return null;
+    const safeItems = items.map((it) => {
+        if (!it) return null;
+
+        // KPI card exists but has no data
+        if (it.empty) {
+            return {
+                title: it.title || "KPI",
+                value: null,
+                empty: true
+            };
+        }
+
+        return it;
+    }).filter(Boolean);
 
     return (
         <div
@@ -533,7 +741,7 @@ function KpiGrid({ items }) {
                 marginBottom: "0.75rem", // RELATIVE MARGIN (12px)
             }}
         >
-            {items.map((it, i) => {
+            {safeItems.map((it, i) => {
                 return (
                     <div
                         key={i}
@@ -586,7 +794,9 @@ const DONUT_COLORS = [
 ];
 
 function DonutWidget({ title, data }) {
-    const hasData = data?.items?.length;
+    if (data == null) return null;
+    if (data?.empty) return <NoDataWidget title={title} />;
+    const hasData = data?.items?.length > 0;
     const items = hasData
         ? [...data.items].sort((a, b) => b.value - a.value)
         : [];
@@ -660,131 +870,129 @@ function DonutWidget({ title, data }) {
                     minHeight: 0
                 }}
             >
-                {!hasData && (
-                    <div
-                        style={{
-                            flex: 1,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#000"
-                        }}
-                    >
-                        No data
+                <div
+                    style={{
+                        flex: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        minHeight: 0
+                    }}
+                >
+                    {/* Chart should take all remaining space */}
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    dataKey="value"
+                                    data={items}
+                                    cx="50%"
+                                    cy="45%"
+                                    outerRadius={100}
+                                    innerRadius={35}
+                                    label={renderInsideLabel}
+                                    labelLine={false}
+                                >
+                                    {items.map((e, i) => (
+                                        <Cell
+                                            key={i}
+                                            fill={DONUT_COLORS[i % DONUT_COLORS.length]}
+                                        />
+                                    ))}
+                                </Pie>
+
+                                <Customized>
+                                    {({ width, height }) => {
+                                        const total = items.reduce((s, x) => s + x.value, 0);
+                                        return (
+                                            <g>
+                                                <text
+                                                    x={width / 2}
+                                                    y={height / 2 - 10}
+                                                    textAnchor="middle"
+                                                    style={{
+                                                        fontSize: 14,
+                                                        fontWeight: 700,
+                                                        fill: "#0B3A66"
+                                                    }}
+                                                >
+                                                    {money(total)}
+                                                </text>
+
+                                                <text
+                                                    x={width / 2}
+                                                    y={height / 2 + 10}
+                                                    textAnchor="middle"
+                                                    style={{ fontSize: 12, fill: "#6b8fbf" }}
+                                                >
+                                                    Total
+                                                </text>
+                                            </g>
+                                        );
+                                    }}
+                                </Customized>
+
+                                <ReTooltip
+                                    formatter={(v, n, p) => [
+                                        money(v),
+                                        `${dynamicTruncate(
+                                            p.payload.label
+                                        )} (${p.payload.percentage.toFixed(1)}%)`
+                                    ]}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
                     </div>
-                )}
 
-                {hasData && (
+                    {/* Legend at bottom, fixed height */}
                     <div
                         style={{
-                            flex: 1,
                             display: "flex",
-                            flexDirection: "column",
-                            minHeight: 0
+                            flexWrap: "wrap",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            gap: 10,
+
+                            width: "100%",
+                            maxHeight: "100px",
+                            overflowY: "auto",
+                            paddingRight: 4,
+                            fontSize: 12,
                         }}
                     >
-                        {/* Chart should take all remaining space */}
-                        <div style={{ flex: 1, minHeight: 0 }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        dataKey="value"
-                                        data={items}
-                                        cx="50%"
-                                        cy="45%"
-                                        outerRadius={100}
-                                        innerRadius={35}
-                                        label={renderInsideLabel}
-                                        labelLine={false}
-                                    >
-                                        {items.map((e, i) => (
-                                            <Cell
-                                                key={i}
-                                                fill={DONUT_COLORS[i % DONUT_COLORS.length]}
-                                            />
-                                        ))}
-                                    </Pie>
-
-                                    <Customized>
-                                        {({ width, height }) => {
-                                            const total = items.reduce((s, x) => s + x.value, 0);
-                                            return (
-                                                <g>
-                                                    <text
-                                                        x={width / 2}
-                                                        y={height / 2 - 10}
-                                                        textAnchor="middle"
-                                                        style={{
-                                                            fontSize: 14,
-                                                            fontWeight: 700,
-                                                            fill: "#0B3A66"
-                                                        }}
-                                                    >
-                                                        {money(total)}
-                                                    </text>
-
-                                                    <text
-                                                        x={width / 2}
-                                                        y={height / 2 + 10}
-                                                        textAnchor="middle"
-                                                        style={{ fontSize: 12, fill: "#6b8fbf" }}
-                                                    >
-                                                        Total
-                                                    </text>
-                                                </g>
-                                            );
-                                        }}
-                                    </Customized>
-
-                                    <ReTooltip
-                                        formatter={(v, n, p) => [
-                                            money(v),
-                                            `${dynamicTruncate(
-                                                p.payload.label
-                                            )} (${p.payload.percentage.toFixed(1)}%)`
-                                        ]}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-
-                        {/* Legend at bottom, fixed height */}
-                        <div
-                            style={{
-                                width: "100%",
-                                maxHeight: "100px",   // fixed height
-                                overflowY: "auto",    // scrolling instead of shrinking chart
-                                paddingRight: 4,
-                                fontSize: 12,
-                            }}
-                        >
-                            {items.map((it, i) => (
+                        {items.map((it, i) => (
+                            <div
+                                key={i}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    width: "22%",
+                                    minWidth: 90,
+                                }}
+                            >
                                 <div
-                                    key={i}
                                     style={{
-                                        display: "flex",
-                                        gap: 4,
-                                        marginBottom: 6,
-                                        alignItems: "center"
+                                        width: 10,
+                                        height: 10,
+                                        background: DONUT_COLORS[i % DONUT_COLORS.length],
+                                        borderRadius: "50%",
+                                        flexShrink: 0,
+                                    }}
+                                />
+                                <div
+                                    style={{
+                                        color: "#0B3A66",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            width: 10,
-                                            height: 10,
-                                            background: DONUT_COLORS[i % DONUT_COLORS.length],
-                                            borderRadius: "50%",
-                                            flexShrink: 0
-                                        }}
-                                    />
-                                    <div style={{ color: "#0B3A66", overflow: "hidden" }}>
-                                        {dynamicTruncate(it.label)}
-                                    </div>
+                                    {dynamicTruncate(it.label)}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
@@ -851,43 +1059,8 @@ function LineAreaWidget({ title, data }) {
 
     window.__prevData = data?.previous || [];
 
-    if (!merged.length)
-        return (
-            <div
-                style={{
-                    textAlign: "center",
-                    marginBottom: "0.75rem",
-                    height: "400px",
-                    display: "flex",
-                    flexDirection: "column"
-                }}
-            >
-                <div
-                    style={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: "#0B3A66",
-                        marginBottom: 8,
-                    }}
-                >
-                    {title}
-                </div>
-
-                <div
-                    style={{
-                        background: "#fff",
-                        padding: 12,
-                        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                >
-                    <div style={{ padding: 12, color: "#000" }}>No data</div>
-                </div>
-            </div>
-        );
+    if (data == null) return null;
+    if (data?.empty) return <NoDataWidget title={title} />;
 
     return (
         <div
@@ -1008,58 +1181,27 @@ function LineAreaWidget({ title, data }) {
 
 function TableWidget({ title, data }) {
     const [page, setPage] = useState(1);
+    const safeColumns = Array.isArray(data?.columns) ? data.columns : [];
+    const safeRows = Array.isArray(data?.rows) ? data.rows : [];
 
-    if (!data?.columns?.length)
-        return (
-            <div
-                style={{
-                    textAlign: "center",
-                    marginBottom: "0.75rem",
-                    minHeight: 260,
-                    height: "400px",
-                    display: "flex",
-                    flexDirection: "column"
-                }}
-            >
-                <div
-                    style={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: "#0B3A66",
-                        marginBottom: 8,
-                    }}
-                >
-                    {title}
-                </div>
+    const dataKey = safeColumns.join(",") + safeRows.length;
 
-                <div
-                    style={{
-                        background: "#fff",
-                        padding: 12,
-                        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                >
-                    <div style={{ padding: 12, color: "#000" }}>No data</div>
-                </div>
-            </div>
-        );
+    useEffect(() => {
+        setPage(1);
+    }, [dataKey]);
 
-    // ---------------------------------------------
-    // EXTRACT TOTAL ROW
-    // ---------------------------------------------
+    if (data == null) return null;
+    if (data.empty) return <NoDataWidget title={title} />;
+    if (!safeColumns.length) return <NoDataWidget title={title} />;
+
+    let rows = [...safeRows];
     let totalRow = null;
-    let rows = [...data.rows];
 
     if (rows.length > 0) {
         const last = rows[rows.length - 1];
-        const isTotal =
-            Object.values(last).some(
-                (v) => typeof v === "string" && v.toLowerCase().includes("total")
-            );
+        const isTotal = Object.values(last).some(
+            (v) => typeof v === "string" && v.toLowerCase().includes("total")
+        );
 
         if (isTotal) {
             totalRow = last;
@@ -1067,45 +1209,7 @@ function TableWidget({ title, data }) {
         }
     }
 
-    // If all rows are removed OR original rows had only the total row → show No data
-    if (rows.length === 0) {
-        return (
-            <div
-                style={{
-                    textAlign: "center",
-                    marginBottom: "0.75rem",
-                    height: "400px",
-                    display: "flex",
-                    flexDirection: "column"
-                }}
-            >
-                <div
-                    style={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: "#0B3A66",
-                        marginBottom: 8,
-                    }}
-                >
-                    {title}
-                </div>
-
-                <div
-                    style={{
-                        background: "#fff",
-                        padding: 12,
-                        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                >
-                    <div style={{ padding: 12, color: "#000" }}>No data</div>
-                </div>
-            </div>
-        );
-    }
+    if (rows.length === 0) return <NoDataWidget title={title} />;
 
     // ---------------------------------------------
     // DETECT MONEY COLUMNS (Dynamic)
@@ -1255,7 +1359,7 @@ function TableWidget({ title, data }) {
                                                 const color = !isNaN(num) && num < 0 ? "#d12b2b" : "#0B6623";
 
                                                 return (
-                                                    <td key={j} style={{ ...baseStyle, color, fontWeight: 700 }}>
+                                                    <td key={j} style={{ ...baseStyle, whiteSpace: "nowrap", wordBreak: "normal", color, fontWeight: 700 }}>
                                                         {text}
                                                     </td>
                                                 );
@@ -1396,14 +1500,19 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
     const { id: routeUserId } = useParams();
     const userId = routeUserId || propUserId || "demo_tenant";
 
+    const today = new Date();
+    const prevMonth = subMonths(today, 1);
+    const defaultStart = format(startOfMonth(prevMonth), "yyyy-MM-dd");
+    const defaultEnd = format(endOfMonth(prevMonth), "yyyy-MM-dd");
+
     const [dateRange, setDateRange] = useState({
-        start: "",
-        end: "",
+        start: defaultStart,
+        end: defaultEnd,
     });
 
     const [pendingRange, setPendingRange] = useState({
-        start: "",
-        end: "",
+        start: defaultStart,
+        end: defaultEnd,
     });
 
     const navigate = useNavigate();
@@ -1485,6 +1594,17 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
         dataMap.pa_kpi_lots?.data,
     ].filter(Boolean);
 
+    function resetDateRange() {
+        setPendingRange({
+            start: defaultStart,
+            end: defaultEnd,
+        });
+        setDateRange({
+            start: defaultStart,
+            end: defaultEnd,
+        });
+    }
+
     return (
         <div
             style={{
@@ -1538,11 +1658,45 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
                         ← Back
                     </button>
 
-                    <DateRangeInput
-                        value={pendingRange}
-                        onPendingChange={setPendingRange}
-                        onApply={setDateRange}
-                    />
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: "0.5rem",
+                        }}
+                    >
+
+                        {/* PRESET BUTTON GROUP */}
+                        <PresetDateButtons onSelect={(range) => {
+                            setPendingRange(range);
+                            setDateRange(range);
+                        }} />
+
+                        {/* EXISTING DATE RANGE INPUT */}
+                        <DateRangeInput
+                            value={pendingRange}
+                            onPendingChange={setPendingRange}
+                            onApply={setDateRange}
+                        />
+
+                        <button
+                            onClick={resetDateRange}
+                            style={{
+                                padding: "0.375rem 0.75rem",
+                                background: "#A1A1A1",
+                                color: "white",
+                                borderRadius: 6,
+                                border: "none",
+                                cursor: "pointer",
+                                fontWeight: 600,
+                                flexShrink: 0,
+                            }}
+                        >
+                            Reset
+                        </button>
+
+                    </div>
                 </div>
             </div>
 

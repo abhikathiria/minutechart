@@ -86,6 +86,15 @@ function UserList() {
     const [sortBy, setSortBy] = useState("createdAt");
     const [sortOrder, setSortOrder] = useState("desc");
     const [loading, setLoading] = useState(true);
+    const [columnFilters, setColumnFilters] = useState({
+        companyName: "",
+        customerName: "",
+        phoneNumber: "",
+        email: "",
+        accountStatus: "",
+        subscriptionStatus: ""
+    });
+
 
     // --- Filter State Logic (Kept Intact) ---
 
@@ -212,13 +221,21 @@ function UserList() {
                 (user.customerName?.toLowerCase() ?? "").includes(searchTerm.toLowerCase()) ||
                 (user.email?.toLowerCase() ?? "").includes(searchTerm.toLowerCase());
 
+            const matchesColumns =
+                (user.companyName ?? "").toLowerCase().includes(columnFilters.companyName.toLowerCase()) &&
+                (user.customerName ?? "").toLowerCase().includes(columnFilters.customerName.toLowerCase()) &&
+                (user.phoneNumber ?? "").toLowerCase().includes(columnFilters.phoneNumber.toLowerCase()) &&
+                (user.email ?? "").toLowerCase().includes(columnFilters.email.toLowerCase()) &&
+                (user.accountStatus ?? "").toLowerCase().includes(columnFilters.accountStatus.toLowerCase()) &&
+                (user.subscriptionStatus ?? "").toLowerCase().includes(columnFilters.subscriptionStatus.toLowerCase());
+
             const matchesAccountStatus =
                 accountStatusFilter === "All" || user.accountStatus === accountStatusFilter;
 
             const matchesSubscriptionStatus =
                 subscriptionStatusFilter === "All" || user.subscriptionStatus === subscriptionStatusFilter;
 
-            return matchesSearch && matchesAccountStatus && matchesSubscriptionStatus;
+            return matchesSearch && matchesColumns && matchesAccountStatus && matchesSubscriptionStatus;
         })
         .sort((a, b) => {
             const aVal = a[sortBy];
@@ -266,7 +283,7 @@ function UserList() {
                     <h2 className="text-3xl font-extrabold text-white">Admin User Management</h2>
 
                     {/* Search Bar */}
-                    <div className="relative">
+                    {/* <div className="relative">
                         <FaSearch className="absolute left-4 top-3 text-white/70 w-4 h-4" />
                         <input
                             type="text"
@@ -278,7 +295,7 @@ function UserList() {
                                 setCurrentPage(1); // Reset pagination on search
                             }}
                         />
-                    </div>
+                    </div> */}
 
                     {/* Filters and Actions */}
                     <div className="flex flex-wrap gap-3 pt-2 items-center justify-between">
@@ -357,6 +374,87 @@ function UserList() {
                                     <th className="p-4 text-center">Account Status</th>
                                     <th className="p-4 text-center">Subscription Status</th>
                                     <th className="p-4 text-center w-32">Actions</th>
+                                </tr>
+                                <tr className="bg-white border-b">
+                                    <th></th>
+
+                                    {/* companyName filter */}
+                                    <th className="p-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            value={columnFilters.companyName}
+                                            onChange={(e) =>
+                                                setColumnFilters({ ...columnFilters, companyName: e.target.value })
+                                            }
+                                        />
+                                    </th>
+
+                                    {/* customerName filter */}
+                                    <th className="p-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            value={columnFilters.customerName}
+                                            onChange={(e) =>
+                                                setColumnFilters({ ...columnFilters, customerName: e.target.value })
+                                            }
+                                        />
+                                    </th>
+
+                                    {/* phoneNumber filter */}
+                                    <th className="p-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            value={columnFilters.phoneNumber}
+                                            onChange={(e) =>
+                                                setColumnFilters({ ...columnFilters, phoneNumber: e.target.value })
+                                            }
+                                        />
+                                    </th>
+
+                                    {/* email filter */}
+                                    <th className="p-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            value={columnFilters.email}
+                                            onChange={(e) =>
+                                                setColumnFilters({ ...columnFilters, email: e.target.value })
+                                            }
+                                        />
+                                    </th>
+
+                                    {/* accountStatus filter */}
+                                    <th className="p-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            value={columnFilters.accountStatus}
+                                            onChange={(e) =>
+                                                setColumnFilters({ ...columnFilters, accountStatus: e.target.value })
+                                            }
+                                        />
+                                    </th>
+                                    {/* subscriptionStatus filter */}
+                                    <th className="p-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            value={columnFilters.subscriptionStatus}
+                                            onChange={(e) =>
+                                                setColumnFilters({ ...columnFilters, subscriptionStatus: e.target.value })
+                                            }
+                                        />
+                                    </th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">

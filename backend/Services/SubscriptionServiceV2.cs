@@ -259,8 +259,8 @@ namespace minutechart.Services
                     continue;
                 }
 
-                await _logger.LogAsync("activated-queued-invoice", "Subscription",
-                    $"User:{user.Id} Invoice:{invoice.Id} START:{invoice.PlanStartDate} END:{invoice.PlanEndDate}");
+                // await _logger.LogAsync("activated-queued-invoice", "Subscription",
+                //     $"User:{user.Id} Invoice:{invoice.Id} START:{invoice.PlanStartDate} END:{invoice.PlanEndDate}");
 
                 activatedCount++;
             }

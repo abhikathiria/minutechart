@@ -69,7 +69,7 @@ namespace minutechart
             // {
             //     options.AddPolicy("AllowReactApp", policy =>
             //     {
-            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.105:3000", "http://192.168.1.105:5027")
+            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.116:3000", "http://192.168.1.116:5027")
             //               .AllowAnyHeader()
             //               .AllowAnyMethod()
             //               .AllowCredentials();
@@ -86,7 +86,7 @@ namespace minutechart
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.105:3000")
+                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.116:3000")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();

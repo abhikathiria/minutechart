@@ -359,6 +359,7 @@ function Header({ user, onLogout }) {
                                         <AnimatePresence>
                                             {dashboardOpen && (
                                                 <motion.div
+                                                    ref={dashRef}
                                                     className="absolute top-full left-0 mt-2 bg-black/70 backdrop-blur-lg shadow-[0_0_30px_rgba(0,240,255,0.4)] rounded-lg w-60 z-[60] border border-cyan-400/30 overflow-hidden"
                                                     initial={{ opacity: 0, y: -10 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -416,8 +417,16 @@ function Header({ user, onLogout }) {
                                                 <FaUserCircle className="text-2xl text-cyan-400 drop-shadow-[0_0_5px_#00F0FF]" />
                                             )}
                                             {/* User Name/Email display for desktop */}
-                                            <div className="flex flex-col items-end text-right leading-tight hidden xl:block">
+                                            {/* <div className="flex flex-col items-end text-right leading-tight hidden xl:block">
                                                 <span className="font-semibold text-lg truncate max-w-[150px] text-white/90">{userName}</span>
+                                            </div> */}
+                                            <div className="hidden xl:flex flex-col items-end text-right leading-tight">
+                                                <span
+                                                    className="font-semibold text-lg text-white/90 max-w-[150px] overflow-hidden whitespace-nowrap text-ellipsis"
+                                                    title={userName}
+                                                >
+                                                    {userName}
+                                                </span>
                                             </div>
                                             <FaChevronDown className={`text-sm transition-transform duration-200 ${profileOpen ? 'rotate-180 text-cyan-400' : 'rotate-0 text-white/60'}`} />
                                         </button>
@@ -497,7 +506,11 @@ function Header({ user, onLogout }) {
 
                                     {/* Submenu */}
                                     {mobileAdminOpen && (
-                                        <div className="pl-8 py-1 flex flex-col gap-2">
+                                        <div
+                                            ref={mobileadminRef}
+                                            className="pl-8 py-1 flex flex-col gap-2"
+                                        >
+
                                             {isSuperAdmin && (
                                                 <>
                                                     <Link to="/superadmin/user-management" className="text-white hover:text-red-300 py-2" onClick={() => closeAllMenus()}>
@@ -563,7 +576,10 @@ function Header({ user, onLogout }) {
 
                                     {/* Submenu */}
                                     {mobileDashOpen && (
-                                        <div className="pl-8 py-1 flex flex-col gap-2">
+                                        <div
+                                            ref={mobiledashRef}
+                                            className="pl-8 py-1 flex flex-col gap-2"
+                                        >
                                             <Link to="/dashboard" className="text-white hover:text-cyan-300 py-2" onClick={() => closeAllMenus()}>
                                                 <span><FaScrewdriver className="inline mr-1 text-cyan-400" /> Custom Dashboard</span>
                                             </Link>

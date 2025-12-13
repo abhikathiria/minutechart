@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using minutechart.Data;
 using minutechart.Helpers;
 using minutechart.Models;
@@ -16,6 +17,7 @@ namespace minutechart.Controllers
     public class ProductionModulesController : ControllerBase
     {
         private readonly MinutechartDbContext _db;
+        private readonly UserManager<AppUser> _userManager;
         private readonly DatabaseService _dbService;
         private readonly ActivityLogger _activityLogger;
 
@@ -27,10 +29,11 @@ namespace minutechart.Controllers
             "pa_table_machine","pa_table_item"
         };
 
-        public ProductionModulesController(MinutechartDbContext db, DatabaseService dbService, ActivityLogger activityLogger)
+        public ProductionModulesController(MinutechartDbContext db, UserManager<AppUser> userManager, DatabaseService dbService, ActivityLogger activityLogger)
         {
             _db = db;
             _dbService = dbService;
+            _userManager = userManager;
             _activityLogger = activityLogger;
         }
 
@@ -99,7 +102,8 @@ namespace minutechart.Controllers
             {
                 using var conn = await _dbService.CreateClientConnectionAsync(profile);
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = req.SqlQuery ?? "SELECT 1";
+                var sql = SQLShortNameHelper.InjectShortName(req.SqlQuery, profile.ShortName);
+                cmd.CommandText = sql;
 
                 // Add test parameters if the query references them (prevents validation errors)
                 var addParam = new Action<string, object>((name, val) =>
@@ -177,7 +181,8 @@ namespace minutechart.Controllers
             {
                 using var conn = await _dbService.CreateClientConnectionAsync(profile);
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = req.SqlQuery;
+                var sql = SQLShortNameHelper.InjectShortName(req.SqlQuery, profile.ShortName);
+                cmd.CommandText = sql;
 
                 // same test params
                 var addParam = new Action<string, object>((name, val) =>
@@ -203,7 +208,13 @@ namespace minutechart.Controllers
                 }
 
                 await reader.CloseAsync();
-                return Ok(new { success = true, data = table });
+                return Ok(new
+                {
+                    success = true,
+                    shortName = profile.ShortName,
+                    resolvedSql = sql,
+                    data = table
+                });
             }
             catch (Exception ex)
             {
@@ -232,7 +243,8 @@ namespace minutechart.Controllers
             {
                 using var conn = await _dbService.CreateClientConnectionAsync(profile);
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = module.SqlQuery;
+                var sql = SQLShortNameHelper.InjectShortName(module.SqlQuery, profile.ShortName);
+                cmd.CommandText = sql;
 
                 // add parameters
                 var addParam = new Action<string, object>((name, val) =>
@@ -304,6 +316,153 @@ namespace minutechart.Controllers
             await _activityLogger.LogAsync(action, "ProductionModule", row.ComponentId, row.AppUserId);
 
             return Ok(new { success = true, message = req.Hide ? "Hidden" : "Visible" });
+        }
+
+        public class TransferModulesRequest
+        {
+            public string SourceUserId { get; set; }
+            public string TargetUserId { get; set; }
+            public List<int> ModuleIds { get; set; }
+            public string Action { get; set; } = "check"; // check, replace, ignore, cancel
+        }
+
+        [HttpPost("transfer-modules")]
+        public async Task<IActionResult> TransferProductionModules([FromBody] TransferModulesRequest request)
+        {
+            if (string.IsNullOrEmpty(request.SourceUserId) ||
+                string.IsNullOrEmpty(request.TargetUserId) ||
+                request.ModuleIds == null || request.ModuleIds.Count == 0)
+            {
+                return BadRequest(new { success = false, message = "Invalid input" });
+            }
+
+            var sourceUser = await _userManager.FindByIdAsync(request.SourceUserId);
+            var targetUser = await _userManager.FindByIdAsync(request.TargetUserId);
+            var sourceName = sourceUser?.CompanyName ?? "Unknown";
+            var targetName = targetUser?.CompanyName ?? "Unknown";
+
+            try
+            {
+                // Load SALES modules from source user
+                var sourceModules = new List<ProductionModule>();
+                foreach (var id in request.ModuleIds)
+                {
+                    var module = await _db.ProductionModules
+                        .FirstOrDefaultAsync(q => q.AppUserId == request.SourceUserId && q.Id == id);
+                    if (module != null) sourceModules.Add(module);
+                }
+
+                // Load SALES modules from target user
+                var targetModules = await _db.ProductionModules
+                    .Where(q => q.AppUserId == request.TargetUserId)
+                    .ToListAsync();
+
+                var duplicates = new List<ProductionModule>();
+                var copied = new List<ProductionModule>();
+
+                foreach (var sm in sourceModules)
+                {
+                    var existing = targetModules.FirstOrDefault(tm =>
+                        tm.ComponentId == sm.ComponentId && tm.SqlQuery == sm.SqlQuery);
+
+                    if (existing != null)
+                    {
+                        duplicates.Add(existing);
+
+                        // Behaviour: same as UserModules
+                        if (request.Action == "replace") continue;
+                        if (request.Action == "ignore") continue;
+                        if (request.Action == "cancel" || request.Action == "check") continue;
+                    }
+                }
+
+                // -----------------------------------
+                // CHECK MODE
+                // -----------------------------------
+                if (request.Action == "check")
+                {
+                    return Ok(new
+                    {
+                        success = duplicates.Count == 0,
+                        duplicates = duplicates.Select(d => new
+                        {
+                            d.Id,
+                            d.ComponentId,
+                            d.ModuleTitle
+                        })
+                    });
+                }
+
+                // -----------------------------------
+                // CANCEL
+                // -----------------------------------
+                if (request.Action == "cancel")
+                {
+                    return Ok(new { success = true, message = "Transfer cancelled." });
+                }
+
+                // -----------------------------------
+                // REPLACE DUPLICATES
+                // -----------------------------------
+                if (request.Action == "replace" && duplicates.Any())
+                {
+                    foreach (var d in duplicates)
+                        _db.ProductionModules.Remove(d);
+                }
+
+                // -----------------------------------
+                // COPY MODULES
+                // -----------------------------------
+                foreach (var sm in sourceModules)
+                {
+                    var existing = targetModules.FirstOrDefault(tm =>
+                        tm.ComponentId == sm.ComponentId && tm.SqlQuery == sm.SqlQuery);
+
+                    if (existing != null)
+                    {
+                        if (request.Action == "ignore") continue;
+                        if (request.Action == "cancel" || request.Action == "check") continue;
+                    }
+
+                    var newModule = new ProductionModule
+                    {
+                        AppUserId = request.TargetUserId,
+                        ComponentId = sm.ComponentId,
+                        ModuleTitle = sm.ModuleTitle,
+                        SqlQuery = sm.SqlQuery,
+                        HideQuery = false,
+                        CreatedAt = DateTimeHelper.GetIndianTime(),
+                        LastUpdated = DateTimeHelper.GetIndianTime()
+                    };
+
+                    _db.ProductionModules.Add(newModule);
+                    copied.Add(newModule);
+                }
+
+                await _db.SaveChangesAsync();
+
+                await _activityLogger.LogAsync(
+                    $"Transferred {copied.Count} production modules",
+                    "ProductionModule",
+                    sourceName,
+                    targetName
+                );
+
+                return Ok(new
+                {
+                    success = true,
+                    message = request.Action switch
+                    {
+                        "replace" => $"{copied.Count} modules transferred and duplicates replaced.",
+                        "ignore" => $"{copied.Count} modules transferred, duplicates ignored.",
+                        _ => $"{copied.Count} modules transferred successfully."
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "An error occurred while transferring production modules." });
+            }
         }
     }
 }

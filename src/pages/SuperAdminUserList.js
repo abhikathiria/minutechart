@@ -102,6 +102,25 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
     const [sortOrder, setSortOrder] = useState("desc");
     const [loading, setLoading] = useState(true);
 
+    const [userColumnFilters, setUserColumnFilters] = useState({
+        companyName: "",
+        customerName: "",
+        assignedAdminName: "",
+        phoneNumber: "",
+        email: "",
+        accountStatus: "",
+        subscriptionStatus: ""
+    });
+
+    const [adminColumnFilters, setAdminColumnFilters] = useState({
+        adminName: "",
+        phoneNumber: "",
+        email: "",
+        accountStatus: "",
+        subscriptionStatus: ""
+    });
+
+
     // Tab Control
     const [activeTab, setActiveTab] = useState('User');
 
@@ -203,16 +222,28 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
         setLoading(true);
         api.get("/superadmin/userlist")
             .then((res) => {
-                setUsers(res.data);
-
                 const allUsers = res.data;
-                const adminsForAssignment = res.data.filter(u => u.userRole === "Admin");
-                setAvailableAdmins(adminsForAssignment);
+                const admins = allUsers.filter(u => u.userRole === "Admin");
 
+                // ⭐ ADD assignedAdminName TO EVERY USER
+                const enrichedUsers = allUsers.map(user => {
+                    const admin = admins.find(a => a.id === user.assignedAdminId);
+
+                    return {
+                        ...user,
+                        assignedAdminName: admin
+                            ? admin.adminName || admin.customerName || "Unassigned"
+                            : "Unassigned"
+                    };
+                });
+
+                setUsers(enrichedUsers);
+                setAvailableAdmins(admins);
+
+                // Admin → User count map
                 const counts = {};
-                adminsForAssignment.forEach(admin => {
-                    const userCount = allUsers.filter(u => u.assignedAdminId === admin.id).length;
-                    counts[admin.id] = userCount;
+                admins.forEach(admin => {
+                    counts[admin.id] = enrichedUsers.filter(u => u.assignedAdminId === admin.id).length;
                 });
                 setAdminUserCounts(counts);
             })
@@ -223,7 +254,6 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
             })
             .finally(() => setLoading(false));
     }
-
     useEffect(() => {
         fetchUserData();
     }, []);
@@ -403,10 +433,32 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
 
             const matchesSearch = searchFields.some(s => s.includes(searchTerm.toLowerCase()));
 
+            let matchesColumns = true;
+
+            if (activeTab === "User") {
+                matchesColumns =
+                    (user.companyName ?? "").toLowerCase().includes((userColumnFilters.companyName ?? "").toLowerCase()) &&
+                    (user.customerName ?? "").toLowerCase().includes((userColumnFilters.customerName ?? "").toLowerCase()) &&
+                    (user.assignedAdminName ?? "").toLowerCase().includes((userColumnFilters.assignedAdminName ?? "").toLowerCase()) &&
+                    (user.phoneNumber ?? "").toLowerCase().includes((userColumnFilters.phoneNumber ?? "").toLowerCase()) &&
+                    (user.email ?? "").toLowerCase().includes((userColumnFilters.email ?? "").toLowerCase()) &&
+                    (user.accountStatus ?? "").toLowerCase().includes((userColumnFilters.accountStatus ?? "").toLowerCase()) &&
+                    (user.subscriptionStatus ?? "").toLowerCase().includes((userColumnFilters.subscriptionStatus ?? "").toLowerCase());
+            }
+
+            if (activeTab === "Admin") {
+                matchesColumns =
+                    (user.adminName ?? "").toLowerCase().includes((adminColumnFilters.adminName ?? "").toLowerCase()) &&
+                    (user.phoneNumber ?? "").toLowerCase().includes((adminColumnFilters.phoneNumber ?? "").toLowerCase()) &&
+                    (user.email ?? "").toLowerCase().includes((adminColumnFilters.email ?? "").toLowerCase()) &&
+                    (user.accountStatus ?? "").toLowerCase().includes((adminColumnFilters.accountStatus ?? "").toLowerCase()) &&
+                    (user.subscriptionStatus ?? "").toLowerCase().includes((adminColumnFilters.subscriptionStatus ?? "").toLowerCase());
+            }
+
             const matchesAccountStatus = accountStatusFilter === "All" || user.accountStatus === accountStatusFilter;
             const matchesSubscriptionStatus = subscriptionStatusFilter === "All" || user.subscriptionStatus === subscriptionStatusFilter;
 
-            return matchesSearch && matchesAccountStatus && matchesSubscriptionStatus;
+            return matchesSearch && matchesColumns && matchesAccountStatus && matchesSubscriptionStatus;
         })
         .sort((a, b) => {
             const aVal = a[sortBy];
@@ -563,7 +615,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                     </h2>
 
                     {/* Search Bar */}
-                    <div className="relative">
+                    {/* <div className="relative">
                         <FaSearch className="absolute left-4 top-3 text-white/70 w-4 h-4" />
                         <input
                             type="text"
@@ -575,7 +627,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                                 setCurrentPage(1);
                             }}
                         />
-                    </div>
+                    </div> */}
 
                     {/* Filters and Actions */}
                     <div className="flex flex-wrap gap-3 pt-2 items-center justify-between">
@@ -670,6 +722,119 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                                     ))}
 
                                     <th className="p-4 text-center w-52 font-semibold text-gray-700">Actions</th>
+                                </tr>
+                                {/* FILTER INPUT ROW */}
+                                <tr className="bg-white border-b">
+                                    <th></th>
+
+                                    {/* USER TAB FILTERS */}
+                                    {activeTab === "User" &&
+                                        <>
+                                            <th className="p-2">
+                                                <input
+                                                    value={userColumnFilters.companyName}
+                                                    onChange={(e) =>
+                                                        setUserColumnFilters({ ...userColumnFilters, companyName: e.target.value })
+                                                    }
+                                                    className="w-full px-2 py-1 border rounded"
+                                                    placeholder="Search..."
+                                                />
+                                            </th>
+                                            <th className="p-2">
+                                                <input
+                                                    value={userColumnFilters.customerName}
+                                                    onChange={(e) =>
+                                                        setUserColumnFilters({ ...userColumnFilters, customerName: e.target.value })
+                                                    }
+                                                    className="w-full px-2 py-1 border rounded"
+                                                    placeholder="Search..."
+                                                />
+                                            </th>
+                                            <th className="p-2">
+                                                <input
+                                                    value={userColumnFilters.assignedAdminName}
+                                                    onChange={(e) =>
+                                                        setUserColumnFilters({ ...userColumnFilters, assignedAdminName: e.target.value })
+                                                    }
+                                                    className="w-full px-2 py-1 border rounded"
+                                                    placeholder="Search..."
+                                                />
+                                            </th>
+                                        </>
+                                    }
+
+                                    {/* ADMIN TAB FILTERS */}
+                                    {activeTab === "Admin" &&
+                                        <th className="p-2">
+                                            <input
+                                                value={adminColumnFilters.adminName}
+                                                onChange={(e) =>
+                                                    setAdminColumnFilters({ ...adminColumnFilters, adminName: e.target.value })
+                                                }
+                                                className="w-full px-2 py-1 border rounded"
+                                                placeholder="Search..."
+                                            />
+                                        </th>
+                                    }
+
+                                    {/* SHARED FILTERS: email / phone / accountStatus / subscriptionStatus */}
+                                    <th className="p-2">
+                                        <input
+                                            value={activeTab === "User" ? userColumnFilters.email : adminColumnFilters.email}
+                                            onChange={(e) =>
+                                                activeTab === "User"
+                                                    ? setUserColumnFilters({ ...userColumnFilters, email: e.target.value })
+                                                    : setAdminColumnFilters({ ...adminColumnFilters, email: e.target.value })
+                                            }
+                                            className="w-full px-2 py-1 border rounded"
+                                            placeholder="Search..."
+                                        />
+                                    </th>
+
+                                    <th className="p-2">
+                                        <input
+                                            value={activeTab === "User" ? userColumnFilters.phoneNumber : adminColumnFilters.phoneNumber}
+                                            onChange={(e) =>
+                                                activeTab === "User"
+                                                    ? setUserColumnFilters({ ...userColumnFilters, phoneNumber: e.target.value })
+                                                    : setAdminColumnFilters({ ...adminColumnFilters, phoneNumber: e.target.value })
+                                            }
+                                            className="w-full px-2 py-1 border rounded"
+                                            placeholder="Search..."
+                                        />
+                                    </th>
+
+                                    <th className="p-2">
+                                        <input
+                                            value={activeTab === "User" ? userColumnFilters.accountStatus : adminColumnFilters.accountStatus}
+                                            onChange={(e) =>
+                                                activeTab === "User"
+                                                    ? setUserColumnFilters({ ...userColumnFilters, accountStatus: e.target.value })
+                                                    : setAdminColumnFilters({ ...adminColumnFilters, accountStatus: e.target.value })
+                                            }
+                                            className="w-full px-2 py-1 border rounded"
+                                            placeholder="Search..."
+                                        />
+                                    </th>
+
+                                    <th className="p-2">
+                                        <input
+                                            value={
+                                                activeTab === "User"
+                                                    ? userColumnFilters.subscriptionStatus
+                                                    : adminColumnFilters.subscriptionStatus
+                                            }
+                                            onChange={(e) =>
+                                                activeTab === "User"
+                                                    ? setUserColumnFilters({ ...userColumnFilters, subscriptionStatus: e.target.value })
+                                                    : setAdminColumnFilters({ ...adminColumnFilters, subscriptionStatus: e.target.value })
+                                            }
+                                            className="w-full px-2 py-1 border rounded"
+                                            placeholder="Search..."
+                                        />
+                                    </th>
+
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">

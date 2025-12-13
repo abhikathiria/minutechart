@@ -11,7 +11,7 @@ import {
   FaSave,
   FaPlay,
   FaPlus,
-  FaChevronLeft,
+  FaCheck,
   FaSearch
 } from "react-icons/fa";
 
@@ -26,10 +26,33 @@ const COMPONENTS = [
   { id: "pa_pie_production", title: "Production Pie" },
   { id: "pa_line_month", title: "Month Wise (Line)" },
   { id: "pa_pie_grade", title: "Grade Pie" },
-  
+
   { id: "pa_table_machine", title: "Machine Table" },
   { id: "pa_table_item", title: "Item Table" }
 ];
+
+const Spinner = () => (
+  <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-indigo-500"></div>
+);
+
+function SqlTipBox() {
+  return (
+    <div className="p-3 mt-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-800">
+      <div className="font-semibold mb-1">Tip: How to use filters in SQL</div>
+      <p className="leading-relaxed">
+        Use the following filter format in queries:
+      </p>
+      <pre className="mt-2 p-2 bg-white border rounded text-[11px] whitespace-pre-wrap">
+        WHERE
+        (@startDate IS NULL OR OrderDate `{'>'}`= @startDate)
+        AND (@endDate IS NULL OR OrderDate `{'<'}`= @endDate)
+      </pre>
+      <p className="mt-2">
+        These values come from dashboard filters. Use them in any query.
+      </p>
+    </div>
+  );
+}
 
 export default function ProductionModules() {
   const { id: userId } = useParams();
@@ -50,6 +73,12 @@ export default function ProductionModules() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [moduleToDelete, setModuleToDelete] = useState(null);
   const [returnPath, setReturnPath] = useState("/admin/users");
+  const [editorCopied, setEditorCopied] = useState(false);
+  const [listCopied, setListCopied] = useState({});
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferTargetUser, setTransferTargetUser] = useState("");
+  const [transferCheckResult, setTransferCheckResult] = useState(null);
+  const [transferLoading, setTransferLoading] = useState(false);
 
   // Batch selection & batch actions
   const [selectedModules, setSelectedModules] = useState([]); // array of component ids
@@ -67,15 +96,7 @@ export default function ProductionModules() {
     try {
       const res = await api.get(`/productionmodules/list/${encodeURIComponent(userId)}`);
       setConfigMap(res.data || {});
-      const first = COMPONENTS[0]?.id;
-      setSelected(prev => prev ?? first);
 
-      // if nothing was selected and we have config for the first, fill editor
-      if (!selected && first) {
-        const cfg = (res.data || {})[first] ?? null;
-        setSqlText(cfg?.sqlQuery ?? "");
-        setModuleTitle(cfg?.moduleTitle ?? "");
-      }
       const viewerRes = await api.get("/account/me");
       const viewerRoles = viewerRes.data?.roles || [];
 
@@ -116,7 +137,7 @@ export default function ProductionModules() {
     setModuleTitle(cfg?.moduleTitle ?? "");
     setSqlText(cfg?.sqlQuery ?? "");
     setResults(null);
-    setMessage(null);
+    // setMessage(null);
   }, [selected, configMap]);
 
   // auto-hide top message strip
@@ -195,6 +216,57 @@ export default function ProductionModules() {
       showMessage("error", err?.response?.data?.message ?? "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleTransferCheck() {
+    if (!transferTargetUser) {
+      showMessage("error", "Select a user to transfer modules to");
+      return;
+    }
+
+    setTransferLoading(true);
+    setTransferCheckResult(null);
+
+    try {
+      const res = await api.post("/productionmodules/transfer-modules", {
+        sourceUserId: userId,
+        targetUserId: transferTargetUser,
+        moduleIds: selectedModules.map(id => configMap[id]?.id),
+        action: "check"
+      });
+
+      setTransferCheckResult(res.data);
+    } catch (err) {
+      showMessage("error", "Check failed");
+    } finally {
+      setTransferLoading(false);
+    }
+  }
+
+  async function handleTransferAction(action) {
+    setTransferLoading(true);
+    try {
+      const res = await api.post("/productionmodules/transfer-modules", {
+        sourceUserId: userId,
+        targetUserId: transferTargetUser,
+        moduleIds: selectedModules.map(id => configMap[id]?.id),
+        action
+      });
+
+      if (res.data?.success) {
+        showMessage("success", res.data.message || "Transfer completed");
+        setTransferModalOpen(false);
+        setTransferCheckResult(null);
+        setSelectedModules([]);
+      } else {
+        showMessage("error", res.data?.message || "Transfer failed");
+      }
+    } catch (err) {
+      showMessage("error", "Transfer error");
+    } finally {
+      setTransferLoading(false);
+      loadList();
     }
   }
 
@@ -407,11 +479,22 @@ export default function ProductionModules() {
             {cfg ? (
               <div className="flex gap-2">
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(cfg.sqlQuery || ""); showMessage("success", "Saved SQL copied"); }}
-                  title="Copy saved SQL"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(cfg.sqlQuery || "");
+
+                    setListCopied(prev => ({ ...prev, [comp.id]: true }));
+                    setTimeout(() => {
+                      setListCopied(prev => ({ ...prev, [comp.id]: false }));
+                    }, 2000);
+                  }}
                   className="p-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-sm"
                 >
-                  <FaRegCopy />
+                  {listCopied[comp.id] ? (
+                    <FaCheck className="text-green-600" />
+                  ) : (
+                    <FaRegCopy />
+                  )}
                 </button>
 
                 <button
@@ -424,7 +507,7 @@ export default function ProductionModules() {
 
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggleHideSingle(comp.id); }}
-                  title={cfg.hideQuery ? "Unhide" : "Hide"}
+                  title={cfg.hideQuery ? "Show" : "Hide"}
                   className={`px-2 py-1 rounded-md text-xs ${cfg.hideQuery ? "bg-gray-100 text-gray-700" : "bg-indigo-50 text-indigo-700"}`}
                 >
                   {cfg.hideQuery ? <><FaEye /> </> : <><FaEyeSlash /></>}
@@ -469,6 +552,12 @@ export default function ProductionModules() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
+      {/* Global loader overlay */}
+      {(loadingList || actionLoading || transferLoading || batchActionLoading) && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[60]">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-indigo-500"></div>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white p-4 sm:p-6 border-b shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 max-w-7xl mx-auto">
@@ -489,11 +578,11 @@ export default function ProductionModules() {
       </header>
 
       {/* Top message strip */}
-      {message?.text && (
+      {/* {message?.text && (
         <div className={`p-3 text-center text-sm transition-opacity duration-500 z-40 ${message.type === "success" ? "bg-green-100 text-green-800 border-b-2 border-green-400" : message.type === "error" ? "bg-red-100 text-red-800 border-b-2 border-red-400" : "bg-blue-50 text-blue-800 border-b-2 border-blue-200"} ${message.visible ? "opacity-100" : "opacity-0"}`}>
           {message.text}
         </div>
-      )}
+      )} */}
 
       {/* Main content */}
       <div className="flex flex-1 flex-col lg:flex-row max-w-7xl mx-auto w-full p-4 sm:p-6 gap-6">
@@ -532,6 +621,19 @@ export default function ProductionModules() {
               >
                 👁 Show Selected
               </button>
+              <button
+                onClick={() => {
+                  if (selectedModules.length === 0) {
+                    showMessage("error", "Select at least one module to transfer");
+                    return;
+                  }
+                  setTransferModalOpen(true);
+                }}
+                disabled={selectedModules.length === 0}
+                className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm disabled:opacity-50"
+              >
+                📤 Transfer Selected
+              </button>
             </div>
 
             {/* Search */}
@@ -549,7 +651,9 @@ export default function ProductionModules() {
             {/* Select list */}
             <div className="flex-1 overflow-y-auto max-h-[65vh] pr-2 -mr-2">
               {loadingList ? (
-                <div className="text-center py-6 text-gray-500">Loading...</div>
+                <div className="text-center py-6 text-gray-500 flex justify-center">
+                  <Spinner />
+                </div>
               ) : (
                 <ul className="space-y-3">
                   {filteredComponents.length === 0 ? (
@@ -560,7 +664,7 @@ export default function ProductionModules() {
             </div>
 
             <div className="mt-4 text-xs text-gray-500">
-              Tip: click a component to edit SQL. Use the checkboxes for batch actions.
+              Tip: Click a component to edit SQL. Use the checkboxes for batch actions.
             </div>
           </div>
         </section>
@@ -578,9 +682,6 @@ export default function ProductionModules() {
             {!selected ? (
               <div className="text-center p-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
                 <p className="text-gray-500 mb-2">Select a component from the left to manage its SQL module.</p>
-                <button onClick={() => { setSelected(COMPONENTS[0]?.id); }} className="text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center gap-1">
-                  <FaPlus /> Select first component
-                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -603,11 +704,14 @@ export default function ProductionModules() {
                         className="w-full min-h-[250px] p-3 font-mono text-sm rounded border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
                       />
                       <button
-                        onClick={() => { navigator.clipboard.writeText(sqlText || ""); showMessage("success", "Editor SQL copied"); }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(sqlText || "");
+                          setEditorCopied(true);
+                          setTimeout(() => setEditorCopied(false), 2000);
+                        }}
                         className="absolute top-2 right-2 p-2 text-indigo-600 hover:text-indigo-800 transition-colors rounded"
-                        title="Copy SQL from editor"
                       >
-                        <FaRegCopy />
+                        {editorCopied ? <FaCheck className="text-green-600" /> : <FaRegCopy />}
                       </button>
                     </div>
 
@@ -617,7 +721,7 @@ export default function ProductionModules() {
                         disabled={actionLoading}
                         className={`px-3 py-2 rounded-md text-sm flex items-center gap-2 ${configMap[selected]?.hideQuery ? "bg-gray-100 text-gray-700" : "bg-indigo-50 text-indigo-700"}`}
                       >
-                        {configMap[selected]?.hideQuery ? (<><FaEye /> Unhide</>) : (<><FaEyeSlash /> Hide</>)}
+                        {configMap[selected]?.hideQuery ? (<><FaEye /> Show</>) : (<><FaEyeSlash /> Hide</>)}
                       </button>
                       <button onClick={handleTest} disabled={testing} className={`px-3 py-2 rounded-md text-sm flex items-center gap-2 ${testing ? "bg-yellow-300" : "bg-yellow-100 hover:bg-yellow-200"}`}>
                         <FaPlay /> {testing ? "Running..." : "Test"}
@@ -625,18 +729,48 @@ export default function ProductionModules() {
                       <button onClick={handleSave} disabled={saving} className={`px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2 ${saving ? "bg-indigo-300 text-white" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
                         <FaSave /> {saving ? "Saving..." : "Save"}
                       </button>
+                      <button
+                        onClick={() => {
+                          setSelected(null);
+                          setSqlText("");
+                          setModuleTitle("");
+                          setResults(null);
+                        }}
+                        className="px-3 py-2 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
 
                   {/* Results / Info column */}
                   <div className="space-y-3">
+                    {/* Inline toast (inside right panel, above preview) */}
+                    {message?.text && (
+                      <div
+                        className={`p-2 rounded text-xs mb-2 ${message.type === "success"
+                          ? "bg-green-100 text-green-800 border border-green-300"
+                          : message.type === "error"
+                            ? "bg-red-100 text-red-800 border border-red-300"
+                            : "bg-blue-100 text-blue-800 border border-blue-300"
+                          }`}
+                      >
+                        {message.text}
+                      </div>
+                    )}
                     <div className="text-sm font-medium text-gray-700">Preview / Results</div>
 
                     {testing && <div className="p-3 rounded bg-yellow-50 text-sm text-gray-700">Running query...</div>}
 
                     {!results ? (
                       <div className="p-3 rounded bg-gray-50 text-sm text-gray-600">
-                        {configMap[selected] ? "No results yet. Click Test to run the saved SQL and preview rows." : "This component is not configured yet. Saving SQL will make it available to users."}
+                        {configMap[selected]
+                          ? "No results yet. Click Test to run the saved SQL and preview rows."
+                          : "This component is not configured yet. Saving SQL will make it available to users."
+                        }
+
+                        {/* Show SQL TIP only if no toast message is visible */}
+                        {!message && <SqlTipBox />}
                       </div>
                     ) : Array.isArray(results) && results.length === 0 ? (
                       <div className="p-3 rounded bg-yellow-50 text-sm text-gray-600">Query executed but returned 0 rows.</div>
@@ -669,6 +803,119 @@ export default function ProductionModules() {
           </div>
         </aside>
       </div>
+      {transferModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg">
+
+            <h2 className="text-xl font-bold mb-4">Transfer Production Modules</h2>
+
+            {/* STEP 1: Select target user */}
+            {!transferCheckResult && (
+              <>
+                <label className="block text-sm mb-2 font-medium text-gray-700">
+                  Transfer To User
+                </label>
+
+                <select
+                  className="w-full border p-2 rounded mb-4"
+                  value={transferTargetUser}
+                  onChange={(e) => setTransferTargetUser(e.target.value)}
+                >
+                  <option value="">Select user</option>
+                  {users
+                    .filter(u => u.id !== userId)
+                    .map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.companyName}
+                      </option>
+                    ))}
+                </select>
+
+                <button
+                  onClick={handleTransferCheck}
+                  disabled={transferLoading || !transferTargetUser}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  {transferLoading ? (
+                    <span className="flex items-center gap-2"><Spinner /> Checking...</span>
+                  ) : (
+                    "Check for duplicates"
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setTransferModalOpen(false)}
+                  className="ml-3 px-4 py-2 bg-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+
+            {/* STEP 2: Check Result */}
+            {transferCheckResult && (
+              <div>
+                {transferCheckResult.duplicates?.length > 0 ? (
+                  <>
+                    <p className="text-red-600 mb-3">
+                      {transferCheckResult.duplicates.length} duplicate modules found.
+                    </p>
+
+                    <ul className="mb-4 bg-gray-50 p-3 rounded border">
+                      {transferCheckResult.duplicates.map(d => (
+                        <li key={d.id} className="text-sm text-gray-700">
+                          • {d.componentId} — {d.moduleTitle}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleTransferAction("replace")}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg"
+                      >
+                        {transferLoading ? <Spinner /> : "Replace Existing"}
+                      </button>
+
+                      <button
+                        onClick={() => handleTransferAction("ignore")}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg"
+                      >
+                        {transferLoading ? <Spinner /> : "Ignore Duplicates"}
+                      </button>
+
+                      <button
+                        onClick={() => handleTransferAction("cancel")}
+                        className="px-4 py-2 bg-gray-300 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-green-600 mb-3">No duplicates found.</p>
+
+                    <button
+                      onClick={() => handleTransferAction("replace")}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                    >
+                      Transfer All
+                    </button>
+
+                    <button
+                      onClick={() => setTransferModalOpen(false)}
+                      className="ml-3 px-4 py-2 bg-gray-300 rounded-lg"
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

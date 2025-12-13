@@ -13,6 +13,7 @@ namespace minutechart.Models
         public string DatabaseName { get; set; }
         public string DbUsername { get; set; }
         public string DbPassword { get; set; }
+        public string? ShortName { get; set; }
         public string AppUserId { get; set; }
         public virtual AppUser AppUser { get; set; }
 

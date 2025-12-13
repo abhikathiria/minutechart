@@ -76,7 +76,7 @@ const LogRow = ({ log }) => {
             <td className="p-4">
                 <div className="text-sm font-medium text-gray-800">
                     <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${isError ? 'bg-red-200 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                        {log.action.toUpperCase().split(' ')[0]} 
+                        {log.action.toUpperCase().split(' ')[0]}
                     </span>
                     <div className="mt-1 text-gray-600 leading-tight">
                         <span dangerouslySetInnerHTML={{ __html: formattedDescription }} />
@@ -86,7 +86,11 @@ const LogRow = ({ log }) => {
 
             <td className="p-4 whitespace-nowrap text-xs text-gray-500 hidden lg:table-cell">
                 <p className="font-mono text-gray-700">{log.ipAddress || 'N/A'}</p>
-                <p className="truncate w-32">{log.browserInfo.substring(0, 30) || 'N/A'}</p>
+                <p className="truncate w-32">
+                    {typeof log.browserInfo === 'string'
+                        ? log.browserInfo.substring(0, 30)
+                        : 'N/A'}
+                </p>
             </td>
         </tr>
     );
@@ -126,10 +130,10 @@ export default function ActivityLogs() {
     // Helper to combine Date (YYYY-MM-DD) and Time (HH:MM) into one Date object
     const combineDateTime = (dateStr, timeStr, isEnd = false) => {
         if (!dateStr) return null;
-        
+
         // If no time is set, default to start/end of day
         const time = timeStr || (isEnd ? '23:59' : '00:00');
-        
+
         // Create a new Date object using the combined string
         const dateTimeString = `${dateStr}T${time}:00`;
         return new Date(dateTimeString).getTime();
@@ -159,7 +163,7 @@ export default function ActivityLogs() {
         // 3. Search Term Filter
         if (searchTerm) {
             const lowerCaseSearch = searchTerm.toLowerCase();
-            tempLogs = tempLogs.filter(log => 
+            tempLogs = tempLogs.filter(log =>
                 log.action.toLowerCase().includes(lowerCaseSearch) ||
                 log.description.toLowerCase().includes(lowerCaseSearch) ||
                 log.actorName?.toLowerCase().includes(lowerCaseSearch)
@@ -190,7 +194,7 @@ export default function ActivityLogs() {
             setCurrentPage(page);
         }
     };
-    
+
     // Handler for filters to reset to page 1
     const handleFilterChange = (setter) => (e) => {
         setter(e.target.value);
@@ -210,8 +214,8 @@ export default function ActivityLogs() {
                     onClick={loadLogs}
                     disabled={isLoading}
                     className={`inline-flex items-center px-5 py-2 text-sm font-semibold rounded-full shadow-md transition duration-300
-                        ${isLoading 
-                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                        ${isLoading
+                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                             : `${PRIMARY_BG} text-white hover:bg-indigo-700 hover:shadow-lg active:scale-95`
                         }`}
                 >
@@ -223,7 +227,7 @@ export default function ActivityLogs() {
             {/* --- Filter Bar and Search (Redesigned for 6 columns/rows) --- */}
             <div className="bg-white p-5 rounded-xl shadow-xl mb-6 border border-gray-100">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 items-center">
-                    
+
                     {/* Search Bar (2/6 columns) */}
                     <div className="md:col-span-2 relative">
                         <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -274,7 +278,7 @@ export default function ActivityLogs() {
                         onChange={handleFilterChange(setEndDate)}
                         className="p-2.5 border border-gray-300 rounded-xl text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                     />
-                    
+
                     {/* End Time (Removed for simplicity, using default 23:59:59 logic in helper)
                        * If you want a 6th input, you can re-enable End Time here.
                        * For a cleaner layout, I've opted for 5 inputs (2+1+1+1) and a simplified end logic.
@@ -332,9 +336,9 @@ export default function ActivityLogs() {
             {/* Footer and Pagination (Unchanged) */}
             {!isLoading && totalPages > 0 && (
                 <div className="flex justify-between items-center mt-6 p-4 bg-white rounded-xl shadow-lg border border-gray-100">
-                 <div className="text-sm font-medium text-gray-600">
-                    Displaying **{filteredLogs.length}** of **{totalRecords.toLocaleString()}** records matching filters.
-                </div>
+                    <div className="text-sm font-medium text-gray-600">
+                        Displaying **{filteredLogs.length}** of **{totalRecords.toLocaleString()}** records matching filters.
+                    </div>
                     <PaginationControls
                         currentPage={currentPage}
                         totalPages={totalPages}

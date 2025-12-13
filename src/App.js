@@ -44,7 +44,7 @@ import AdminPayoutDetails from "./pages/AdminPayoutDetails";
 import SubscriptionAddonPage from "./pages/SubscriptionAddonPage";
 import ReportRenderer from './pages/ReportRenderer';
 import SalesAnalyticsPage from "./pages/SalesAnalyticsPage";
-import SalesAnalyticsModules from "./pages/SalesAnalyticsModules";
+import SalesModules from "./pages/SalesModules";
 import ProductionAnalyticsPage from "./pages/ProductionAnalyticsPage";
 import ProductionModules from "./pages/ProductionModules";
 import ScreenLoader from "./components/ScreenLoader";
@@ -430,7 +430,7 @@ function AppContent() {
                 <Route path="/admin/activitylogs" element={<AdminRoute><ActivityLogs isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRoute>} />
                 <Route path="/admin/my-commission" element={<AdminRoute><AdminCommissionPage /></AdminRoute>} />
                 <Route path="/admin/payout-details" element={<AdminRoute><AdminPayoutDetails /></AdminRoute>} />
-                <Route path="/user/:id/sales-modules" element={<AdminRoute><SalesAnalyticsModules /></AdminRoute>} />
+                <Route path="/user/:id/sales-modules" element={<AdminRoute><SalesModules /></AdminRoute>} />
                 <Route path="/user/:id/production-modules" element={<AdminRoute><ProductionModules /></AdminRoute>} />
                 <Route path="/user/:id/expense-modules" element={<AdminRoute><ExpenseModules /></AdminRoute>} />
                 <Route path="/user/:id/finance-modules" element={<AdminRoute><FinanceModules /></AdminRoute>} />

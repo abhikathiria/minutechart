@@ -9,6 +9,7 @@ import {
   FaEye,
   FaEyeSlash,
   FaArrowLeft,
+  FaIndustry,
 } from "react-icons/fa";
 import { Loader, Loader2, Save, CheckCircle, XCircle } from "lucide-react";
 import api from "../api";
@@ -57,6 +58,7 @@ export default function Profile() {
   const [form, setForm] = useState({
     companyName: "",
     customerName: "",
+    shortName: "",
     customerGST: "",
     customerCode: "",
     serverName: "",
@@ -116,6 +118,7 @@ export default function Profile() {
         setForm({
           companyName: data.companyName || targetUser.companyName || "",
           customerName: data.customerName || targetUser.customerName || "",
+          shortName: data.shortName || "",
           customerGST: data.customerGST || "",
           profilePhotoUrl: data.profilePhotoUrl || "",
           customerCode: data.customerCode || targetUser.customerCode || "",
@@ -156,6 +159,7 @@ export default function Profile() {
       const payload = {
         companyName: form.companyName,
         customerName: form.customerName,
+        shortName: form.shortName,
         customerGST: form.customerGST,
         serverName: form.serverName,
         databaseName: form.databaseName,
@@ -334,7 +338,7 @@ export default function Profile() {
                   name="companyName"
                   value={form.companyName}
                   onChange={onChange}
-                  icon={FaUser}
+                  icon={FaIndustry}
                   placeholder="Company Name"
                   required
                   info="This name is used for logging and Customer Code generation."
@@ -351,6 +355,28 @@ export default function Profile() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-b pb-6">
+                <InputGroup
+                  label="Short Name (SQL Key)"
+                  name="shortName"
+                  value={form.shortName}
+                  onChange={onChange}
+                  icon={FaKey}
+                  placeholder="e.g. MCMSL"
+                  required
+                  info="Used in SQL queries as {{SHORTNAME}}."
+                />
+
+                <InputGroup
+                  label="Customer GST"
+                  name="customerGST"
+                  value={form.customerGST}
+                  onChange={onChange}
+                  icon={FaKey}
+                  placeholder="Customer GST"
+                />
+              </div>
+
               <InputGroup
                 label="Customer Code"
                 name="customerCode"
@@ -360,14 +386,6 @@ export default function Profile() {
                 info="This value is read-only and generated server-side."
               />
 
-              <InputGroup
-                label="Customer GST"
-                name="customerGST"
-                value={form.customerGST}
-                onChange={onChange}
-                icon={FaKey}
-                placeholder="Customer GST"
-              />
 
               {/* Server Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-b pb-6">
@@ -428,18 +446,6 @@ export default function Profile() {
                     </button>
                   </div>
                 </div>
-
-                {/* <InputGroup
-                  label="Refresh Time (ms)"
-                  name="refreshTime"
-                  type="number"
-                  min="60000"
-                  value={form.refreshTime}
-                  onChange={onChange}
-                  icon={FaClock}
-                  info="Minimum recommended 60000 (60 seconds)."
-                  required
-                /> */}
               </div>
 
               {/* Submit */}

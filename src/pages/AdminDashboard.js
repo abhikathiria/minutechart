@@ -152,13 +152,18 @@ export default function AdminDashboard() {
 
   const loadLogs = useCallback(async () => {
     try {
-      const url = buildApi("activitylogs") + "&take=10".replace('?&', '?');
+      const base = buildApi("activitylogs");
+      const url = base.includes("?")
+        ? `${base}&take=10`
+        : `${base}?take=10`;
+
       const res = await api.get(url);
       setLogs(res.data || []);
     } catch (e) {
-      console.error("loadLogs", e);
+      console.error("loadLogs ERROR:", e.response?.data || e);
     }
   }, [buildApi]);
+
 
   const loadAll = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -381,7 +386,7 @@ export default function AdminDashboard() {
             )}
 
             <div className="mt-4 text-right">
-              <button onClick={() => navigate('/admin/activity-logs')} className="text-sm text-indigo-300 hover:text-indigo-100">View all &rarr;</button>
+              <button onClick={() => navigate('/admin/activitylogs')} className="text-sm text-indigo-300 hover:text-indigo-100">View all &rarr;</button>
             </div>
           </GlassCard>
         </div>

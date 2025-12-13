@@ -249,11 +249,18 @@ namespace minutechart.Controllers
 
                     // Fix: Prepend semicolon if query starts with WITH (handles CTE syntax issues)
                     string sql = req.SqlQuery.Trim();
-                    if (sql.ToUpper().StartsWith("WITH"))
+
+                    // Inject SHORTNAME
+                    sql = SQLShortNameHelper.InjectShortName(sql, profile.ShortName);
+
+                    // Fix CTE edge case
+                    if (sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
                     {
                         sql = ";" + sql;
                     }
+
                     cmd.CommandText = sql;
+
 
                     var reader = await cmd.ExecuteReaderAsync();
                     var table = new List<Dictionary<string, object>>();
@@ -319,7 +326,8 @@ namespace minutechart.Controllers
                 using (var connection = await _dbService.CreateClientConnectionAsync(profile))
                 {
                     var cmd = connection.CreateCommand();
-                    cmd.CommandText = req.UserQueryText;
+                    var sql = SQLShortNameHelper.InjectShortName(req.UserQueryText, profile.ShortName);
+                    cmd.CommandText = sql;
                     var reader = await cmd.ExecuteReaderAsync();
                     await reader.CloseAsync();
                 }
@@ -664,6 +672,7 @@ namespace minutechart.Controllers
                 CompanyName = user.CompanyName,
                 CustomerGST = user.UserProfile.CustomerGST ?? user.GST ?? "",  // Default to AppUser.GST if profile GST is null
                 CustomerCode = user.UserProfile.CustomerCode ?? "",
+                ShortName = user.UserProfile.ShortName ?? "",
                 ServerName = user.UserProfile.ServerName,
                 ProfilePhotoUrl = user.UserProfile.ProfilePhotoUrl,
                 CompanyLogoUrl = user.UserProfile.CompanyLogoUrl,
@@ -718,6 +727,7 @@ namespace minutechart.Controllers
                     CompanyName = model.CompanyName ?? user.CompanyName,
                     ServerName = model.ServerName,
                     DatabaseName = model.DatabaseName,
+                    ShortName = model.ShortName,
                     DbUsername = model.DbUsername,
                     DbPassword = model.DbPassword,
                     CustomerGST = model.CustomerGST ?? user.GST ?? "",
@@ -751,6 +761,7 @@ namespace minutechart.Controllers
                 // Update logic (remains)
                 // NOTE: You might want to check if CompanyName/CustomerName from model differ from user's current values
                 profile.CompanyName = model.CompanyName ?? user.CompanyName; // Update profile company name from model or existing user value
+                profile.ShortName = model.ShortName;
                 profile.ServerName = model.ServerName;
                 profile.DatabaseName = model.DatabaseName;
                 profile.DbUsername = model.DbUsername;
@@ -1255,7 +1266,7 @@ Nchart Team";
                 {
                     await file.CopyToAsync(stream);
                 }
-                urls.Add($"/uploads/invoice/{fileName}");  // Relative path matches save location
+                urls.Add($"/uploads/invoice/{fileName}");
             }
             return urls;
         }
@@ -1268,7 +1279,7 @@ Nchart Team";
                 return BadRequest("No file uploaded");
 
             // Use SaveFiles to handle the upload
-            var files = new FormFileCollection { file };  // Wrap single file in collection
+            var files = new FormFileCollection { file };
             var relativePaths = await SaveFiles(files, Request);
 
             if (!relativePaths.Any())
@@ -1458,20 +1469,9 @@ Nchart Team";
                 if (request.Action == "replace" && duplicates.Any())
                 {
                     // Case 1: Duplicates are being replaced.
-                    // If the existing duplicate was hidden (HideQuery=true), removing it frees 0 visible slots.
-                    // The new module will be visible (HideQuery=false). Net change = +1 visible module.
                     int visibleDuplicatesReplaced = duplicates.Count(d => d.HideQuery == false);
                     int hiddenDuplicatesReplaced = duplicates.Count(d => d.HideQuery == true);
 
-                    // Net change in visible modules from duplicates:
-                    // Removed visible: -visibleDuplicatesReplaced
-                    // Added visible (replacements): +duplicates.Count (since new module defaults to visible)
-
-                    // Final calculation is simpler:
-                    // Duplicates are removed: Net change to total module count is 0.
-                    // Net change to VISIBLE count is: (Number of added visible modules) - (Number of removed visible modules)
-
-                    // We assume all added modules will be visible (HideQuery=false)
                     netVisibleIncrease = potentialAdds + duplicates.Count(d => d.HideQuery == true);
                 }
                 else
@@ -1511,13 +1511,6 @@ Nchart Team";
                         if (request.Action == "cancel" || request.Action == "check") continue;
                         // If request.Action == "replace", the old one was marked for removal above, so we proceed to add the new one below.
                     }
-
-                    // Determine if the newly added module should be hidden due to being over the limit.
-                    // This is only relevant if the transferred module itself is not a replacement.
-
-                    // Since the check above already passed, we assume we can add it, and it should be VISIBLE.
-                    // We only need to check the remaining capacity if we allow creation when limits are exceeded 
-                    // and hide the query, but we blocked the transfer outright, so we assume HideQuery=false is safe here.
 
                     var newQuery = new UserQuery
                     {
@@ -1717,6 +1710,7 @@ Nchart Team";
         public string? ProfilePhotoUrl { get; set; }
         public string? CompanyLogoUrl { get; set; }
         public string CompanyName { get; set; }
+        public string? ShortName { get; set; }
         public string? Email { get; set; }
         public string CustomerName { get; set; } = "";
         public string CustomerGST { get; set; } = "";
