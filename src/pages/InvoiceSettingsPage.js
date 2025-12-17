@@ -20,47 +20,27 @@ export default function InvoiceSettingsPage() {
     loadSettings();
   }, []);
 
-  // Helper to ensure we get the full, usable image URL, using a fallback if needed.
-  const getFullUrl = useCallback((path, defaultPath) => {
-    if (!path) return defaultPath;
-
-    // If the path already includes the base URL, use it directly.
-    if (path.startsWith("http")) return path;
-
-    // If it's a relative path (e.g., /uploads/...) or the default, prepend the API base URL.
-    return api.defaults.baseURL + path;
-  }, []);
-
   async function loadSettings() {
     try {
       const res = await api.get("/admin/invoicesettings");
       const data = res.data;
 
-      // 1. Set Preview URLs (Full URL or Default)
-      setLogoPreview(getFullUrl(data.companyLogoPath, DEFAULT_LOGO_RELATIVE_PATH));
-      setSignaturePreview(getFullUrl(data.ownerSignaturePath, DEFAULT_SIGNATURE_RELATIVE_PATH));
+      const logoUrl = data.companyLogoPath?.trim();
+setLogoPreview(
+  logoUrl && logoUrl.startsWith("http")
+    ? logoUrl
+    : DEFAULT_LOGO_RELATIVE_PATH
+);
 
-      // 2. Normalize Paths for Settings State (Store only the relative path for saving)
-      // This logic ensures the state only holds the relative path part for saving back to the DB,
-      // regardless of whether the GET endpoint returned a relative or full path.
+const signUrl = data.ownerSignaturePath?.trim();
+setSignaturePreview(
+  signUrl && signUrl.startsWith("http")
+    ? signUrl
+    : DEFAULT_SIGNATURE_RELATIVE_PATH
+);
 
-      const baseUrlLength = api.defaults.baseURL.length;
+      setSettings(data);
 
-      const getNormalizedRelativePath = (path) => {
-        if (!path) return "";
-        let relativePath = path.startsWith("http")
-          ? path.substring(baseUrlLength)
-          : path;
-
-        // Strip a leading slash before saving. The C# code handles re-adding the leading slash if needed.
-        return relativePath.replace(/^\//, '');
-      }
-
-      setSettings({
-        ...data,
-        companyLogoPath: getNormalizedRelativePath(data.companyLogoPath),
-        ownerSignaturePath: getNormalizedRelativePath(data.ownerSignaturePath),
-      });
     } catch (err) {
       console.error("Failed to load settings", err);
       toast.error("Failed to load invoice settings");
@@ -70,42 +50,55 @@ export default function InvoiceSettingsPage() {
     }
   }
 
-  async function handleFileUpload(e, type) {
-    const file = e.target.files[0];
+  const handleInvoiceLogoUpload = async (file) => {
     if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
 
     try {
+      const formData = new FormData();
+      formData.append("file", file);
+
       const res = await api.post(
-        `/admin/invoicesettings/upload-image?type=${type}`,
+        "/admin/invoicesettings/upload-logo",
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      // Upload endpoint is expected to return the FULL URL in res.data.path.
-      const fullUrl = res.data.path;
-      // Extract the RELATIVE PATH (e.g., /uploads/...) for state and saving.
-      const relativePath = fullUrl.substring(api.defaults.baseURL.length);
+      setLogoPreview(res.data.newUrl);
+      setSettings(prev => ({
+        ...prev,
+        companyLogoPath: res.data.newUrl,
+      }));
 
-      // Strip leading slash before saving to match the normalization in loadSettings.
-      const normalizedRelativePath = relativePath.replace(/^\//, '');
-
-      if (type === "logo") {
-        setLogoPreview(fullUrl);
-        // CRITICAL FIX: Store RELATIVE PATH in state for saving
-        setSettings((prev) => ({ ...prev, companyLogoPath: normalizedRelativePath }));
-      }
-      if (type === "signature") {
-        setSignaturePreview(fullUrl);
-        // CRITICAL FIX: Store RELATIVE PATH in state for saving
-        setSettings((prev) => ({ ...prev, ownerSignaturePath: normalizedRelativePath }));
-      }
-    } catch (err) {
-      console.error("File upload failed", err);
-      toast.error("Image upload failed");
+      toast.success("Invoice logo updated!");
+    } catch {
+      toast.error("Failed to upload invoice logo");
     }
-  }
+  };
+
+  const handleInvoiceSignatureUpload = async (file) => {
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await api.post(
+        "/admin/invoicesettings/upload-signature",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      setSignaturePreview(res.data.newUrl);
+      setSettings(prev => ({
+        ...prev,
+        ownerSignaturePath: res.data.newUrl,
+      }));
+
+      toast.success("Signature updated!");
+    } catch {
+      toast.error("Failed to upload signature");
+    }
+  };
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -135,7 +128,7 @@ export default function InvoiceSettingsPage() {
 
   async function saveSettings() {
     try {
-      // settings state holds the normalized relative path, which is correct for the server.
+      // settings state holds full Cloudinary URLs (or empty string for defaults)
       await api.post("/admin/invoicesettings/save", settings);
       toast.success("Invoice settings saved successfully!");
     } catch (err) {
@@ -229,7 +222,7 @@ export default function InvoiceSettingsPage() {
                 </div>
                 <input
                   type="file"
-                  onChange={(e) => handleFileUpload(e, "logo")}
+                   onChange={(e) => handleInvoiceLogoUpload(e.target.files[0])}
                   className="mt-2 text-sm"
                 />
                 <p className="text-xs text-orange-500 mt-1">Recommended 300×80 px, PNG / SVG</p>
@@ -279,7 +272,7 @@ export default function InvoiceSettingsPage() {
                 </div>
                 <input
                   type="file"
-                  onChange={(e) => handleFileUpload(e, "signature")}
+                  onChange={(e) => handleInvoiceSignatureUpload(e.target.files[0])}
                   className="mt-2 text-sm"
                 />
                 <p className="text-xs text-orange-500 mt-1">Transparent PNG recommended</p>

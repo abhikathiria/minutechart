@@ -55,8 +55,8 @@ function SqlTipBox() {
             </p>
             <pre className="mt-2 p-2 bg-white border rounded text-[11px] whitespace-pre-wrap">
                 WHERE
-                (@startDate IS NULL OR OrderDate `{'>'}`= @startDate)
-                AND (@endDate IS NULL OR OrderDate `{'<'}`= @endDate)
+                (@startDate IS NULL OR OrderDate &gt;= @startDate)
+                AND (@endDate IS NULL OR OrderDate &lt;= @endDate)
             </pre>
             <p className="mt-2">
                 These values come from dashboard filters. Use them in any query.

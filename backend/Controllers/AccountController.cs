@@ -482,77 +482,77 @@ namespace minutechart.Controllers.Api
         }
 
         [HttpPost("upload-profile-photo")]
-        public async Task<IActionResult> UploadProfilePhoto([FromForm] IFormFile file)
+        public async Task<IActionResult> UploadProfilePhoto(
+    [FromForm] IFormFile file,
+    [FromServices] CloudinaryService cloudinary)
         {
             var user = await _userManager.GetUserAsync(User);
-
             if (user == null)
-                return Unauthorized(new { message = "User not found" });
-
-            var profile = await _mainDb.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+                return Unauthorized();
 
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "No file selected." });
 
-            string uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profile");
+            var profile = await _mainDb.UserProfiles
+                .FirstOrDefaultAsync(p => p.AppUserId == user.Id);
 
-            if (!Directory.Exists(uploadPath))
-                Directory.CreateDirectory(uploadPath);
+            if (profile == null)
+                return BadRequest(new { message = "Profile not found." });
 
-            string fileName = $"{user.Id}_{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            string filePath = Path.Combine(uploadPath, fileName);
+            var uploadResult = await cloudinary.UploadImageAsync(
+                file,
+                folder: "minutechart/profile-photos",
+                publicId: $"profile_{user.Id}"
+            );
 
-            // Save the file
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+            if (uploadResult.Error != null)
+                return BadRequest(uploadResult.Error.Message);
 
-            string baseUrl = $"{Request.Scheme}://{Request.Host}";
-            string newPhotoUrl = $"{baseUrl}/uploads/profile/{fileName}";
-
-            profile.ProfilePhotoUrl = newPhotoUrl;
-
+            profile.ProfilePhotoUrl = uploadResult.SecureUrl.ToString();
             await _mainDb.SaveChangesAsync();
 
-            return Ok(new { newUrl = newPhotoUrl, message = "Profile photo updated" });
+            return Ok(new
+            {
+                newUrl = profile.ProfilePhotoUrl,
+                message = "Profile photo updated"
+            });
         }
 
         [HttpPost("upload-company-logo")]
-        public async Task<IActionResult> UploadCompanyLogo([FromForm] IFormFile file)
+        public async Task<IActionResult> UploadCompanyLogo(
+            [FromForm] IFormFile file,
+            [FromServices] CloudinaryService cloudinary)
         {
             var user = await _userManager.GetUserAsync(User);
-
             if (user == null)
-                return Unauthorized(new { message = "User not found" });
-
-            var profile = await _mainDb.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+                return Unauthorized();
 
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "No file selected." });
 
-            string uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profile");
+            var profile = await _mainDb.UserProfiles
+                .FirstOrDefaultAsync(p => p.AppUserId == user.Id);
 
-            if (!Directory.Exists(uploadPath))
-                Directory.CreateDirectory(uploadPath);
+            if (profile == null)
+                return BadRequest(new { message = "Profile not found." });
 
-            string fileName = $"{user.Id}_{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            string filePath = Path.Combine(uploadPath, fileName);
+            var uploadResult = await cloudinary.UploadImageAsync(
+                file,
+                folder: "minutechart/company-logos",
+                publicId: $"logo_{user.Id}"
+            );
 
-            // Save the file
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+            if (uploadResult.Error != null)
+                return BadRequest(uploadResult.Error.Message);
 
-            string baseUrl = $"{Request.Scheme}://{Request.Host}";
-            string newPhotoUrl = $"{baseUrl}/uploads/profile/{fileName}";
-
-            profile.CompanyLogoUrl = newPhotoUrl;
-
+            profile.CompanyLogoUrl = uploadResult.SecureUrl.ToString();
             await _mainDb.SaveChangesAsync();
 
-            return Ok(new { newUrl = newPhotoUrl, message = "Company Logo updated" });
+            return Ok(new
+            {
+                newUrl = profile.CompanyLogoUrl,
+                message = "Company logo updated"
+            });
         }
 
         [HttpPut("save-profile")]
@@ -587,6 +587,6 @@ namespace minutechart.Controllers.Api
             public string PhoneNumber { get; set; } = "";
             public string GST { get; set; } = "";
         }
-        
+
     }
 }

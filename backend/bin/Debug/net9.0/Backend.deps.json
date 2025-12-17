@@ -9,7 +9,7 @@
       "Backend/1.0.0": {
         "dependencies": {
           "BCrypt.Net-Next": "4.0.3",
-          "CloudinaryDotNet": "1.27.8",
+          "CloudinaryDotNet": "1.27.9",
           "MailKit": "4.13.0",
           "Mailjet.Api": "3.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "9.0.9",
@@ -88,7 +88,7 @@
           }
         }
       },
-      "CloudinaryDotNet/1.27.8": {
+      "CloudinaryDotNet/1.27.9": {
         "dependencies": {
           "Newtonsoft.Json": "13.0.3",
           "System.Net.Http": "4.3.4",
@@ -96,8 +96,8 @@
         },
         "runtime": {
           "lib/netstandard2.0/CloudinaryDotNet.dll": {
-            "assemblyVersion": "1.27.8.0",
-            "fileVersion": "1.27.8.0"
+            "assemblyVersion": "1.27.9.0",
+            "fileVersion": "1.27.9.0"
           }
         }
       },
@@ -2339,12 +2339,12 @@
       "path": "bouncycastle.cryptography/2.5.1",
       "hashPath": "bouncycastle.cryptography.2.5.1.nupkg.sha512"
     },
-    "CloudinaryDotNet/1.27.8": {
+    "CloudinaryDotNet/1.27.9": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-K2PPU5SLn0SJ+62OOC5Wr3pCuk1ezLnKmgY/6A53bM6Ysvr27utKMZ8NTvJOG3eU1G8vykNQyhOKO4/shXDl1Q==",
-      "path": "cloudinarydotnet/1.27.8",
-      "hashPath": "cloudinarydotnet.1.27.8.nupkg.sha512"
+      "sha512": "sha512-cQ3/+kHrA1SnwT6Bx6ZamJKKF/sb5Cl8uFAHTHpZ2HjdpfeCjSdfBRUA+aASOdbLGdL64jhLIEMaoWqXwAr9hQ==",
+      "path": "cloudinarydotnet/1.27.9",
+      "hashPath": "cloudinarydotnet.1.27.9.nupkg.sha512"
     },
     "Humanizer.Core/2.14.1": {
       "type": "package",

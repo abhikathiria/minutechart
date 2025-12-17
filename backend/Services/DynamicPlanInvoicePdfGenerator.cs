@@ -10,7 +10,6 @@ using minutechart.Helpers;
 
 public static class DynamicPlanInvoicePdfGenerator
 {
-    private static readonly string UploadsFolderBase = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "invoice");
     private static readonly string DefaultLogoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default", "company-logo-default.png");
     private static readonly string DefaultSignaturePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "default", "owner-signature-default.png");
 
@@ -44,34 +43,20 @@ public static class DynamicPlanInvoicePdfGenerator
             // Logo
             if (!string.IsNullOrEmpty(company.CompanyLogoPath))
             {
-                // Use new resolver which handles relative paths and fallbacks
-                string resolvedLogo = ResolveLocalFilePath(company.CompanyLogoPath, DefaultLogoPath);
+                var logoImg = Image.GetInstance(new Uri(company.CompanyLogoPath));
+                logoImg.ScaleToFit(80f, 80f);
 
-                if (!string.IsNullOrEmpty(resolvedLogo) && File.Exists(resolvedLogo))
+                headerTable.AddCell(new PdfPCell(logoImg)
                 {
-                    var logoImg = iTextSharp.text.Image.GetInstance(resolvedLogo);
-                    logoImg.ScaleToFit(80f, 80f);
-
-                    PdfPCell logoCell = new PdfPCell(logoImg)
-                    {
-                        Border = Rectangle.NO_BORDER,
-                        HorizontalAlignment = Element.ALIGN_LEFT,
-                        VerticalAlignment = Element.ALIGN_TOP,
-                        Padding = 0,
-                        PaddingRight = 5f
-                    };
-                    headerTable.AddCell(logoCell);
-                }
-                else
-                {
-                    // File specified in DB but not found on disk, use default
-                    headerTable.AddCell(GetDefaultImageCell(DefaultLogoPath, 80f, 80f));
-                }
+                    Border = Rectangle.NO_BORDER,
+                    HorizontalAlignment = Element.ALIGN_LEFT
+                });
             }
             else
             {
-                // Path is empty, use default
-                headerTable.AddCell(GetDefaultImageCell(DefaultLogoPath, 80f, 80f));
+                var fallback = Image.GetInstance(DefaultLogoPath);
+                fallback.ScaleToFit(80f, 80f);
+                headerTable.AddCell(new PdfPCell(fallback) { Border = Rectangle.NO_BORDER });
             }
 
             // Company Info
@@ -197,7 +182,7 @@ public static class DynamicPlanInvoicePdfGenerator
             decimal taxableValue;
             decimal sgstValue = 0;
             decimal cgstValue = 0;
-            
+
             if (company.ShowGst && gstPercentTotal > 0)
             {
                 // A. Calculate the exact price before GST
@@ -208,7 +193,7 @@ public static class DynamicPlanInvoicePdfGenerator
 
                 // C. Split the exact tax into two equal components and round the tax values.
                 decimal exactTaxSplit = exactTaxTotal / 2m;
-                
+
                 // Set SGST and CGST equal
                 sgstValue = Math.Round(exactTaxSplit, 2);
                 cgstValue = Math.Round(exactTaxSplit, 2);
@@ -572,23 +557,17 @@ public static class DynamicPlanInvoicePdfGenerator
                 sigTable.WidthPercentage = 40;
                 sigTable.HorizontalAlignment = Element.ALIGN_RIGHT;
 
-                if (!string.IsNullOrEmpty(company.OwnerSignaturePath))
+                if (company.ShowSignature && !string.IsNullOrEmpty(company.OwnerSignaturePath))
                 {
-                    string sigPath = ResolveLocalFilePath(company.OwnerSignaturePath, DefaultSignaturePath);
+                    var sigImg = Image.GetInstance(new Uri(company.OwnerSignaturePath));
+                    sigImg.ScaleToFit(120f, 60f);
 
-                    if (!string.IsNullOrEmpty(sigPath) && File.Exists(sigPath))
+                    sigTable.AddCell(new PdfPCell(sigImg)
                     {
-                        var sigImg = iTextSharp.text.Image.GetInstance(sigPath);
-                        sigImg.ScaleToFit(120f, 60f);
-
-                        PdfPCell sigImgCell = new PdfPCell(sigImg)
-                        {
-                            Border = Rectangle.NO_BORDER,
-                            HorizontalAlignment = Element.ALIGN_RIGHT,
-                            Padding = 0
-                        };
-                        sigTable.AddCell(sigImgCell);
-                    }
+                        Border = Rectangle.NO_BORDER,
+                        HorizontalAlignment = Element.ALIGN_RIGHT,
+                        Padding = 0
+                    });
                 }
 
                 PdfPCell nameCell = new PdfPCell(new Phrase(company.OwnerName, regular))
@@ -732,48 +711,5 @@ public static class DynamicPlanInvoicePdfGenerator
             HorizontalAlignment = Element.ALIGN_RIGHT,
             Padding = 0
         };
-    }
-
-    // NEW: Resolves the stored relative path (e.g., "/uploads/invoice/file.png") 
-    // to a physical file path on the server, or returns the default path if not found.
-    private static string ResolveLocalFilePath(string storedRelativePath, string defaultPath)
-    {
-        if (string.IsNullOrWhiteSpace(storedRelativePath))
-        {
-            return defaultPath;
-        }
-
-        // This assumes the path starts exactly as the controller saved it: "/uploads/invoice/"
-        if (storedRelativePath.StartsWith("/uploads/invoice/", StringComparison.OrdinalIgnoreCase))
-        {
-            // Extract only the filename part
-            var fileName = storedRelativePath.Substring("/uploads/invoice/".Length);
-            var physicalPath = Path.Combine(UploadsFolderBase, fileName);
-
-            return File.Exists(physicalPath) ? physicalPath : defaultPath;
-        }
-
-        // If it doesn't match the expected structure, treat the stored path as a direct path 
-        // or return the default if it doesn't exist.
-        return File.Exists(storedRelativePath) ? storedRelativePath : defaultPath;
-    }
-
-    private static string ResolveLocalPathOrDownload(string pathOrUrl)
-    {
-        if (string.IsNullOrEmpty(pathOrUrl)) return pathOrUrl;
-        if (pathOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                var ext = Path.GetExtension(pathOrUrl);
-                if (string.IsNullOrWhiteSpace(ext)) ext = ".tmp";
-                var temp = Path.Combine(Path.GetTempPath(), $"img_{Guid.NewGuid():N}{ext}");
-                using (var wc = new WebClient())
-                    wc.DownloadFile(pathOrUrl, temp);
-                return temp;
-            }
-            catch { return null; }
-        }
-        return pathOrUrl;
     }
 }

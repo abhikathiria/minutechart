@@ -360,6 +360,20 @@ export default function AdminDashboard() {
                       <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
                       <XAxis dataKey="Month" stroke="#9CA3AF" />
                       <YAxis stroke="#9CA3AF" tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
+                      {/* <YAxis
+                        tickFormatter={(v) => {
+                          if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;      // Billion
+                          if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;      // Million
+                          if (v >= 1e5) return `${(v / 1e5).toFixed(1)}L`;      // Lakh
+                          if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;      // Thousand
+                          return v;
+                        }}
+                        fontSize={11}
+                        tick={{ fill: "#33527a" }}
+                        axisLine={{ stroke: "#c3d7ff" }}
+                        tickLine={{ stroke: "#c3d7ff" }}
+                        width={isMobile ? 40 : 50}
+                      /> */}
                       <Tooltip content={<DarkTooltip />} />
                       <Bar dataKey="revenue" fill={ACCENT_INDIGO} radius={[6, 6, 0, 0]} />
                     </BarChart>

@@ -222,7 +222,10 @@ function Header({ user, onLogout }) {
 
     // --- Admin Dropdown Items (Desktop) ---
     const adminDesktopDropdown = dropdownSurface(
-        <div className="py-1">
+        <div
+            ref={adminSettingsRef}
+            className="py-1"
+        >
             {isSuperAdmin && (
                 <>
                     <AdminDropdownItem to="/superadmin/user-management" icon={<FaUsers className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>User Management</AdminDropdownItem>

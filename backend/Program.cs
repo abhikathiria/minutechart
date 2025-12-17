@@ -104,7 +104,8 @@ namespace minutechart
             builder.Services.AddSwaggerGen();
             builder.Services.AddAuthorization();
             builder.Services.AddDataProtection();
-            
+            builder.Services.AddMemoryCache();
+
             builder.Services.AddScoped<CommissionService>();
             builder.Services.AddScoped<IClientDbContextFactory, ClientDbContextFactory>();
             builder.Services.AddScoped<DatabaseService>();
@@ -116,6 +117,7 @@ namespace minutechart
             builder.Services.AddScoped<SubscriptionTimelineManager>();
             builder.Services.AddScoped<DashboardService>();
             builder.Services.AddHostedService<QueuedPlanActivator>();
+            builder.Services.AddSingleton<CloudinaryService>();
 
             builder.Services.AddControllers(options =>
             {

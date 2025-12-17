@@ -18,7 +18,26 @@ import { CheckCircle2, TrendingUp, Loader2, Clock, User, Briefcase, FileText } f
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 
-// --- Active Subscription Component (Redesigned) ---
+// --- NEW THEME DEFINITION (Dark/Blue for background) ---
+const NEW_THEME = {
+  // Main Background: Dark Blue (Base color for the new wavy design)
+  mainBg: "#0B2447", 
+  // Card Background: Semi-transparent Dark Blue
+  cardBg: "rgba(18, 30, 50, 0.8)", 
+  // Primary Text Color: White
+  textPrimary: "#FFFFFF",
+  // Secondary Text Color: Gray
+  textSecondary: "#A0AEC0",
+  // Accent Color: Mid Blue (for buttons/highlights)
+  accent: "#2B6CB0",
+  // Input Background: Very Dark Blue
+  inputBg: "#1F2937", 
+  // Input Border
+  inputBorder: "#4B5563",
+};
+
+
+// --- Active Subscription Component (MODIFIED to use WHITE Background) ---
 const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
   const [showHistory, setShowHistory] = useState(false);
 
@@ -31,9 +50,10 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="p-6 bg-red-900/40 border border-red-600/50 text-red-300 rounded-xl shadow-lg flex flex-col items-center justify-center text-center space-y-4 h-full min-h-[200px]"
+        // White Card, Dark Text (Fallback)
+        className="p-6 bg-white border border-red-300 text-red-700 rounded-xl shadow-lg flex flex-col items-center justify-center text-center space-y-4 h-full min-h-[200px]"
       >
-        <Clock className="w-8 h-8 text-red-400" />
+        <Clock className="w-8 h-8 text-red-500" />
         <p className="font-bold text-xl">No Active Subscription</p>
         <p className="text-sm">Please view plans to continue using our services.</p>
         <Link
@@ -66,7 +86,8 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-blue-500/50 overflow-hidden"
+      // MODIFICATION 1: Main card background is white
+      className="bg-white rounded-2xl shadow-2xl border border-blue-500/50 overflow-hidden text-black"
     >
       {/* Summary Header */}
       <div className="bg-blue-600/90 text-white p-6 flex flex-col gap-4">
@@ -82,15 +103,15 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
         </div>
       </div>
 
-      {/* Current Plan */}
+      {/* Current Plan (Text is black/dark gray for white background) */}
       <div className="p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-gray-300 mb-3 border-b border-gray-700 pb-2">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">
           Current Plan
         </h3>
 
-        <div className="p-3 rounded-lg bg-gray-900/50 shadow-inner border border-blue-600/30">
-          <div className="flex justify-between items-center text-sm font-semibold text-white">
-            <span className="flex items-center gap-2 text-blue-300">
+        <div className="p-3 rounded-lg bg-gray-100 shadow-inner border border-blue-100">
+          <div className="flex justify-between items-center text-sm font-semibold text-gray-800">
+            <span className="flex items-center gap-2 text-blue-600">
               <TrendingUp className="w-4 h-4" />
               <span className="font-bold">{active.name}</span>
             </span>
@@ -99,17 +120,17 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
             </span>
           </div>
 
-          <p className="text-xs text-gray-400 mt-1 flex justify-between">
+          <p className="text-xs text-gray-500 mt-1 flex justify-between">
             <span className="flex items-center gap-1">
-              <FaCalendarAlt size={10} className="text-blue-400" />
+              <FaCalendarAlt size={10} className="text-blue-500" />
               Ends: {endDate.toLocaleDateString('en-GB')}
             </span>
-            <span className="text-blue-400 font-medium">Progress:</span>
+            <span className="text-blue-600 font-medium">Progress:</span>
           </p>
 
-          <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+              className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
               style={{ width: `${percentElapsed}%` }}
             />
           </div>
@@ -118,22 +139,22 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
         {/* FUTURE PLAN IF ANY */}
         {next && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-300 mt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mt-4">
               Upcoming Plan
             </h3>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xs text-gray-500 mt-1">
               Starts {new Date(next.subscriptionStart).toLocaleDateString('en-GB')} –{" "}
-              <span className="font-semibold text-white">{next.name}</span>
+              <span className="font-semibold text-gray-800">{next.name}</span>
             </div>
           </div>
         )}
       </div>
 
       {/* Refresh */}
-      <div className="p-4 border-t border-gray-700 bg-gray-900/50">
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
         <button
           onClick={onRefresh}
-          className="text-md text-gray-400 hover:text-blue-300 transition flex items-center mx-auto font-medium"
+          className="text-md text-gray-500 hover:text-blue-600 transition flex items-center mx-auto font-medium"
         >
           <Clock className="w-3 h-3 mr-1" /> Refresh Subscription Status
         </button>
@@ -142,7 +163,7 @@ const ActiveSubscriptionBlock = ({ status, onRefresh }) => {
   );
 };
 
-// --- Main Component (Redesigned) ---
+// --- Main Component (Redesigned with custom background) ---
 export default function MyProfile() {
   const [profile, setProfile] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
@@ -283,9 +304,13 @@ export default function MyProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d1117]">
-        <div className="text-lg text-white flex items-center gap-2 p-6 bg-[#0a2345] rounded-2xl shadow-lg">
-          <Loader2 className="animate-spin w-6 h-6" /> Loading Profile...
+      <div 
+        // Background change for loading state
+        style={{ background: NEW_THEME.mainBg }}
+        className="min-h-screen flex items-center justify-center"
+      >
+        <div className="text-lg text-white flex items-center gap-2 p-6 bg-gray-800 rounded-2xl shadow-lg">
+          <Loader2 className="animate-spin w-6 h-6 text-blue-400" /> Loading Profile...
         </div>
       </div>
     );
@@ -302,20 +327,51 @@ export default function MyProfile() {
   if (!profile) return null; // Should not happen with current logic but good guard
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-white py-10 px-4 sm:px-6 lg:px-8">
+    <div 
+        // -----------------------------------------------------------
+        // 1. MAIN CONTAINER: Set the base color and enable relative positioning
+        // -----------------------------------------------------------
+        style={{ background: NEW_THEME.mainBg }} 
+        className="min-h-screen text-white py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+    >
+        {/* -----------------------------------------------------------
+        // 2. NEW BACKGROUND OVERLAY (To simulate the wavy design)
+        // ----------------------------------------------------------- */}
+        <style jsx="true">{`
+          .profile-bg-overlay::before {
+            content: '';
+            position: absolute;
+            top: -20vh; /* Start higher up */
+            left: 0;
+            width: 100%;
+            height: 120vh; /* Cover full height */
+            background: linear-gradient(180deg, rgba(43, 108, 176, 0.5) 0%, rgba(11, 36, 71, 0.7) 100%);
+            mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%"><stop stop-color="%231E40AF" offset="0%"/><stop stop-color="%232B6CB0" offset="100%"/></linearGradient><linearGradient id="g2" x1="0%" y1="0%" x2="0%" y2="100%"><stop stop-color="%231F4D9C" offset="0%"/><stop stop-color="%232563EB" offset="100%"/></linearGradient></defs><path d="M 0 0 V 1000 H 1000 V 0 H 0 Z" fill="url(%23g1)"/><path d="M 0 0 C 150 150, 350 100, 500 200 C 650 300, 850 250, 1000 400 V 1000 H 0 Z" fill="url(%23g2)" opacity="0.4"/><circle cx="100" cy="800" r="150" fill="%232563EB" opacity="0.3"/><circle cx="850" cy="150" r="120" fill="%23FFFFFF" opacity="0.6"/><circle cx="500" cy="600" r="80" fill="%234A90E2" opacity="0.4"/></svg>');
+            mask-size: cover;
+            mask-repeat: no-repeat;
+            z-index: 10;
+          }
+        `}</style>
+        
+        {/* The overlay DIV to apply the CSS defined above */}
+        <div className="profile-bg-overlay absolute inset-0 z-10 pointer-events-none"></div>
+
+
       <motion.div
-        className="max-w-7xl mx-auto"
+        className="max-w-7xl mx-auto relative z-20" // Higher Z-index to float over the background
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Header */}
-        <div className="bg-gray-800 rounded-xl shadow-2xl shadow-gray-900/50 p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-l-4 border-blue-600">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold flex items-center gap-3 text-blue-400">
+        {/* Header (Account & Billing) - REMAINS WHITE as per previous instruction */}
+        <div 
+          className="bg-white rounded-xl shadow-2xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-l-4 border-blue-600"
+        >
+          <div className="text-black"> 
+            <h1 className="text-3xl sm:text-4xl font-extrabold flex items-center gap-3 text-blue-600">
               <User className="w-8 h-8" /> Account & Billing
             </h1>
-            <p className="text-base text-gray-400 mt-2">Manage your profile details and monitor your subscription status.</p>
+            <p className="text-base text-gray-600 mt-2">Manage your profile details and monitor your subscription status.</p>
           </div>
           {/* <Link
             to="/dashboard"
@@ -329,14 +385,19 @@ export default function MyProfile() {
 
           {/* Column 2: Profile Edit Form (Takes 2/3) */}
           <div className="lg:col-span-2">
-            <h2 className="text-xl font-bold mb-4 text-blue-300 border-b border-gray-700 pb-2">Profile Details</h2>
-            <div className="bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
+            <h2 className="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Profile Details</h2>
+            
+            {/* MODIFICATION 2: Profile Details Card set to White background */}
+            <div 
+                style={{ background: '#FFFFFF' }} // White Background
+                className="rounded-2xl shadow-xl overflow-hidden border border-gray-200 text-black" // Text set to black
+            >
 
-              {/* Summary Header - Enhanced */}
-              <div className="bg-gray-900 text-white p-6 sm:p-8 flex items-center gap-4 border-b border-gray-700">
+              {/* Summary Header - Enhanced (Internal card header) */}
+              <div className="bg-gray-50 text-black p-6 sm:p-8 flex items-center gap-4 border-b border-gray-200">
                 <label htmlFor="photo-upload" className="relative cursor-pointer group">
                   {/* The visible profile photo / initial block */}
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gray-900 flex items-center justify-center text-xl sm:text-2xl font-extrabold text-white shadow-xl overflow-hidden transition duration-300 transform group-hover:scale-105">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-100 flex items-center justify-center text-xl sm:text-2xl font-extrabold text-blue-600 shadow-xl overflow-hidden transition duration-300 transform group-hover:scale-105">
                     {profile.profilePhotoUrl ? (
                       <img
                         src={profile.profilePhotoUrl}
@@ -372,8 +433,8 @@ export default function MyProfile() {
 
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold leading-tight">{profile.companyName || "Your Company"}</h2>
-                  <p className="text-sm text-gray-400">Account: <span className="font-mono text-blue-300">{profile.email}</span></p>
-                  <p className="text-sm text-gray-400">Code: <span className="font-mono text-blue-300">{profile.customerCode}</span></p>
+                  <p className="text-sm text-gray-500">Account: <span className="font-mono text-blue-600">{profile.email}</span></p>
+                  <p className="text-sm text-gray-500">Code: <span className="font-mono text-blue-600">{profile.customerCode}</span></p>
                 </div>
               </div>
 
@@ -383,7 +444,7 @@ export default function MyProfile() {
                   <motion.p
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`p-3 rounded-lg font-medium ${success ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"}`}
+                    className={`p-3 rounded-lg font-medium ${success ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
                   >
                     {success || error}
                   </motion.p>
@@ -396,12 +457,13 @@ export default function MyProfile() {
 
                     {/* Company Name */}
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                        <FaBuilding className="text-blue-400" /> Company Name
+                      <label className="block text-sm font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                        <FaBuilding className="text-blue-600" /> Company Name
                       </label>
                       <input
                         type="text"
-                        className="w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-white 
+                        // Input Style: Light background, dark text
+                        className="w-full border border-gray-300 bg-gray-100 rounded-lg p-3 text-black 
                         focus:ring-2 focus:ring-blue-500 outline-none transition"
                         value={profile.companyName || ""}
                         onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
@@ -410,14 +472,14 @@ export default function MyProfile() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                        <FaBuilding className="text-blue-400" /> Company Logo
+                      <label className="block text-sm font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                        <FaBuilding className="text-blue-600" /> Company Logo
                       </label>
                       <label
                         htmlFor="company-logo-upload-form-section"
                         className="relative cursor-pointer group flex flex-col items-center justify-center 
-								bg-gray-900 
-								border border-gray-700 rounded-lg shadow-md 
+								bg-gray-100 
+								border border-gray-300 rounded-lg shadow-md 
 								h-20 w-full overflow-hidden transition hover:scale-[1.02]"
                       >
                         {profile.companyLogoUrl ? (
@@ -434,7 +496,7 @@ export default function MyProfile() {
                         )}
 
                         {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 
 								flex items-center justify-center text-white text-xs font-semibold 
 								transition">
                           {uploadingLogo ? (
@@ -458,12 +520,13 @@ export default function MyProfile() {
 
                   {/* Customer Name */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                      <FaIdBadge className="text-blue-400" /> Customer Name
+                    <label className="block text-sm font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                      <FaIdBadge className="text-blue-600" /> Customer Name
                     </label>
                     <input
                       type="text"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      // Input Style: Light background, dark text
+                      className="w-full border border-gray-300 bg-gray-100 rounded-lg p-3 text-black focus:ring-2 focus:ring-blue-500 outline-none transition"
                       value={profile.customerName || ""}
                       onChange={(e) => setProfile({ ...profile, customerName: e.target.value })}
                       placeholder="Enter your full name"
@@ -472,12 +535,13 @@ export default function MyProfile() {
 
                   {/* Contact Number */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                      <FaPhone className="text-blue-400" /> Contact Number
+                    <label className="block text-sm font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                      <FaPhone className="text-blue-600" /> Contact Number
                     </label>
                     <input
                       type="tel"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      // Input Style: Light background, dark text
+                      className="w-full border border-gray-300 bg-gray-100 rounded-lg p-3 text-black focus:ring-2 focus:ring-blue-500 outline-none transition"
                       value={profile.phoneNumber || ""}
                       onChange={(e) => setProfile({ ...profile, phoneNumber: e.target.value })}
                       placeholder="Enter your contanct number"
@@ -486,12 +550,13 @@ export default function MyProfile() {
 
                   {/* GST Number */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-blue-400" /> GST Number (Optional)
+                    <label className="block text-sm font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-600" /> GST Number (Optional)
                     </label>
                     <input
                       type="text"
-                      className="w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      // Input Style: Light background, dark text
+                      className="w-full border border-gray-300 bg-gray-100 rounded-lg p-3 text-black focus:ring-2 focus:ring-blue-500 outline-none transition"
                       value={profile.customerGST || ""}
                       onChange={(e) => setProfile({ ...profile, customerGST: e.target.value })}
                       placeholder="Enter your GSTIN"
@@ -501,7 +566,7 @@ export default function MyProfile() {
                 </div>
 
                 {/* Save Button */}
-                <div className="flex justify-end pt-6 border-t border-gray-700 mt-6">
+                <div className="flex justify-end pt-6 border-t border-gray-200 mt-6">
                   <button
                     onClick={handleSave}
                     disabled={saving}
@@ -517,13 +582,15 @@ export default function MyProfile() {
 
           {/* Column 1: Active Subscription Status (Takes 1/3) */}
           <div className="lg:col-span-1">
-            <h2 className="text-xl font-bold mb-4 text-blue-300 border-b border-gray-700 pb-2">Subscription</h2>
+            <h2 className="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Subscription</h2>
             <div className="min-h-[250px]"> {/* Ensures min height for better layout stability */}
               {loadingStatus ? (
-                <div className="p-6 bg-gray-800/70 rounded-xl shadow-md flex items-center justify-center h-full min-h-[200px]">
-                  <FaSpinner className="animate-spin w-8 h-8 text-blue-400" />
+                // Loading card background set to white
+                <div className="p-6 bg-white rounded-xl shadow-md flex items-center justify-center h-full min-h-[200px]">
+                  <FaSpinner className="animate-spin w-8 h-8 text-blue-600" />
                 </div>
               ) : (
+                // ActiveSubscriptionBlock now has white background inside its component
                 <ActiveSubscriptionBlock status={subscriptionStatus} onRefresh={loadSubscriptionStatus} />
               )}
             </div>

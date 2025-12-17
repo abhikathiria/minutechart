@@ -1021,8 +1021,6 @@ Nchart Team";
                 .Include(s => s.Columns)
                 .FirstOrDefaultAsync();
 
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-
             if (settings == null)
             {
                 var emptyDto = new InvoiceSettingsDto
@@ -1069,12 +1067,8 @@ Nchart Team";
 
             var dto = new InvoiceSettingsDto
             {
-                CompanyLogoPath = !string.IsNullOrEmpty(settings.CompanyLogoPath)
-                    ? $"{baseUrl}{settings.CompanyLogoPath}"
-                    : "",
-                OwnerSignaturePath = !string.IsNullOrEmpty(settings.OwnerSignaturePath)
-                    ? $"{baseUrl}{settings.OwnerSignaturePath}"
-                    : "",
+                CompanyLogoPath = settings.CompanyLogoPath ?? "",
+                OwnerSignaturePath = settings.OwnerSignaturePath ?? "",
                 CompanyName = settings.CompanyName,
                 CompanyAddress = settings.CompanyAddress,
                 CompanyPhone = settings.CompanyPhone,
@@ -1137,35 +1131,17 @@ Nchart Team";
             var oldIgst = settings?.IgstPercent;
             var oldCompanyName = settings?.CompanyName;
 
-            string GetRelativePath(string fullPath, HttpRequest request)
-            {
-                if (string.IsNullOrEmpty(fullPath)) return string.Empty;
-                var baseUrl = $"{request.Scheme}://{request.Host}";
-
-                if (fullPath.StartsWith(baseUrl))
-                {
-                    var relativePath = fullPath.Substring(baseUrl.Length);
-                    // Ensure it starts with a slash if it was trimmed
-                    return relativePath.StartsWith("/") ? relativePath : $"/{relativePath}";
-                }
-
-                // If it already looks like a relative path (starts with /), return as is.
-                if (fullPath.StartsWith("/"))
-                {
-                    return fullPath;
-                }
-
-                // This handles cases where the DTO path is already the relative path 
-                // (e.g., if the frontend sends the result of the upload endpoint directly)
-                return fullPath;
-            }
-
-            // Map paths, ensuring only the relative path is saved
-            settings.CompanyLogoPath = GetRelativePath(dto.CompanyLogoPath, Request);
-            settings.OwnerSignaturePath = GetRelativePath(dto.OwnerSignaturePath, Request);
-            // ----------------------------
-
             // Map simple fields
+            if (!string.IsNullOrWhiteSpace(dto.CompanyLogoPath))
+{
+    settings.CompanyLogoPath = dto.CompanyLogoPath;
+}
+
+if (!string.IsNullOrWhiteSpace(dto.OwnerSignaturePath))
+{
+    settings.OwnerSignaturePath = dto.OwnerSignaturePath;
+}
+
             settings.CompanyName = dto.CompanyName;
             settings.CompanyAddress = dto.CompanyAddress;
             settings.CompanyPhone = dto.CompanyPhone;
@@ -1250,50 +1226,14 @@ Nchart Team";
             return Ok(new { message = "Invoice settings saved successfully" });
         }
 
-        // Helper: Save files and return relative URLs
-        private async Task<List<string>> SaveFiles(IFormFileCollection files, HttpRequest request)
-        {
-            var urls = new List<string>();
-            foreach (var file in files ?? new FormFileCollection())
-            {
-                if (file.Length > 5 * 1024 * 1024) continue;  // Skip if > 5MB
-                var allowedTypes = new[] { "image/jpeg", "image/png", "image/svg+xml" };
-                if (!allowedTypes.Contains(file.ContentType)) continue;
-                var fileName = $"{Guid.NewGuid()}_{file.FileName}";
-                var filePath = Path.Combine(_uploadsFolder, fileName);
-                Directory.CreateDirectory(_uploadsFolder);  // Ensure folder exists
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-                urls.Add($"/uploads/invoice/{fileName}");
-            }
-            return urls;
-        }
-
-
-        [HttpPost("invoicesettings/upload-image")]
-        public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery] string type)
+        [HttpPost("invoicesettings/upload-logo")]
+        public async Task<IActionResult> UploadInvoiceLogo(
+    [FromForm] IFormFile file,
+    [FromServices] CloudinaryService cloudinary)
         {
             if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded");
+                return BadRequest(new { message = "No file selected." });
 
-            // Use SaveFiles to handle the upload
-            var files = new FormFileCollection { file };
-            var relativePaths = await SaveFiles(files, Request);
-
-            if (!relativePaths.Any())
-            {
-                // LOG: Failed image upload
-                await _activityLogger.LogAsync($"failed to upload invoice image ({type})", "System Settings", "Invoice Image");
-                return BadRequest("File upload failed (invalid type or size)");
-            }
-
-            var relativePath = relativePaths.First();  // Get the relative path
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";  // Ensure HTTPS
-            var publicUrl = $"{baseUrl}{relativePath}";  // Full URL for response
-
-            // Save relative path to DB
             var settings = await _db.CompanyInvoiceSettings.FirstOrDefaultAsync();
             if (settings == null)
             {
@@ -1301,22 +1241,58 @@ Nchart Team";
                 _db.CompanyInvoiceSettings.Add(settings);
             }
 
-            // Determine log action before saving
-            string logAction = (type == "logo") ? "uploaded company logo" : "uploaded owner signature";
+            var upload = await cloudinary.UploadImageAsync(
+                file,
+                folder: "minutechart/invoice-logos",
+                publicId: "invoice_logo"
+            );
 
-            if (type == "logo")
-                settings.CompanyLogoPath = relativePath;
-            else if (type == "signature")
-                settings.OwnerSignaturePath = relativePath;
+            if (upload.Error != null)
+                return BadRequest(upload.Error.Message);
 
+            settings.CompanyLogoPath = upload.SecureUrl.ToString();
             await _db.SaveChangesAsync();
 
-            // LOG: Admin uploaded image
-            await _activityLogger.LogAsync(logAction, "Invoice Settings", "Image");
-
-            return Ok(new { path = publicUrl });
+            return Ok(new
+            {
+                newUrl = settings.CompanyLogoPath,
+                message = "Invoice logo updated"
+            });
         }
 
+        [HttpPost("invoicesettings/upload-signature")]
+        public async Task<IActionResult> UploadInvoiceSignature(
+            [FromForm] IFormFile file,
+            [FromServices] CloudinaryService cloudinary)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file selected." });
+
+            var settings = await _db.CompanyInvoiceSettings.FirstOrDefaultAsync();
+            if (settings == null)
+            {
+                settings = new CompanyInvoiceSetting();
+                _db.CompanyInvoiceSettings.Add(settings);
+            }
+
+            var upload = await cloudinary.UploadImageAsync(
+                file,
+                folder: "minutechart/invoice-signatures",
+                publicId: "invoice_signature"
+            );
+
+            if (upload.Error != null)
+                return BadRequest(upload.Error.Message);
+
+            settings.OwnerSignaturePath = upload.SecureUrl.ToString();
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                newUrl = settings.OwnerSignaturePath,
+                message = "Signature updated"
+            });
+        }
 
         [HttpPost("transfer-modules")]
         public async Task<IActionResult> TransferModules([FromBody] TransferModulesRequest request)

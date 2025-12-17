@@ -72,7 +72,7 @@
           }
         }
       },
-      "CloudinaryDotNet/1.27.8": {
+      "CloudinaryDotNet/1.27.9": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "13.0.3",
@@ -3839,16 +3839,16 @@
         "packageIcon.png"
       ]
     },
-    "CloudinaryDotNet/1.27.8": {
-      "sha512": "K2PPU5SLn0SJ+62OOC5Wr3pCuk1ezLnKmgY/6A53bM6Ysvr27utKMZ8NTvJOG3eU1G8vykNQyhOKO4/shXDl1Q==",
+    "CloudinaryDotNet/1.27.9": {
+      "sha512": "cQ3/+kHrA1SnwT6Bx6ZamJKKF/sb5Cl8uFAHTHpZ2HjdpfeCjSdfBRUA+aASOdbLGdL64jhLIEMaoWqXwAr9hQ==",
       "type": "package",
-      "path": "cloudinarydotnet/1.27.8",
+      "path": "cloudinarydotnet/1.27.9",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "CloudinaryIcon.png",
         "README.md",
-        "cloudinarydotnet.1.27.8.nupkg.sha512",
+        "cloudinarydotnet.1.27.9.nupkg.sha512",
         "cloudinarydotnet.nuspec",
         "lib/net452/CloudinaryDotNet.dll",
         "lib/net452/CloudinaryDotNet.xml",
@@ -11361,7 +11361,7 @@
   "projectFileDependencyGroups": {
     "net9.0": [
       "BCrypt.Net-Next >= 4.0.3",
-      "CloudinaryDotNet >= 1.27.8",
+      "CloudinaryDotNet >= 1.27.9",
       "MailKit >= 4.13.0",
       "Mailjet.Api >= 3.0.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 9.0.9",
@@ -11444,7 +11444,7 @@
           },
           "CloudinaryDotNet": {
             "target": "Package",
-            "version": "[1.27.8, )"
+            "version": "[1.27.9, )"
           },
           "MailKit": {
             "target": "Package",

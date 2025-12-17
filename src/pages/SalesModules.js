@@ -56,8 +56,8 @@ function SqlTipBox() {
       </p>
       <pre className="mt-2 p-2 bg-white border rounded text-[11px] whitespace-pre-wrap">
         WHERE
-        (@startDate IS NULL OR OrderDate `{'>'}`= @startDate)
-        AND (@endDate IS NULL OR OrderDate `{'<'}`= @endDate)
+        (@startDate IS NULL OR OrderDate &gt;= @startDate)
+        AND (@endDate IS NULL OR OrderDate &lt;= @endDate)
         AND (@clientId IS NULL OR ClientId = @clientId)
         AND (@agentId IS NULL OR AgentId = @agentId)
         AND (@productId IS NULL OR ProductId = @productId)

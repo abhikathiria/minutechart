@@ -1,5 +1,5 @@
 // src/pages/ProductionAnalyticsPage.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
     PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer,
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, Line, Customized, LineChart
@@ -16,6 +16,20 @@ import {
     startOfMonth,
     endOfMonth,
     subMonths,
+    addMonths,
+    startOfWeek,
+    endOfWeek,
+    eachDayOfInterval,
+    isSameMonth,
+    isSameDay,
+    isWithinInterval,
+    isAfter,
+    isBefore,
+    addDays,
+    isValid,
+    startOfYear,
+    endOfYear,
+    subYears
 } from "date-fns";
 
 const NGRAPH_THEME = {
@@ -48,24 +62,42 @@ const COMPONENT_IDS = [
 ];
 
 const TABLE_PAGE_SIZE = 5;
+const WIDGET_HEIGHT = 340;
+const VALUE_NUMBER_WIDTH = 70;
+const VALUE_BAR_WIDTH = 60;
+const VALUE_COL_WIDTH = VALUE_NUMBER_WIDTH + VALUE_BAR_WIDTH + 6;
 
 /* ------------------------------------------------------------------
    UTILITIES
 -------------------------------------------------------------------*/
+function useWindowWidth() {
+    const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
 
-function money(v) {
+    useEffect(() => {
+        const handleResize = () => setWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    return width;
+}
+
+function moneyFmt(v) {
     if (v === null || v === undefined) return "-";
     const n = Number(v);
     if (!Number.isFinite(n)) return String(v);
 
     const sign = n < 0 ? "-" : "";
-    const absN = Math.abs(n);
+    const abs = Math.abs(n);
 
-    if (absN >= 1e9) return `${sign}₹${(absN / 1e9).toFixed(2)}B`;
-    if (absN >= 1e6) return `${sign}₹${(absN / 1e6).toFixed(2)}M`;
+    if (abs >= 1e9) return `${sign}₹${(abs / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6) return `${sign}₹${(abs / 1e6).toFixed(2)}M`;
+    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2)}L`;
+    if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(1)}K`;
 
-    return `${sign}₹${absN.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+    return `${sign}₹${abs.toLocaleString("en-IN")}`;
 }
+
 
 function numberFmt(v) {
     if (v === null || v === undefined) return "-";
@@ -77,21 +109,10 @@ function numberFmt(v) {
 
     if (absN >= 1e9) return `${sign}${(absN / 1e9).toFixed(2)}B`;
     if (absN >= 1e6) return `${sign}${(absN / 1e6).toFixed(2)}M`;
+    if (absN >= 1e5) return `${sign}${(absN / 1e5).toFixed(2)}L`;
+    if (absN >= 1e3) return `${sign}${(absN / 1e3).toFixed(2)}K`;
 
     return `${sign}${absN.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-}
-// function numberFmt(v) {
-//     if (v === null || v === undefined) return "-";
-//     const n = Number(v);
-//     return Number.isFinite(n)
-//         ? n.toLocaleString("en-IN", { maximumFractionDigits: 0 })
-//         : String(v);
-// }
-
-function rateFmt(v) {
-    if (v === null || v === undefined) return "-";
-    const n = Number(v);
-    return Number.isFinite(n) ? n.toFixed(2) : String(v);
 }
 
 function formatDateShort(d) {
@@ -112,6 +133,20 @@ function formatDateFull(d) {
     }
 }
 
+function getPreviousRange(start, end) {
+    const s = parseISO(start);
+    const e = parseISO(end);
+
+    const days = differenceInCalendarDays(e, s) + 1;
+
+    const prevEnd = subDays(s, 1);
+    const prevStart = subDays(prevEnd, days - 1);
+
+    return {
+        start: format(prevStart, "yyyy-MM-dd"),
+        end: format(prevEnd, "yyyy-MM-dd"),
+    };
+}
 
 function inferColumns(rows) {
     if (!rows.length) return [];
@@ -162,34 +197,48 @@ function normalizeToTable(rows) {
 
 function normalizeKpi(rows, componentId) {
     if (!rows || !rows.length) return null;
-    const src = rows[0];
 
+    const src = rows[0];
     const keys = Object.keys(src);
-    const numeric = keys.filter(k =>
+
+    const numericKeys = keys.filter(k =>
         String(src[k]).match(/^-?\d+(\.\d+)?$/)
     );
 
     const priority = ["value", "sales", "amount", "total", "count", "qty"];
-    const valueKey = numeric.find(k =>
-        priority.includes(k.toLowerCase())
-    ) || numeric[0];
+    const valueKey =
+        numericKeys.find(k => priority.includes(k.toLowerCase())) ||
+        numericKeys[0];
 
-    const stringKeys = keys.filter(k => typeof src[k] === "string");
     const labelKey =
-        stringKeys.find(k =>
+        keys.find(k =>
             ["name", "title", "client", "branch"].some(x =>
                 k.toLowerCase().includes(x)
             )
-        ) || stringKeys[0] || valueKey;
+        ) || valueKey;
+
+    const current = Number(src[valueKey]) || 0;
+    const previous =
+        Number.isFinite(Number(src.previousValue)) ? Number(src.previousValue) : null;
+
+    const deltaValue =
+        previous == null ? null : current - previous;
+
+    const deltaPercent =
+        previous == null || previous === 0
+            ? null
+            : (deltaValue / previous) * 100;
 
     return {
         id: componentId,
-        label: src[labelKey],
-        value: Number(src[valueKey]) || 0,
-        previousValue: Number(src.previousValue) || null,
-        title: src.title || src[labelKey]
+        title: src.title || src[labelKey],
+        value: current,
+        previousValue: previous,
+        deltaValue,
+        deltaPercent
     };
 }
+
 
 /* ------------------------------------------------------------------
    API CALL
@@ -277,7 +326,7 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
 
                 return rows.map(r => ({
                     x: r[dateKey],
-                    sales: Number(r[numericKey]) || 0,
+                    [numericKey]: Number(r[numericKey]) || 0,
                     realCurrDate: r[dateKey]
                 }));
             };
@@ -288,8 +337,8 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
             if (!current.length && !previous.length) {
                 return {
                     datasource: "db",
-                    data: null,
-                    title: curr?.title || "Monthl-wise Production"
+                    data: { empty: true },
+                    title: curr?.title || "Month-wise Production"
                 };
             }
             return {
@@ -345,10 +394,22 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
             };
         }
 
-        // TABLE
+        // TABLE (WITH PREVIOUS PERIOD)
         if (componentId.startsWith("pa_table_")) {
-            const table = normalizeToTable(rows);
-            if (!table.columns.length) {
+            const prev = getPreviousRange(dateRange.start, dateRange.end);
+
+            const prevRes = await postExecuteProductionComponent(userId, {
+                componentId,
+                startDate: `${prev.start}T00:00:00`,
+                endDate: `${prev.end}T23:59:59`,
+            });
+
+            const currentTable = normalizeToTable(rows);
+            const previousTable = normalizeToTable(
+                Array.isArray(prevRes?.data) ? prevRes.data : []
+            );
+
+            if (!currentTable.columns.length) {
                 return {
                     datasource: "db",
                     data: { empty: true },
@@ -358,48 +419,69 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
 
             return {
                 datasource: "db",
-                data: table,
+                data: {
+                    current: currentTable,
+                    previous: previousTable
+                },
                 title: res.title
             };
         }
 
         // KPI
         if (componentId.startsWith("pa_kpi_")) {
-            // CASE 1 — COMPONENT HIDDEN → data: null
-            if (!res?.success || res.data == null) {
+            const prev = getPreviousRange(dateRange.start, dateRange.end);
+
+            // CURRENT
+            const currRes = await postExecuteProductionComponent(userId, {
+                componentId,
+                startDate: startISO,
+                endDate: endISO
+            });
+
+            // PREVIOUS
+            const prevRes = await postExecuteProductionComponent(userId, {
+                componentId,
+                startDate: `${prev.start}T00:00:00`,
+                endDate: `${prev.end}T23:59:59`,
+            });
+
+            if (!currRes?.success || !currRes?.data) {
                 return { datasource: "db", data: null };
             }
 
-            const rows = Array.isArray(res.data)
-                ? res.data
-                : typeof res.data === "object"
-                    ? [res.data]
-                    : [];
+            const currRows = Array.isArray(currRes.data)
+                ? currRes.data
+                : [currRes.data];
 
-            // CASE 2 — COMPONENT VISIBLE BUT ZERO ROWS → show NoData widget
-            if (!rows.length) {
+            const prevRows = Array.isArray(prevRes?.data)
+                ? prevRes.data
+                : [];
+
+            if (!currRows.length) {
                 return {
                     datasource: "db",
-                    data: {
-                        empty: true,
-                        title: res.title || componentId
-                    },
-                    title: res.title || componentId
+                    data: { empty: true, title: currRes.title || componentId },
+                    title: currRes.title || componentId
                 };
             }
 
-            // CASE 3 — NORMAL KPI WITH DATA
-            const kpi = normalizeKpi(rows, componentId);
+            // Inject previousValue
+            const merged = {
+                ...currRows[0],
+                previousValue:
+                    prevRows.length
+                        ? Object.values(prevRows[0]).find(v => !isNaN(Number(v)))
+                        : null
+            };
+
+            const kpi = normalizeKpi([merged], componentId);
+
             return {
                 datasource: "db",
-                data: {
-                    ...kpi,
-                    title: res.title || kpi.title
-                },
-                title: res.title || kpi.title
+                data: { ...kpi, title: currRes.title || kpi.title },
+                title: currRes.title || kpi.title
             };
         }
-
 
         return { datasource: "db", data: rows };
     } catch (err) {
@@ -411,43 +493,62 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
 /* ------------------------------------------------------------------
    UI COMPONENTS (Header, KPI, Donut, Lin, Table)
 -------------------------------------------------------------------*/
-
 function NoDataWidget({ title }) {
-    const widgetStyle = {
-        textAlign: "center",
-        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-        background: "#fff",
-        padding: "1.5rem",
-        color: "#0B3A66",
-        fontWeight: 600,
-        fontSize: 14,
-    };
-
-    const titleStyle = {
-        textAlign: "center",
-        color: "#0B3A66",
-        fontWeight: 600,
-        fontSize: 16,
-        marginBottom: "8px",
-    };
+    const width = useWindowWidth();
+    const isMobile = width < 768;
+    const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
+    const widgetHeight = getWidgetHeight(isMobile);
 
     return (
-        <div>
-            <div style={titleStyle}>{title}</div>
+        <div
+            style={{
+                textAlign: "center",
+                marginBottom: "0.75rem",
+                height: widgetHeight,
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
+            {/* TITLE */}
+            <div
+                style={{
+                    textAlign: "center",
+                    color: "#0B3A66",
+                    fontWeight: 600,
+                    fontSize: 16,
+                    marginBottom: "8px",
+                }}
+            >
+                {title}
+            </div>
 
-            <div style={widgetStyle}>
+            {/* BODY */}
+            <div
+                style={{
+                    flex: 1,
+                    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                    background: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#0B3A66",
+                    fontWeight: 600,
+                    fontSize: 20,
+                    minHeight: 0
+                }}
+            >
                 <div style={{ opacity: 0.7 }}>No data available</div>
             </div>
         </div>
     );
 }
 
-/* Creative No-Logo Placeholder A */
 function NoLogoPlaceholder({ width = 120, height = 44 }) {
     return (
         <div
             style={{
-                width,
+                width: "100%", // Responsive width
+                maxWidth: width, // Max constraint
                 height,
                 borderRadius: 8,
                 background: NGRAPH_THEME.primarySoft,
@@ -462,22 +563,11 @@ function NoLogoPlaceholder({ width = 120, height = 44 }) {
             }}
         >
             <svg width="20" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <rect
-                    x="2"
-                    y="6"
-                    width="20"
-                    height="12"
-                    rx="2"
-                    stroke={NGRAPH_THEME.primary}
-                    strokeWidth="1.5"
-                    fill="transparent"
-                />
+                <rect x="2" y="6" width="20" height="12" rx="2" stroke={NGRAPH_THEME.primary} strokeWidth="1.5" fill="transparent" />
                 <path d="M6 10h12" stroke={NGRAPH_THEME.primary} strokeWidth="1.2" />
                 <path d="M8 14v2" stroke={NGRAPH_THEME.primary} strokeWidth="1.2" />
             </svg>
-            <div
-                style={{ fontSize: 11, color: NGRAPH_THEME.primary, fontWeight: 600 }}
-            >
+            <div style={{ fontSize: 11, color: NGRAPH_THEME.primary, fontWeight: 600 }}>
                 No Logo
             </div>
         </div>
@@ -485,41 +575,42 @@ function NoLogoPlaceholder({ width = 120, height = 44 }) {
 }
 
 function Header({ companyLogoUrl }) {
+    const width = useWindowWidth();
+    const isMobile = width < 600;
+
     return (
         <div
             style={{
                 background: NGRAPH_THEME.header,
-                padding: "1rem 1.25rem", // RELATIVE UNITS
+                padding: isMobile ? "0.75rem 1rem" : "1rem 1.25rem",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                flexWrap: "wrap", // ALLOW WRAPPING on small screens
-                minHeight: "4rem", // Ensure min height
+                flexWrap: "wrap",
+                gap: "1rem", // Gap handles spacing when wrapped
             }}
         >
-            {/* Title */}
             <h1
                 style={{
                     margin: 0,
-                    fontSize: "1.625rem", // RELATIVE FONT SIZE (26px)
+                    fontSize: isMobile ? "1.25rem" : "1.625rem", // Responsive Font
                     fontWeight: 700,
                     color: "white",
-                    flexGrow: 1, // Allow growth
+                    flex: "1 1 auto", // Allow shrink/grow
                 }}
             >
                 Production Analytics
             </h1>
 
-            {/* Logo */}
-            <div style={{ flexShrink: 0, marginTop: "0.5rem" /* ADD SPACE IF WRAPPED */ }}>
+            <div style={{ flexShrink: 0 }}>
                 {companyLogoUrl ? (
                     <img
                         src={companyLogoUrl}
                         alt="company"
                         style={{
-                            height: "3rem", // RELATIVE HEIGHT (48px)
-                            width: "11.25rem", // RELATIVE WIDTH (180px)
-                            maxWidth: "100%", // IMPORTANT: prevent overflow
+                            height: "3rem",
+                            width: "auto",
+                            maxWidth: "100%",
                             objectFit: "contain",
                             background: "#0a2345",
                         }}
@@ -536,198 +627,238 @@ function Header({ companyLogoUrl }) {
     );
 }
 
-function PresetDateButtons({ onSelect }) {
-    const today = new Date();
-    const yr = today.getFullYear();
-    const month = today.getMonth() + 1;
+function AdvancedDatePicker({ value, onChange }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+    const windowWidth = useWindowWidth();
+    const isMobile = windowWidth < 768; // Mobile breakpoint
 
-    // YEARLY: previous full year
-    const getYearly = () => ({
-        start: `${yr - 1}-01-01`,
-        end: `${yr - 1}-12-31`,
-    });
+    const startDate = value?.start ? parseISO(value.start) : new Date();
+    const endDate = value?.end ? parseISO(value.end) : new Date();
 
-    // HALF-YEARLY
-    const getHalfYearly = () => {
-        if (month <= 6) {
-            return {
-                start: `${yr}-01-01`,
-                end: `${yr}-06-30`,
-            };
-        } else {
-            return {
-                start: `${yr}-07-01`,
-                end: `${yr}-12-31`,
-            };
+    const [viewDate, setViewDate] = useState(() => subMonths(startOfMonth(endDate), 1));
+
+    useEffect(() => {
+        if (value?.end && isOpen) {
+            setViewDate(subMonths(startOfMonth(parseISO(value.end)), 1));
+        }
+    }, [isOpen, value]);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleDateClick = (day) => {
+        if ((startDate && endDate && !isSameDay(startDate, endDate)) || (!startDate && !endDate)) {
+            onChange({ start: format(day, "yyyy-MM-dd"), end: format(day, "yyyy-MM-dd") });
+        } else if (startDate && isSameDay(startDate, endDate)) {
+            if (isBefore(day, startDate)) {
+                onChange({ start: format(day, "yyyy-MM-dd"), end: format(startDate, "yyyy-MM-dd") });
+            } else {
+                onChange({ start: format(startDate, "yyyy-MM-dd"), end: format(day, "yyyy-MM-dd") });
+            }
         }
     };
 
-    // QUARTERLY
-    const getQuarterly = () => {
-        const q1 = [1, 2, 3];
-        const q2 = [4, 5, 6];
-        const q3 = [7, 8, 9];
-        const q4 = [10, 11, 12];
+    const applyPreset = (type) => {
+        const today = new Date();
+        let s, e;
+        if (type === "Today") { s = today; e = today; }
+        else if (type === "Yesterday") { s = subDays(today, 1); e = subDays(today, 1); }
+        else if (type === "Last 7 Days") { s = subDays(today, 6); e = today; }
+        else if (type === "Last 30 Days") { s = subDays(today, 29); e = today; }
+        else if (type === "This Month") { s = startOfMonth(today); e = today; }
+        else if (type === "Last Month") { s = startOfMonth(subMonths(today, 1)); e = endOfMonth(subMonths(today, 1)); }
+        else if (type === "This Year") { s = startOfYear(today); e = today; }
+        else if (type === "Last Year") { s = startOfYear(subYears(today, 1)); e = endOfYear(subYears(today, 1)); }
 
-        let start, end;
-
-        if (q1.includes(month)) {
-            start = `${yr}-01-01`; end = `${yr}-03-31`;
-        } else if (q2.includes(month)) {
-            start = `${yr}-04-01`; end = `${yr}-06-30`;
-        } else if (q3.includes(month)) {
-            start = `${yr}-07-01`; end = `${yr}-09-30`;
-        } else {
-            start = `${yr}-10-01`; end = `${yr}-12-31`;
+        if (s && e) {
+            onChange({ start: format(s, "yyyy-MM-dd"), end: format(e, "yyyy-MM-dd") });
+            if (isMobile) setIsOpen(false); // Auto close on mobile for better UX
         }
-
-        return { start, end };
     };
 
-    // MONTHLY
-    const getMonthly = () => {
-        const first = new Date(yr, month - 1, 1);
-        const last = new Date(yr, month, 0);
+    const renderCalendar = (baseDate) => {
+        const monthStart = startOfMonth(baseDate);
+        const monthEnd = endOfMonth(monthStart);
+        const startDateGrid = startOfWeek(monthStart);
+        const endDateGrid = endOfWeek(monthEnd);
+        const days = eachDayOfInterval({ start: startDateGrid, end: endDateGrid });
+        const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-        return {
-            start: format(first, "yyyy-MM-dd"),
-            end: format(last, "yyyy-MM-dd"),
-        };
-    };
+        return (
+            <div style={{ width: isMobile ? "100%" : 230 }}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, fontWeight: "bold", color: "#333", fontSize: 14 }}>
+                    {format(baseDate, "MMM yyyy")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
+                    {weekDays.map(d => (
+                        <div key={d} style={{ textAlign: "center", fontSize: 12, color: "#888", fontWeight: 600 }}>{d}</div>
+                    ))}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 4 }}>
+                    {days.map(day => {
+                        const isCurrentMonth = isSameMonth(day, baseDate);
+                        const isSelected = (startDate && isSameDay(day, startDate)) || (endDate && isSameDay(day, endDate));
+                        const isInRange = startDate && endDate && isWithinInterval(day, { start: startDate, end: endDate });
 
-    // TODAY + YESTERDAY
-    const getToday = () => {
-        const yest = new Date();
-        yest.setDate(today.getDate());
+                        let bg = "transparent";
+                        let color = isCurrentMonth ? "#333" : "#ccc";
+                        let borderRadius = 0;
 
-        return {
-            start: format(yest, "yyyy-MM-dd"),
-            end: format(yest, "yyyy-MM-dd"),
-        };
-    };
+                        if (isSelected) {
+                            bg = NGRAPH_THEME.primary;
+                            color = "#fff";
+                            borderRadius = 4;
+                        } else if (isInRange) {
+                            bg = "#ebf8ff";
+                            color = NGRAPH_THEME.primary;
+                        }
 
-    // TODAY + YESTERDAY
-    const getTodayYesterday = () => {
-        const yest = new Date();
-        yest.setDate(today.getDate() - 1);
-
-        return {
-            start: format(yest, "yyyy-MM-dd"),
-            end: format(today, "yyyy-MM-dd"),
-        };
-    };
-
-    const btn = {
-        padding: "6px 10px",
-        background: "#2B6CB0",
-        borderRadius: 6,
-        border: "none",
-        color: "white",
-        cursor: "pointer",
-        fontWeight: 600,
-        fontSize: 14,
-    };
-
-    return (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            <button style={btn} onClick={() => onSelect(getYearly())}>Yearly</button>
-            <button style={btn} onClick={() => onSelect(getHalfYearly())}>Half Yearly</button>
-            <button style={btn} onClick={() => onSelect(getQuarterly())}>Quarterly</button>
-            <button style={btn} onClick={() => onSelect(getMonthly())}>Monthly</button>
-            <button style={btn} onClick={() => onSelect(getToday())}>Today</button>
-            <button style={btn} onClick={() => onSelect(getTodayYesterday())}>Today + Yesterday</button>
-        </div>
-    );
-}
-
-function DateRangeInput({ value, onPendingChange, onApply }) {
-    const [local, setLocal] = useState(value || { start: "", end: "" });
-
-    useEffect(() => setLocal(value || { start: "", end: "" }), [value]);
-
-    const style = {
-        padding: "0.375rem 0.5rem", // RELATIVE UNITS (6px 8px)
-        borderRadius: 6,
-        border: `1px solid ${NGRAPH_THEME.kpiBorder}`,
-        fontSize: 14,
-        width: "7.5rem", // RELATIVE WIDTH (120px)
-        maxWidth: "40vw", // CATCHALL: prevent input from being too wide
-        background: "#fff",
-        color: NGRAPH_THEME.textPrimary,
+                        return (
+                            <div
+                                key={day.toString()}
+                                onClick={() => handleDateClick(day)}
+                                style={{
+                                    textAlign: "center",
+                                    padding: "6px 0", // Larger touch target
+                                    fontSize: 12,
+                                    cursor: "pointer",
+                                    background: bg,
+                                    color: color,
+                                    borderRadius
+                                }}
+                            >
+                                {format(day, "d")}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
     };
 
     return (
-        <div
-            style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem", // RELATIVE GAP (8px)
-                flexWrap: "wrap", // ALLOW WRAPPING if needed
-                justifyContent: "flex-end", // Keep right-aligned
-            }}
-        >
-            <input
-                type="date"
-                value={local.start}
-                onChange={(e) => {
-                    const v = { ...local, start: e.target.value };
-                    setLocal(v);
-                    onPendingChange(v); // notify parent but DON'T apply
-                }}
-                style={style}
-            />
-
-            <span
-                style={{ color: NGRAPH_THEME.textPrimary, fontSize: 14, fontWeight: 500 }}
-            >
-                to
-            </span>
-
-            <input
-                type="date"
-                value={local.end}
-                onChange={(e) => {
-                    const v = { ...local, end: e.target.value };
-                    setLocal(v);
-                    onPendingChange(v);
-                }}
-                style={style}
-            />
-
+        <div ref={containerRef} style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
             <button
-                onClick={() => onApply(local)} // only apply on click
+                onClick={() => setIsOpen(!isOpen)}
                 style={{
-                    padding: "0.375rem 0.75rem", // RELATIVE UNITS (6px 12px)
-                    background: NGRAPH_THEME.accent,
-                    color: "white",
-                    borderRadius: 6,
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    fontWeight: 700, // Bolder button text
+                    display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                    border: "1px solid #ccc", background: "#fff", borderRadius: 4,
+                    cursor: "pointer", fontSize: 14, color: "#333",
+                    width: "100%", // Full width of flex container
+                    minWidth: isMobile ? "unset" : 260
                 }}
             >
-                Apply
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span style={{ fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {value.start && value.end
+                        ? `${format(parseISO(value.start), "MMM d, yyyy")} - ${format(parseISO(value.end), "MMM d, yyyy")}`
+                        : "Select Date Range"
+                    }
+                </span>
+                <span style={{ marginLeft: "auto", fontSize: 10 }}>▼</span>
             </button>
+
+            {isOpen && (
+                <div style={{
+                    position: "absolute",
+                    top: "110%",
+                    right: isMobile ? "0" : "0",
+                    left: isMobile ? "0" : "auto", // Center on mobile
+                    background: "#fff", border: "1px solid #ccc", borderRadius: 6,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.15)", zIndex: 1000,
+                    display: "flex",
+                    flexDirection: isMobile ? "column" : "row", // Stack on mobile
+                    width: isMobile ? "100%" : "max-content",
+                    maxWidth: isMobile ? "90vw" : "unset",
+                    margin: isMobile ? "0 auto" : "unset"
+                }}>
+                    {/* Presets Panel */}
+                    <div style={{
+                        width: isMobile ? "100%" : 140,
+                        borderRight: isMobile ? "none" : "1px solid #eee",
+                        borderBottom: isMobile ? "1px solid #eee" : "none",
+                        padding: "12px 0",
+                        background: "#f9fafb",
+                        display: "flex",
+                        flexDirection: isMobile ? "row" : "column", // Horizontal scroll on mobile
+                        gap: 2,
+                        overflowX: isMobile ? "auto" : "visible", // Enable scrolling for presets
+                        paddingLeft: isMobile ? 10 : 0
+                    }}>
+                        {[
+                            "Today", "Yesterday", "Last 7 Days", "Last 30 Days",
+                            "This Month", "Last Month", "This Year"
+                        ].map(preset => (
+                            <button
+                                key={preset}
+                                onClick={() => applyPreset(preset)}
+                                style={{
+                                    display: "block",
+                                    width: isMobile ? "auto" : "100%",
+                                    textAlign: isMobile ? "center" : "left",
+                                    padding: isMobile ? "6px 12px" : "8px 16px",
+                                    border: isMobile ? "1px solid #ddd" : "none",
+                                    borderRadius: isMobile ? 20 : 0,
+                                    marginRight: isMobile ? 5 : 0,
+                                    background: isMobile ? "#fff" : "transparent",
+                                    fontSize: 13, cursor: "pointer", color: "#444",
+                                    whiteSpace: "nowrap"
+                                }}
+                            >
+                                {preset}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Calendar Panel */}
+                    <div style={{ padding: isMobile ? "16px 10px" : "16px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                            <button
+                                onClick={() => setViewDate(subMonths(viewDate, 1))}
+                                style={{ border: "1px solid #eee", background: "#fff", borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                            >
+                                &lt;
+                            </button>
+
+                            <div style={{ display: "flex", gap: 24, justifyContent: "center", width: "100%" }}>
+                                {/* Show 1 calendar on mobile, 2 on desktop */}
+                                {renderCalendar(viewDate)}
+                                {!isMobile && renderCalendar(addMonths(viewDate, 1))}
+                            </div>
+
+                            <button
+                                onClick={() => setViewDate(addMonths(viewDate, 1))}
+                                style={{ border: "1px solid #eee", background: "#fff", borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                            >
+                                &gt;
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-/* KPI GRID */
 function KpiGrid({ items }) {
+    const width = useWindowWidth();
+    const isMobile = width < 768; // Tablet/Mobile breakpoint
+
     if (!items || !items.length) return null;
+
     const safeItems = items.map((it) => {
         if (!it) return null;
-
-        // KPI card exists but has no data
         if (it.empty) {
-            return {
-                title: it.title || "KPI",
-                value: null,
-                empty: true
-            };
+            return { title: it.title || "KPI", value: null, empty: true };
         }
-
         return it;
     }).filter(Boolean);
 
@@ -735,19 +866,27 @@ function KpiGrid({ items }) {
         <div
             style={{
                 display: "grid",
-                // RESPONSIVE GRID: Auto-fit as many columns as possible, min size 160px
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                gap: "0.75rem", // RELATIVE GAP (12px)
-                marginBottom: "0.75rem", // RELATIVE MARGIN (12px)
+                // Mobile: 135px allows 2 columns on almost all phones. Desktop: 160px standard.
+                gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "135px" : "180px"}, 1fr))`,
+                // Mobile: Tighter gap (16px). Desktop: Spacious gap (40px).
+                gap: isMobile ? "1rem" : "2.50rem",
+                marginBottom: "0.75rem",
+                width: "100%",
+                boxSizing: "border-box" // Prevents padding from breaking width
             }}
         >
             {safeItems.map((it, i) => {
+                // Determine color logic
+                const isNeutral = it.deltaPercent == null || it.deltaPercent === 0;
+                const isNegative = it.deltaPercent < 0;
+                const deltaColor = isNeutral ? "#666" : isNegative ? "#d12b2b" : "#0B6623";
+
                 return (
                     <div
                         key={i}
                         style={{
                             border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                            padding: "0.625rem", // RELATIVE PADDING (10px)
+                            padding: isMobile ? "0.5rem" : "0.625rem",
                             background: "#fff",
                             boxShadow: "0 1px 4px rgba(43,108,176,0.06)",
                             display: "flex",
@@ -755,26 +894,53 @@ function KpiGrid({ items }) {
                             alignItems: "center",
                             justifyContent: "center",
                             textAlign: "center",
+                            minHeight: isMobile ? "100px" : "120px", // Visual consistency
                         }}
                     >
+                        {/* TITLE */}
                         <div
                             style={{
-                                fontSize: "1.125rem", // RELATIVE FONT SIZE (18px)
-                                fontWeight: "semibold",
+                                fontSize: isMobile ? "0.875rem" : "1.125rem", // 14px vs 18px
+                                fontWeight: 600, // Replaced "semibold" string with numeric or valid standard
                                 color: "#356FAF",
+                                marginBottom: "4px",
+                                whiteSpace: "nowrap",       // Prevent wrapping
+                                overflow: "hidden",         // Handle long titles safely
+                                textOverflow: "ellipsis",
+                                maxWidth: "100%"
                             }}
+                            title={it.title || it.label} // Tooltip for truncated text
                         >
                             {it.title || it.label}
                         </div>
 
+                        {/* VALUE */}
                         <div
                             style={{
-                                fontSize: "2rem", // RELATIVE FONT SIZE (32px)
+                                fontSize: isMobile ? "1.5rem" : "2rem", // Scale down font on mobile
                                 fontWeight: 700,
                                 color: "#000",
+                                lineHeight: 1.1,
+                                marginBottom: "4px"
                             }}
                         >
-                            {numberFmt(it.value)}
+                            {it.empty ? "-" : numberFmt(it.value)}
+                        </div>
+
+                        {/* DELTA / PERCENTAGE */}
+                        <div
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: deltaColor,
+                                background: isNeutral ? "transparent" : `${deltaColor}15`, // Subtle bg tint for readability
+                                padding: "2px 6px",
+                                borderRadius: "4px"
+                            }}
+                        >
+                            {isNeutral
+                                ? "–"
+                                : `${it.deltaPercent > 0 ? "+" : ""}${it.deltaPercent.toFixed(1)}%`}
                         </div>
                     </div>
                 );
@@ -783,7 +949,6 @@ function KpiGrid({ items }) {
     );
 }
 
-/* DONUT WIDGET (blue palette) */
 const DONUT_COLORS = [
     "#2B6CB0",
     "#1E90FF",
@@ -794,211 +959,166 @@ const DONUT_COLORS = [
 ];
 
 function DonutWidget({ title, data }) {
-    if (data == null) return null;
-    if (data?.empty) return <NoDataWidget title={title} />;
-    const hasData = data?.items?.length > 0;
-    const items = hasData
-        ? [...data.items].sort((a, b) => b.value - a.value)
-        : [];
+    const width = useWindowWidth();
+    const isMobile = width < 768;
+    const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
+    const widgetHeight = getWidgetHeight(isMobile);
 
-    const renderInsideLabel = ({
-        cx, cy, midAngle, innerRadius, outerRadius, percent
-    }) => {
+    const items = useMemo(() => {
+        if (!data?.items?.length) return [];
+        return [...data.items].sort((a, b) => b.value - a.value);
+    }, [data]);
+
+    const MAX_SLICES = 5;
+
+    const preparedItems = useMemo(() => {
+        if (!items.length) return [];
+        if (items.length <= MAX_SLICES) return items;
+
+        const top = items.slice(0, MAX_SLICES);
+        const rest = items.slice(MAX_SLICES);
+        const othersValue = rest.reduce((sum, x) => sum + x.value, 0);
+
+        if (othersValue <= 0) return top;
+
+        return [
+            ...top,
+            { label: "Others", value: othersValue, isOthers: true },
+        ];
+    }, [items]);
+
+    const totalValue = useMemo(
+        () => preparedItems.reduce((s, x) => s + x.value, 0),
+        [preparedItems]
+    );
+
+    const finalItems = useMemo(
+        () =>
+            preparedItems.map(it => ({
+                ...it,
+                percentage: totalValue > 0 ? (it.value / totalValue) * 100 : 0,
+            })),
+        [preparedItems, totalValue]
+    );
+
+    // Helper for inner label
+    const renderInsideLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+        if (percent * 100 < 4) return null;
         const radius = innerRadius + (outerRadius - innerRadius) / 2;
         const RADIAN = Math.PI / 180;
         const x = cx + radius * Math.cos(-midAngle * RADIAN);
         const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-        if (percent * 100 < 3) return null;
-
         return (
-            <text
-                x={x}
-                y={y}
-                fill="#fff"
-                fontSize={11}
-                fontWeight={600}
-                textAnchor="middle"
-                dominantBaseline="central"
-            >
+            <text x={x} y={y} fill="#fff" fontSize={isMobile ? 9 : 11} fontWeight={600} textAnchor="middle" dominantBaseline="central">
                 {(percent * 100).toFixed(1)}%
             </text>
         );
     };
 
-    const dynamicTruncate = (str) => {
-        const w = window.innerWidth;
-        let limit = 25;
-        if (w < 1280) limit = 18;
-        if (w < 1024) limit = 15;
-        if (w < 768) limit = 12;
-        if (w < 480) limit = 10;
+    const truncateLabel = (str) => {
+        const limit = isMobile ? 25 : 18;
         return str.length > limit ? str.slice(0, limit) + "…" : str;
     };
 
+    // Wrapper Style: Strict Fixed Height
+    const containerStyle = {
+        textAlign: "center",
+        marginBottom: "0.75rem",
+        height: widgetHeight,
+        display: "flex",
+        flexDirection: "column",
+    };
+
+    if (data == null) return <div style={containerStyle}></div>; // Placeholder to keep grid intact
+    if (data?.empty || !finalItems.length)
+        return <NoDataWidget title={title} />;
+
     return (
-        <div
-            style={{
-                textAlign: "center",
-                marginBottom: "0.75rem",
-                height: "400px",
-                display: "flex",
-                flexDirection: "column"
-            }}
-        >
-            {/* Title */}
-            <div
-                style={{
-                    fontWeight: 700,
-                    fontSize: "1rem",
-                    color: "#0B3A66",
-                    marginBottom: "0.5rem"
-                }}
-            >
+        <div style={containerStyle}>
+            <div style={{ fontWeight: 700, fontSize: "1rem", color: "#0B3A66", marginBottom: "0.5rem", flexShrink: 0 }}>
                 {title}
             </div>
 
-            {/* Main container identical to Line & Map */}
-            <div
-                style={{
-                    background: "#fff",
-                    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                    padding: "12px",
-                    flex: 1,
+            <div style={{
+                background: "#fff",
+                border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                padding: "0.75rem",
+                flex: 1,
+                minHeight: 0, // CRITICAL for nested flex scrolling
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: "center",
+                overflow: "hidden" // Ensure nothing spills out of the fixed box
+            }}>
+                {/* DONUT CHART AREA */}
+                <div style={{
+                    width: isMobile ? "100%" : "55%",
+                    height: isMobile ? "50%" : "100%", // Split height on mobile
+                    marginBottom: isMobile ? 12 : 0,
+                    flexShrink: 0
+                }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={finalItems}
+                                dataKey="value"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={isMobile ? 70 : 100} // Slightly smaller to fit fixed height
+                                innerRadius={isMobile ? 30 : 45}
+                                paddingAngle={5}
+                                label={renderInsideLabel}
+                                labelLine={false}
+                            >
+                                {finalItems.map((e, i) => (
+                                    <Cell key={i} fill={e.isOthers ? "#CBD5E1" : DONUT_COLORS[i % DONUT_COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Customized>
+                                {({ width, height }) => (
+                                    <g>
+                                        <text x={width / 2} y={height / 2 - 8} textAnchor="middle" style={{ fontSize: isMobile ? 12 : 14, fontWeight: 700, fill: "#0B3A66" }}>
+                                            {moneyFmt(totalValue)}
+                                        </text>
+                                        <text x={width / 2} y={height / 2 + 10} textAnchor="middle" style={{ fontSize: 10, fill: "#6b8fbf" }}>
+                                            Total
+                                        </text>
+                                    </g>
+                                )}
+                            </Customized>
+                            <ReTooltip formatter={(v, n, p) => [moneyFmt(v), `${p.payload.label} (${p.payload.percentage.toFixed(1)}%)`]} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* LEGEND AREA */}
+                <div style={{
+                    width: isMobile ? "100%" : "45%",
+                    height: isMobile ? "50%" : "100%",
                     display: "flex",
                     flexDirection: "column",
-                    minHeight: 0
-                }}
-            >
-                <div
-                    style={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        minHeight: 0
-                    }}
-                >
-                    {/* Chart should take all remaining space */}
-                    <div style={{ flex: 1, minHeight: 0 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    dataKey="value"
-                                    data={items}
-                                    cx="50%"
-                                    cy="45%"
-                                    outerRadius={100}
-                                    innerRadius={35}
-                                    label={renderInsideLabel}
-                                    labelLine={false}
-                                >
-                                    {items.map((e, i) => (
-                                        <Cell
-                                            key={i}
-                                            fill={DONUT_COLORS[i % DONUT_COLORS.length]}
-                                        />
-                                    ))}
-                                </Pie>
-
-                                <Customized>
-                                    {({ width, height }) => {
-                                        const total = items.reduce((s, x) => s + x.value, 0);
-                                        return (
-                                            <g>
-                                                <text
-                                                    x={width / 2}
-                                                    y={height / 2 - 10}
-                                                    textAnchor="middle"
-                                                    style={{
-                                                        fontSize: 14,
-                                                        fontWeight: 700,
-                                                        fill: "#0B3A66"
-                                                    }}
-                                                >
-                                                    {money(total)}
-                                                </text>
-
-                                                <text
-                                                    x={width / 2}
-                                                    y={height / 2 + 10}
-                                                    textAnchor="middle"
-                                                    style={{ fontSize: 12, fill: "#6b8fbf" }}
-                                                >
-                                                    Total
-                                                </text>
-                                            </g>
-                                        );
-                                    }}
-                                </Customized>
-
-                                <ReTooltip
-                                    formatter={(v, n, p) => [
-                                        money(v),
-                                        `${dynamicTruncate(
-                                            p.payload.label
-                                        )} (${p.payload.percentage.toFixed(1)}%)`
-                                    ]}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Legend at bottom, fixed height */}
-                    <div
-                        style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            gap: 10,
-
-                            width: "100%",
-                            maxHeight: "100px",
-                            overflowY: "auto",
-                            paddingRight: 4,
-                            fontSize: 12,
-                        }}
-                    >
-                        {items.map((it, i) => (
-                            <div
-                                key={i}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    width: "22%",
-                                    minWidth: 90,
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        width: 10,
-                                        height: 10,
-                                        background: DONUT_COLORS[i % DONUT_COLORS.length],
-                                        borderRadius: "50%",
-                                        flexShrink: 0,
-                                    }}
-                                />
-                                <div
-                                    style={{
-                                        color: "#0B3A66",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    {dynamicTruncate(it.label)}
-                                </div>
+                    justifyContent: isMobile ? "flex-start" : "center", // Align top on mobile
+                    gap: 8,
+                    overflowY: "auto", // SCROLLABLE if too many items
+                    paddingLeft: isMobile ? 0 : 10,
+                    borderTop: isMobile ? "1px solid #eee" : "none",
+                    paddingTop: isMobile ? 12 : 0
+                }}>
+                    {finalItems.map((it, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: it.isOthers ? "#CBD5E1" : DONUT_COLORS[i % DONUT_COLORS.length], flexShrink: 0 }} />
+                            <div style={{ color: "#0B3A66", fontSize: 13, flex: 1, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {truncateLabel(it.label)}
                             </div>
-                        ))}
-                    </div>
+                            {isMobile && <div style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>{it.percentage.toFixed(0)}%</div>}
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
     );
 }
-
-
 
 function getDateRange(arr) {
     if (!arr?.length) return "";
@@ -1007,169 +1127,162 @@ function getDateRange(arr) {
     return `${formatDateShort(first)} - ${formatDateShort(last)}`;
 }
 
+function detectMetricKey(data) {
+    if (!data?.current?.length) return "sales";
+    const row = data.current[0];
+    return Object.keys(row).find(k => k !== "Label" && k !== "x" && typeof row[k] === "number") || "sales";
+}
 
+function formatLegendLabel(dataKey, prevRange) {
+    if (dataKey.startsWith("prev")) {
+        const base = dataKey.replace(/^prev/, "");
+        return `${base} (${prevRange})`;
+    }
+    return dataKey;
+}
 
-function CustomLineLegend({ payload }) {
-    const prevRange = getDateRange(window.__prevData);
+function prettify(label) {
+    return label.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+}
+
+function CustomLineLegend({ payload, prevData }) {
+    const prevRange = getDateRange(prevData);
+
+    const sortedPayload = [...payload].sort((a, b) => {
+        const aIsPrev = a.dataKey.startsWith("prev");
+        const bIsPrev = b.dataKey.startsWith("prev");
+
+        if (aIsPrev === bIsPrev) return 0;
+        return aIsPrev ? 1 : -1; // current first
+    });
 
     return (
-        <ul style={{ display: "flex", justifyContent: "center", gap: 20, listStyle: "none" }}>
-            {payload.map((p, i) => {
-                if (p.dataKey === "sales") {
-                    return (
-                        <li key={i}>
-                            <span style={{ width: 12, height: 2, marginBottom: 3, background: p.color, display: "inline-block", marginRight: 6 }} />
-                            Sales
-                        </li>
-                    );
-                }
-
-                if (p.dataKey === "prevSales") {
-                    return (
-                        <li key={i}>
-                            <span style={{ width: 12, height: 2, marginBottom: 3, background: p.color, display: "inline-block", marginRight: 6 }} />
-                            Prev Sales ({prevRange})
-                        </li>
-                    );
-                }
-            })}
+        <ul
+            style={{
+                display: "flex",
+                justifyContent: "center",
+                flexWrap: "wrap",
+                gap: "10px 20px",
+                listStyle: "none",
+                padding: 0,
+                margin: 0
+            }}
+        >
+            {sortedPayload.map((p, i) => (
+                <li
+                    key={i}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        fontSize: 12,
+                        color: "#1f2937"
+                    }}
+                >
+                    <span
+                        style={{
+                            width: 16,
+                            height: 3,
+                            background: p.color,
+                            display: "inline-block",
+                            marginRight: 6
+                        }}
+                    />
+                    {/* formatting logic remains the same */}
+                    {prettify(formatLegendLabel(p.dataKey, prevRange))}
+                </li>
+            ))}
         </ul>
     );
 }
 
 function LineAreaWidget({ title, data }) {
+    const width = useWindowWidth();
+    const isMobile = width < 768;
+    const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
+    const widgetHeight = getWidgetHeight(isMobile);
+    const metricKey = detectMetricKey(data);
+
     const merged = useMemo(() => {
         const curr = data?.current || [];
         const prev = data?.previous || [];
-
         if (!curr.length) return [];
-
-        const xs = curr.map((d) => d.x);
-
-        return xs.map((x, i) => ({
-            x,
-            sales: curr[i]?.sales ?? null,
-            qty: curr[i]?.qty ?? null,
-            realCurrDate: curr[i]?.x ?? null,
-
-            prevSales: prev[i]?.sales ?? null,
-            realPrevDate: prev[i]?.x ?? null,
+        return curr.map((d, i) => ({
+            x: d.x,
+            [metricKey]: d[metricKey] ?? null,
+            [`prev${metricKey}`]: prev[i]?.[metricKey] ?? null,
+            realCurrDate: d.x,
+            realPrevDate: prev[i]?.x,
         }));
-    }, [data]);
+    }, [data, metricKey]);
 
-    window.__prevData = data?.previous || [];
+    // Wrapper Style
+    const containerStyle = {
+        textAlign: "center",
+        marginBottom: "0.75rem",
+        height: widgetHeight,
+        display: "flex",
+        flexDirection: "column"
+    };
 
-    if (data == null) return null;
+    if (data == null) return <div style={containerStyle}></div>;
     if (data?.empty) return <NoDataWidget title={title} />;
 
     return (
-        <div
-            style={{
-                textAlign: "center",
-                marginBottom: "0.75rem",
-                height: "400px",
-                display: "flex",
-                flexDirection: "column"
-            }}
-        >
-            <div
-                style={{
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: "#0B3A66",
-                    marginBottom: 8,
-                }}
-            >
-                {title}
-            </div>
+        <div style={containerStyle}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#0B3A66", marginBottom: 8, flexShrink: 0 }}>{title}</div>
 
-            <div
-                style={{
-                    background: "#fff",
-                    padding: 12,
-                    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                    flex: 1,
-                    position: "relative",
-                    minHeight: 0
-                }}
-            >
+            <div style={{ background: "#fff", padding: isMobile ? "8px 4px" : 12, border: `2px solid ${NGRAPH_THEME.kpiBorder}`, flex: 1, position: "relative", minHeight: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={merged} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <LineChart data={merged} margin={{ top: 5, right: isMobile ? 10 : 30, bottom: 5, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e6efff" />
-
-                        <XAxis
-                            dataKey="x"
-                            fontSize={11}
-                            tick={{ fill: "#33527a" }}
-                            axisLine={{ stroke: "#c3d7ff" }}
-                            tickLine={{ stroke: "#c3d7ff" }}
-                            tickFormatter={formatDateShort}
-                        />
-
+                        <XAxis dataKey="x" fontSize={11} tick={{ fill: "#33527a" }} axisLine={{ stroke: "#c3d7ff" }} tickLine={{ stroke: "#c3d7ff" }} tickFormatter={formatDateShort} interval={isMobile ? "preserveStartEnd" : 0} />
                         <YAxis
-                            tickFormatter={(v) => (v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v)}
+                            tickFormatter={(v) => {
+                                if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;      // Billion
+                                if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;      // Million
+                                if (v >= 1e5) return `${(v / 1e5).toFixed(1)}L`;      // Lakh
+                                if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;      // Thousand
+                                return v;
+                            }}
                             fontSize={11}
                             tick={{ fill: "#33527a" }}
                             axisLine={{ stroke: "#c3d7ff" }}
                             tickLine={{ stroke: "#c3d7ff" }}
+                            width={isMobile ? 40 : 50}
                         />
-
-                        <ReTooltip
-                            content={(props) => {
-                                const p = props?.payload?.[0];
-                                if (!p) return null;
-                                const row = p.payload;
-
-                                return (
-                                    <div
-                                        style={{
-                                            background: "#fff",
-                                            padding: 8,
-                                            border: "1px solid #ddd",
-                                            borderRadius: 6,
-                                        }}
-                                    >
-                                        {row.sales != null && (
-                                            <div style={{ marginBottom: 4 }}>
-                                                <div style={{ fontWeight: 600 }}>
-                                                    Sales ({formatDateShort(row.realCurrDate)})
-                                                </div>
-                                                <div>{money(row.sales)}</div>
-                                            </div>
-                                        )}
-
-                                        {row.prevSales != null && (
-                                            <div>
-                                                <div style={{ fontWeight: 600 }}>
-                                                    Prev Sales ({formatDateShort(row.realPrevDate)})
-                                                </div>
-                                                <div>{money(row.prevSales)}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            }}
+                        <ReTooltip content={(props) => {
+                            const p = props?.payload?.[0];
+                            if (!p) return null;
+                            const row = p.payload;
+                            return (
+                                <div style={{ background: "#fff", padding: 8, border: "1px solid #ddd", borderRadius: 6, boxShadow: "0 2px 10px rgba(0,0,0,0.1)", textAlign: 'left' }}>
+                                    {row[metricKey] != null && (
+                                        <div style={{ marginBottom: 4 }}>
+                                            <div style={{ fontWeight: 600, fontSize: 12, color: "#555" }}>{prettify(metricKey)} ({formatDateShort(row.realCurrDate)})</div>
+                                            <div style={{ fontWeight: 700, color: "#2563eb" }}>{moneyFmt(row[metricKey])}</div>
+                                        </div>
+                                    )}
+                                    {row[`prev${metricKey}`] != null && (
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: 12, color: "#555" }}>{prettify(metricKey)} ({formatDateShort(row.realPrevDate)})</div>
+                                            <div style={{ fontWeight: 700, color: "#8dabec" }}>{moneyFmt(row[`prev${metricKey}`])}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }} />
+                        <Line type="monotone" dataKey={metricKey} stroke="#2563eb" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+                        <Line type="monotone" dataKey={`prev${metricKey}`} stroke="#8dabecff" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+                        <Legend
+                            content={(props) => (
+                                <CustomLineLegend
+                                    {...props}
+                                    prevData={data?.previous} // <--- Pass the specific data here
+                                />
+                            )}
+                            verticalAlign="top"
+                            height={isMobile ? 40 : 30}
                         />
-
-                        <Line
-                            type="monotone"
-                            dataKey="sales"
-                            stroke="#2563eb"
-                            strokeWidth={3}
-                            dot={{ r: 4, stroke: "#2563eb", fill: "#fff" }}
-                            activeDot={{ r: 5 }}
-                        />
-
-                        <Line
-                            type="monotone"
-                            dataKey="prevSales"
-                            stroke="#8dabecff"
-                            strokeWidth={3}
-                            dot={{ r: 4, stroke: "#8dabecff", fill: "#fff" }}
-                            activeDot={{ r: 5 }}
-                        />
-
-                        <Legend content={<CustomLineLegend />} verticalAlign="top" height={30} />
                     </LineChart>
                 </ResponsiveContainer>
             </div>
@@ -1177,313 +1290,317 @@ function LineAreaWidget({ title, data }) {
     );
 }
 
-/* TABLE WIDGET (title outside + centered) */
-
 function TableWidget({ title, data }) {
     const [page, setPage] = useState(1);
-    const safeColumns = Array.isArray(data?.columns) ? data.columns : [];
-    const safeRows = Array.isArray(data?.rows) ? data.rows : [];
+    const width = useWindowWidth();
+    const isMobile = width < 768;
+    const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
+    const widgetHeight = getWidgetHeight(isMobile);
 
+    // --- RESPONSIVE DIMENSIONS ---
+    const VALUE_COL_WIDTH = isMobile ? 110 : 150;
+    const VALUE_NUMBER_WIDTH = isMobile ? 60 : 80;
+    const VALUE_BAR_WIDTH = isMobile ? 30 : 50;
+    const TEXT_COL_WIDTH = isMobile ? 120 : 180;
+
+    const safeColumns = Array.isArray(data?.current?.columns) ? data.current.columns : [];
+    const safeRows = Array.isArray(data?.current?.rows) ? data.current.rows : [];
+    const prevRows = Array.isArray(data?.previous?.rows) ? data.previous.rows : [];
     const dataKey = safeColumns.join(",") + safeRows.length;
 
-    useEffect(() => {
-        setPage(1);
-    }, [dataKey]);
+    useEffect(() => { setPage(1); }, [dataKey]);
 
-    if (data == null) return null;
-    if (data.empty) return <NoDataWidget title={title} />;
-    if (!safeColumns.length) return <NoDataWidget title={title} />;
+    // Wrapper Style
+    const containerStyle = {
+        marginBottom: "0.75rem",
+        display: "flex",
+        flexDirection: "column",
+        height: widgetHeight
+    };
+
+    if (data == null) return <div style={containerStyle}></div>;
+    if (data.empty || !safeColumns.length) return <NoDataWidget title={title} />;
 
     let rows = [...safeRows];
     let totalRow = null;
-
     if (rows.length > 0) {
         const last = rows[rows.length - 1];
-        const isTotal = Object.values(last).some(
-            (v) => typeof v === "string" && v.toLowerCase().includes("total")
-        );
-
+        const isTotal = Object.values(last).some((v) => typeof v === "string" && v.toLowerCase().includes("total"));
         if (isTotal) {
             totalRow = last;
             rows = rows.slice(0, rows.length - 1);
         }
     }
 
-    if (rows.length === 0) return <NoDataWidget title={title} />;
+    if (rows.length === 0) return <div style={containerStyle}><NoDataWidget title={title} /></div>;
 
-    // ---------------------------------------------
-    // DETECT MONEY COLUMNS (Dynamic)
-    // ---------------------------------------------
-    const MONEY_NAME_REGEX = /(amount|amt|total|price|value|cost|net|revenue|sales|balance|paid|receipt)/i;
+    // --- COLUMN DETECTION LOGIC ---
+    const MONEY_NAME_REGEX = /(amount|amt|total|price|value|cost|net|revenue|sales|balance|paid|receipt|gross)/i;
     const moneyColumnIndexes = new Set();
+    const numberColumnIndexes = new Set();
 
-    // 1) First check column names
-    data.columns.forEach((col, idx) => {
+    // 1. Identify Money Columns by Name
+    safeColumns.forEach((col, idx) => {
         if (MONEY_NAME_REGEX.test(String(col))) moneyColumnIndexes.add(idx);
     });
 
-    // 2) If no matches, fallback: inspect sample values
-    if (moneyColumnIndexes.size === 0) {
-        const sampleSize = Math.min(6, rows.length);
-        for (let colIdx = 0; colIdx < data.columns.length; colIdx++) {
-            let numericCount = 0;
-
-            for (let r = 0; r < sampleSize; r++) {
-                const val = rows[r]?.[colIdx];
-                const cleaned = String(val).replace(/[,₹$]/g, "");
-                if (val !== null && val !== undefined && val !== "" && !isNaN(Number(cleaned))) {
-                    numericCount++;
-                }
-            }
-            if (numericCount >= Math.ceil(sampleSize * 0.6)) {
-                moneyColumnIndexes.add(colIdx);
-            }
+    // 2. Identify Number Columns by Content
+    const sampleSize = Math.min(6, rows.length);
+    for (let colIdx = 0; colIdx < safeColumns.length; colIdx++) {
+        let numericCount = 0;
+        for (let r = 0; r < sampleSize; r++) {
+            const val = rows[r]?.[colIdx];
+            const cleaned = String(val).replace(/[,₹$Lkmb]/gi, ""); // Expanded regex to strip suffixes like L, k
+            if (val !== null && val !== undefined && val !== "" && !isNaN(Number(cleaned))) numericCount++;
+        }
+        // If it looks like a number and wasn't already tagged as money, tag as number
+        if (numericCount >= Math.ceil(sampleSize * 0.6) && !moneyColumnIndexes.has(colIdx)) {
+            numberColumnIndexes.add(colIdx);
         }
     }
 
-    // ---------------------------------------------
-    // PAGINATION (without total row)
-    // ---------------------------------------------
+    // Ensure we have at least one value column if numbers exist
+    if (moneyColumnIndexes.size === 0 && numberColumnIndexes.size > 0) {
+        const firstNumCol = [...numberColumnIndexes][0];
+        moneyColumnIndexes.add(firstNumCol);
+        numberColumnIndexes.delete(firstNumCol);
+    }
+
+    // Select the "Primary" value column (for the bar chart) - usually the first money col found
+    const valueColIndex = [...moneyColumnIndexes][0];
+    const keyColIndex = safeColumns.findIndex((_, i) => typeof safeRows[0]?.[i] === "string");
+
+    // --- PREVIOUS DATA MAPPING ---
+    const prevMap = new Map();
+    if (keyColIndex !== -1 && valueColIndex !== undefined) {
+        prevRows.forEach(r => {
+            const key = r[keyColIndex];
+            const val = Number(String(r[valueColIndex]).replace(/[,₹$Lkmb]/gi, ""));
+            if (key && Number.isFinite(val)) prevMap.set(key, val);
+        });
+    }
+
+    let currentTotal = 0;
+    let previousTotal = 0;
+    if (valueColIndex !== undefined && keyColIndex !== -1) {
+        rows.forEach(r => {
+            const key = r[keyColIndex];
+            const currVal = Number(String(r[valueColIndex]).replace(/[,₹$]/g, ""));
+            const prevVal = prevMap.get(key);
+            if (Number.isFinite(currVal)) currentTotal += currVal;
+            if (Number.isFinite(prevVal)) previousTotal += prevVal;
+        });
+    }
+    const totalDeltaValue = previousTotal !== 0 ? currentTotal - previousTotal : null;
+    const totalDeltaPercent = previousTotal !== 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : null;
+
     const total = rows.length;
+    const TABLE_PAGE_SIZE = 5;
     const pages = Math.ceil(total / TABLE_PAGE_SIZE);
     const start = (page - 1) * TABLE_PAGE_SIZE;
     const visible = rows.slice(start, start + TABLE_PAGE_SIZE);
 
+    const maxValueOnPage = Math.max(1, ...visible.map(r => {
+        const v = Number(String(r[valueColIndex]).replace(/[,₹$]/g, ""));
+        return Number.isFinite(v) ? v : 0;
+    }));
+
+    // Reusable style for line clamping
+    const lineClampStyle = {
+        display: "-webkit-box",
+        WebkitLineClamp: 3,
+        WebkitBoxOrient: "vertical",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "normal",
+        wordBreak: "break-word",
+        maxWidth: TEXT_COL_WIDTH,
+    };
+
     return (
-        <div
-            style={{
-                marginBottom: "0.75rem",
-                height: "400px",
-                display: "flex",
-                flexDirection: "column",
-            }}
-        >
-            <div
-                style={{
-                    textAlign: "center",
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: "#0B3A66",
-                    marginBottom: 8,
-                }}
-            >
+        <div style={containerStyle}>
+            <div style={{ textAlign: "center", fontWeight: 700, fontSize: "1rem", color: "#0B3A66", marginBottom: 8, flexShrink: 0 }}>
                 {title}
             </div>
 
-            <div
-                style={{
-                    background: "#fff",
-                    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                    display: "flex",
-                    flexDirection: "column",
-                    minHeight: 260,
-                    height: "100%",
-                }}
-            >
-                <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
-                    <table style={{ width: "100%", minWidth: "400px", fontSize: 12 }}>
+            <div style={{
+                background: "#fff",
+                border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minHeight: 0
+            }}>
+                <div
+                    className="hide-scrollbar"
+                    style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflow: "auto",
+                        WebkitOverflowScrolling: "touch",
+                        scrollbarWidth: "none",
+                        msOverflowStyle: "none"
+                    }}
+                >
+                    <style>{`
+            .hide-scrollbar::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
+
+                    <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: isMobile ? "100%" : "400px" }}>
                         <thead>
                             <tr>
-                                <th style={{ width: "40px", background: NGRAPH_THEME.primary }}></th>
-
-                                {data.columns.map((c) => (
-                                    <th
-                                        key={c}
-                                        style={{
-                                            textAlign: "left",
-                                            padding: "6px 8px",
-                                            color: "#fff",
-                                            background: NGRAPH_THEME.primary,
-                                            fontSize: 14,
-                                        }}
-                                    >
-                                        {c}
-                                    </th>
-                                ))}
+                                <th style={{ position: "sticky", top: 0, zIndex: 10, width: "40px", padding: "8px", background: NGRAPH_THEME.primary, color: "white", textAlign: "left", fontSize: 13 }}>#</th>
+                                {[...safeColumns, "Δ", "Δ %"].map((c, idx) => {
+                                    const isValueCol = idx === valueColIndex + 1;
+                                    const isDeltaCol = c === "Δ" || c === "Δ %";
+                                    const isNumeric = moneyColumnIndexes.has(idx) || numberColumnIndexes.has(idx) || isDeltaCol;
+                                    return (
+                                        <th key={c} style={{
+                                            position: "sticky", top: 0, zIndex: 10,
+                                            textAlign: isDeltaCol || isNumeric ? "right" : "left",
+                                            // textAlign: isDeltaCol ? "right" : "left",
+                                            padding: "8px", color: "#fff", background: NGRAPH_THEME.primary,
+                                            fontSize: 13, whiteSpace: "nowrap",
+                                            minWidth: isValueCol ? VALUE_COL_WIDTH : isDeltaCol ? 80 : 100
+                                        }}>{c}</th>
+                                    );
+                                })}
                             </tr>
                         </thead>
-
                         <tbody>
                             {visible.map((row, i) => {
                                 const idx = start + i + 1;
-
                                 return (
-                                    <tr
-                                        key={i}
-                                        style={{
-                                            background: i % 2 === 1 ? NGRAPH_THEME.primarySoft : "#fff",
-                                            borderBottom: "1px solid #f2f8ff",
-                                            fontSize: 14,
-                                        }}
-                                    >
-                                        {/* INDEX COLUMN */}
-                                        <td
-                                            style={{
-                                                padding: "6px 8px",
-                                                whiteSpace: "nowrap",
-                                                color: NGRAPH_THEME.textPrimary,
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            {idx}.
-                                        </td>
-
-                                        {/* DATA CELLS */}
+                                    <tr key={i} style={{ background: i % 2 === 1 ? NGRAPH_THEME.primarySoft : "#fff" }}>
+                                        <td style={{ padding: "8px", fontSize: 13, color: "#333", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{idx}</td>
                                         {row.map((v, j) => {
-                                            const baseStyle = {
-                                                padding: "6px 8px",
-                                                whiteSpace: "normal",
-                                                wordBreak: "break-word",
-                                                color: NGRAPH_THEME.textPrimary,
-                                                lineHeight: 2,
-                                            };
+                                            const cleaned = String(v).replace(/[,₹$Lkmb]/gi, "");
+                                            const numericValue = !isNaN(Number(cleaned)) ? Number(cleaned) : null;
 
-                                            // MONEY COLUMN (Dynamic)
-                                            const cleaned = String(v).replace(/[,₹$]/g, "");
-                                            if (
-                                                moneyColumnIndexes.has(j) &&
-                                                cleaned !== "" &&
-                                                !isNaN(Number(cleaned))
-                                            ) {
+                                            // CASE 1: Primary Value Column (Render Bar + MoneyFmt)
+                                            if (j === valueColIndex && numericValue !== null) {
+                                                const barPx = Math.round((numericValue / maxValueOnPage) * VALUE_BAR_WIDTH);
                                                 return (
-                                                    <td key={j} style={{ ...baseStyle, whiteSpace: "nowrap", wordBreak: "normal", fontWeight: 600 }}>
-                                                        {money(v)}
+                                                    <td key={j} style={{ padding: "6px 8px", borderBottom: "1px solid #eee", verticalAlign: "top" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                                                            <div style={{ width: VALUE_NUMBER_WIDTH, textAlign: "right", fontWeight: 700, color: "#0B3A66", fontSize: 13 }}>{moneyFmt(numericValue)}</div>
+                                                            <div style={{ width: VALUE_BAR_WIDTH, height: 6, background: "transparent", display: "flex", alignItems: "center" }}>
+                                                                {barPx > 0 && <div style={{ width: barPx, height: "100%", background: NGRAPH_THEME.primary, borderRadius: 2 }} />}
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 );
                                             }
 
-                                            // PERCENTAGE COLUMN
-                                            if (typeof v === "string" && v.endsWith("%")) {
+                                            // CASE 2: Percentage Columns
+                                            if (typeof v === "string" && v.trim().endsWith("%")) {
                                                 const num = parseFloat(v.replace("%", ""));
-                                                const text = isNaN(num) ? v : num.toFixed(1) + "%";
-                                                const color = !isNaN(num) && num < 0 ? "#d12b2b" : "#0B6623";
-
-                                                return (
-                                                    <td key={j} style={{ ...baseStyle, whiteSpace: "nowrap", wordBreak: "normal", color, fontWeight: 700 }}>
-                                                        {text}
-                                                    </td>
-                                                );
+                                                return <td key={j} style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: !isNaN(num) && num < 0 ? "#d12b2b" : "#0B6623", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{v}</td>;
                                             }
 
+                                            // CASE 3: Secondary Money Columns (Render MoneyFmt only) - FIX ADDED HERE
+                                            if (moneyColumnIndexes.has(j) && numericValue !== null) {
+                                                return <td key={j} style={{ padding: "8px", textAlign: "right", fontSize: 13, color: "#333", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{moneyFmt(numericValue)}</td>
+                                            }
+
+                                            // CASE 4: Standard Number Columns (Render NumberFmt)
+                                            if (numberColumnIndexes.has(j) && numericValue !== null) {
+                                                return <td key={j} style={{ padding: "8px", textAlign: "right", fontSize: 13, color: "#333", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{numberFmt(numericValue)}</td>
+                                            }
+
+                                            // Case 4: Text/Generic - Wrapped with Line Clamp
                                             return (
-                                                <td key={j} style={baseStyle}>
-                                                    {v}
+                                                <td key={j} style={{ padding: "8px", borderBottom: "1px solid #eee", verticalAlign: "top" }} title={String(v)}>
+                                                    <div style={{ ...lineClampStyle, fontSize: 13, color: "#333" }}>
+                                                        {v}
+                                                    </div>
                                                 </td>
                                             );
                                         })}
+                                        {(() => {
+                                            const key = row[keyColIndex];
+                                            const currVal = Number(String(row[valueColIndex]).replace(/[,₹$]/g, "")) || 0;
+                                            const rawPrev = prevMap.get(key);
+                                            const prevVal = Number.isFinite(rawPrev) ? rawPrev : null;
+                                            const deltaVal = prevVal == null ? null : currVal - prevVal;
+                                            const deltaPct = prevVal == null || prevVal === 0 ? null : (deltaVal / prevVal) * 100;
+                                            if (deltaVal === 0 || deltaVal == null || deltaPct == 0 || deltaPct == null) {
+                                                return <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: "#999", borderBottom: "1px solid #eee", verticalAlign: "top" }}>–</td>;
+                                            }
+                                            return (
+                                                <>
+                                                    <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: deltaVal < 0 ? "#d12b2b" : "#0B6623", whiteSpace: "nowrap", borderBottom: "1px solid #eee", verticalAlign: "top" }}>
+                                                        {deltaVal == null ? "–" : `${deltaVal >= 0 ? "▲" : "▼"} ${moneyFmt(Math.abs(deltaVal))}`}
+                                                    </td>
+                                                    <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: deltaPct < 0 ? "#d12b2b" : "#0B6623", whiteSpace: "nowrap", borderBottom: "1px solid #eee", verticalAlign: "top" }}>
+                                                        {deltaPct == null ? "–" : `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}
+                                                    </td>
+                                                </>
+                                            );
+                                        })()}
                                     </tr>
                                 );
                             })}
-
-                            {/* TOTAL ROW */}
-                            {totalRow && (
-                                <tr
-                                    style={{
-                                        textAlign: "left",
-                                        padding: "6px 8px",
-                                        color: "#fff",
-                                        background: NGRAPH_THEME.primary,
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    <td style={{ padding: "6px 8px" }}></td>
-
-                                    {data.columns.map((c, j) => {
+                        </tbody>
+                        {totalRow && (
+                            <tfoot>
+                                <tr style={{ background: NGRAPH_THEME.primary, color: "#fff", fontWeight: 700 }}>
+                                    <td style={{ padding: "8px" }}></td>
+                                    {safeColumns.map((c, j) => {
                                         const v = totalRow[c] ?? totalRow[j] ?? "";
                                         const cleaned = String(v).replace(/[,₹$]/g, "");
+                                        const isNumeric = cleaned !== "" && !isNaN(Number(cleaned));
 
-                                        const baseStyle = {
-                                            padding: "6px 8px",
-                                            whiteSpace: "nowrap",
-                                            wordBreak: "normal",
-                                            color: "#fff",
-                                            lineHeight: 2,
-                                        };
-
-                                        // MONEY FORMATTING
-                                        if (
-                                            moneyColumnIndexes.has(j) &&
-                                            cleaned !== "" &&
-                                            !isNaN(Number(cleaned))
-                                        ) {
+                                        // FIX 1: Primary Value Column - Apply spacing logic
+                                        if (j === valueColIndex && isNumeric) {
                                             return (
-                                                <td key={j} style={{ ...baseStyle, whiteSpace: "nowrap", wordBreak: "normal", fontWeight: 600 }}>
-                                                    {money(v)}
+                                                <td key={j} style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>
+                                                    <div style={{ marginRight: VALUE_BAR_WIDTH + 6 }}>
+                                                        {moneyFmt(Number(cleaned))}
+                                                    </div>
                                                 </td>
                                             );
                                         }
 
-                                        // PERCENTAGE FORMATTING
-                                        if (typeof v === "string" && v.endsWith("%")) {
-                                            const num = parseFloat(v.replace("%", ""));
-                                            const text = isNaN(num) ? v : num.toFixed(1) + "%";
-                                            const color = !isNaN(num) && num < 0 ? "#d12b2b" : "#0B6623";
-
-                                            return (
-                                                <td key={j} style={{ ...baseStyle, color, fontWeight: 700 }}>
-                                                    {text}
-                                                </td>
-                                            );
+                                        // FIX 2: Other Money Columns (Standard MoneyFmt)
+                                        if (moneyColumnIndexes.has(j) && isNumeric) {
+                                            return <td key={j} style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>{moneyFmt(Number(cleaned))}</td>;
                                         }
 
+                                        // FIX 3: Number Columns (Standard NumberFmt)
+                                        if (numberColumnIndexes.has(j) && isNumeric) {
+                                            return <td key={j} style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>{numberFmt(Number(cleaned))}</td>;
+                                        }
+
+                                        // String Column in Footer - Also Wrapped
                                         return (
-                                            <td key={j} style={baseStyle}>
-                                                {v}
+                                            <td key={j} style={{ padding: "8px", textAlign: isNumeric ? "right" : "left", verticalAlign: "top" }}>
+                                                <div style={{ ...lineClampStyle, color: "#fff" }}>
+                                                    {v}
+                                                </div>
                                             </td>
                                         );
                                     })}
+                                    <td style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", color: !totalDeltaValue ? "#fff" : totalDeltaValue < 0 ? "#ff8888" : "#88ff88", verticalAlign: "top" }}>
+                                        {totalDeltaValue === 0 || totalDeltaValue == null ? "–" : `${totalDeltaValue > 0 ? "▲" : "▼"}${moneyFmt(Math.abs(totalDeltaValue))}`}
+                                    </td>
+                                    <td style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", color: !totalDeltaPercent ? "#fff" : totalDeltaPercent < 0 ? "#ff8888" : "#88ff88", verticalAlign: "top" }}>
+                                        {totalDeltaPercent === 0 || totalDeltaPercent == null ? "–" : `${totalDeltaPercent > 0 ? "+" : "-"}${totalDeltaPercent.toFixed(1)}%`}
+                                    </td>
                                 </tr>
-                            )}
-                        </tbody>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
-
                 {pages > 1 && (
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            marginTop: 8,
-                            marginBottom: 4,
-                            padding: "0 8px",
-                        }}
-                    >
-                        <span style={{ marginRight: 8, color: "#000", fontSize: 14 }}>
-                            {start + 1}–{Math.min(start + TABLE_PAGE_SIZE, total)} of {total}
-                        </span>
-
-                        <button
-                            disabled={page === 1}
-                            onClick={() => setPage((p) => p - 1)}
-                            style={{
-                                marginRight: 6,
-                                background: "#fff",
-                                color: "#000",
-                                cursor: "pointer",
-                                border: "1px solid #ccc",
-                                padding: "4px 8px",
-                                borderRadius: 4,
-                            }}
-                        >
-                            {"<"}
-                        </button>
-
-                        <button
-                            disabled={page === pages}
-                            onClick={() => setPage((p) => p + 1)}
-                            style={{
-                                marginRight: 6,
-                                background: "#fff",
-                                color: "#000",
-                                cursor: "pointer",
-                                border: "1px solid #ccc",
-                                padding: "4px 8px",
-                                borderRadius: 4,
-                            }}
-                        >
-                            {">"}
-                        </button>
+                    <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px", borderTop: "1px solid #eee", flexShrink: 0 }}>
+                        <span style={{ marginRight: 12, fontSize: 13, display: "flex", alignItems: "center" }}>{start + 1}–{Math.min(start + TABLE_PAGE_SIZE, total)} of {total}</span>
+                        <div style={{ display: "flex", gap: 4 }}>
+                            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} style={{ padding: "4px 10px", background: "#f3f4f6", border: "1px solid #ddd", borderRadius: 4, cursor: page === 1 ? "not-allowed" : "pointer", opacity: page === 1 ? 0.5 : 1 }}>{"<"}</button>
+                            <button disabled={page === pages} onClick={() => setPage((p) => p + 1)} style={{ padding: "4px 10px", background: "#f3f4f6", border: "1px solid #ddd", borderRadius: 4, cursor: page === pages ? "not-allowed" : "pointer", opacity: page === pages ? 0.5 : 1 }}>{">"}</button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -1499,7 +1616,8 @@ function TableWidget({ title, data }) {
 export default function ProductionAnalyticsPage({ userId: propUserId }) {
     const { id: routeUserId } = useParams();
     const userId = routeUserId || propUserId || "demo_tenant";
-
+    const windowWidth = useWindowWidth();
+    const isMobile = windowWidth < 768;
     const today = new Date();
     const prevMonth = subMonths(today, 1);
     const defaultStart = format(startOfMonth(prevMonth), "yyyy-MM-dd");
@@ -1588,7 +1706,7 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
     const kpiItems = [
         dataMap.pa_kpi_grossproduction?.data,
         dataMap.pa_kpi_netproduction?.data,
-        dataMap.pa_kpi_grades?.data,
+        dataMap.pa_kpi_grade?.data,
         dataMap.pa_kpi_machines?.data,
         dataMap.pa_kpi_items?.data,
         dataMap.pa_kpi_lots?.data,
@@ -1605,43 +1723,25 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
         });
     }
 
-    return (
-        <div
-            style={{
-                // Use relative padding and font
-                padding: 0,
-                fontFamily:
-                    "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
-                background: NGRAPH_THEME.background,
-                // The container needs to be flexible to accommodate all screen sizes
-                maxWidth: "100%",
-                minWidth: "320px",
-                margin: "0 auto",
-            }}
-        >
-            <div
-                style={{
-                    position: "sticky",
-                    top: "96px",
-                    zIndex: 90,
-                    background: NGRAPH_THEME.header,
-                }}
-            >
-                <Header companyLogoUrl={companyLogoUrl} />
+    function handleApply() {
+        setDateRange(pendingRange);
+    }
 
-                {/* BACK + DATE FILTER ROW */}
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "0.75rem 1.25rem",
-                        background: NGRAPH_THEME.primarySoft,
-                        borderBottom: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-                        flexWrap: "wrap",
-                        gap: "0.5rem",
-                    }}
-                >
+    return (
+        <div style={{ padding: 0, fontFamily: "Arial, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
+            <div style={{ position: "sticky", top: "96px", zIndex: 90, background: NGRAPH_THEME.header }}>
+                <Header companyLogoUrl={companyLogoUrl} />
+                <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: isMobile ? "0.75rem 1rem" : "0.75rem 1.25rem",
+                    background: NGRAPH_THEME.primarySoft,
+                    borderBottom: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+                    flexWrap: "wrap",
+                    gap: "1rem"
+                }}>
+
                     <button
                         onClick={() => navigate("/")}
                         style={{
@@ -1652,110 +1752,144 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
                             border: "none",
                             borderRadius: 6,
                             cursor: "pointer",
-                            flexShrink: 0,
+                            flexShrink: 0
                         }}
                     >
                         ← Back
                     </button>
 
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: "0.5rem",
-                        }}
-                    >
+                    <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                        flex: "1 1 auto",
+                        justifyContent: isMobile ? "flex-start" : "flex-end", // Align right on desktop
+                        width: isMobile ? "100%" : "auto"
+                    }}>
 
-                        {/* PRESET BUTTON GROUP */}
-                        <PresetDateButtons onSelect={(range) => {
-                            setPendingRange(range);
-                            setDateRange(range);
-                        }} />
+                        {/* Date Picker Grows to fill space on mobile */}
+                        <div style={{ flex: isMobile ? "1 1 100%" : "0 1 auto" }}>
+                            <AdvancedDatePicker
+                                value={pendingRange}
+                                onChange={setPendingRange}
+                            />
+                        </div>
 
-                        {/* EXISTING DATE RANGE INPUT */}
-                        <DateRangeInput
-                            value={pendingRange}
-                            onPendingChange={setPendingRange}
-                            onApply={setDateRange}
-                        />
+                        <div style={{ display: 'flex', gap: '0.5rem', flex: isMobile ? "1 1 100%" : "0 1 auto" }}>
+                            <button
+                                onClick={handleApply}
+                                style={{
+                                    flex: 1, // Equal width buttons on mobile
+                                    padding: "0.375rem 0.75rem",
+                                    background: NGRAPH_THEME.accent,
+                                    color: "white",
+                                    borderRadius: 6,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    whiteSpace: "nowrap"
+                                }}
+                            >
+                                Apply
+                            </button>
 
-                        <button
-                            onClick={resetDateRange}
-                            style={{
-                                padding: "0.375rem 0.75rem",
-                                background: "#A1A1A1",
-                                color: "white",
-                                borderRadius: 6,
-                                border: "none",
-                                cursor: "pointer",
-                                fontWeight: 600,
-                                flexShrink: 0,
-                            }}
-                        >
-                            Reset
-                        </button>
-
+                            <button
+                                onClick={resetDateRange}
+                                style={{
+                                    flex: 1, // Equal width buttons on mobile
+                                    padding: "0.375rem 0.75rem",
+                                    background: "#A1A1A1",
+                                    color: "white",
+                                    borderRadius: 6,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontWeight: 600,
+                                    whiteSpace: "nowrap"
+                                }}
+                            >
+                                Reset
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {error && (
-                <div style={{ color: "#a31b1b", marginBottom: 12 }}>{error}</div>
+                <div style={{ color: "#a31b1b", margin: "12px", textAlign: "center" }}>{error}</div>
             )}
 
             {/* KPI sections remain responsive due to internal grid logic */}
-            <div style={{ padding: "1.25rem" /* RELATIVE PADDING (20px) */ }}>
+            <div
+                style={{
+                    padding: isMobile ? "1rem" : "1.25rem",
+                    width: "100%",
+                    boxSizing: "border-box"
+                }}
+            >
                 <KpiGrid items={kpiItems} />
             </div>
 
             {/* DONUT AND LINE CHART WIDGETS SECTION */}
             <div
                 style={{
-                    padding: "1.25rem",
+                    padding: isMobile ? "0.75rem" : "1.25rem",
                     display: "grid",
-                    // RESPONSIVE GRID: Auto-fit up to 3 columns, minimum 280px wide
-                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "0.75rem",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                    gap: isMobile ? "1rem" : "2.50rem",
+                    width: "100%",
+                    boxSizing: "border-box"
                 }}
             >
-                <DonutWidget
-                    title={dataMap.pa_pie_production?.title || "Branch-wise Sales"}
-                    data={dataMap.pa_pie_production?.data}
-                />
+                {dataMap.pa_pie_production?.data && (
+                    <DonutWidget
+                        title={dataMap.pa_pie_production?.title || "Branch-wise Sales"}
+                        data={dataMap.pa_pie_production?.data}
+                    />
+                )}
 
-                <LineAreaWidget
-                    title={dataMap.pa_line_month?.title || "Monthly Sales <> Qty"}
-                    data={dataMap.pa_line_month?.data}
-                />
+                {dataMap.pa_line_month?.data && (
+                    <LineAreaWidget
+                        title={dataMap.pa_line_month?.title || "Monthly Sales <> Qty"}
+                        data={dataMap.pa_line_month?.data}
+                    />
+                )}
 
-                <DonutWidget
-                    title={dataMap.pa_pie_grade?.title || "Cost Center-wise Sales"}
-                    data={dataMap.pa_pie_grade?.data}
-                />
+                {dataMap.pa_pie_grade?.data && (
+                    <DonutWidget
+                        title={dataMap.pa_pie_grade?.title || "Cost Center-wise Sales"}
+                        data={dataMap.pa_pie_grade?.data}
+                    />
+                )}
             </div>
 
             {/* TABLE WIDGETS */}
             <div
                 style={{
-                    padding: "1.25rem",
+                    padding: isMobile ? "0.75rem" : "1.25rem",
                     display: "grid",
-                    // RESPONSIVE GRID: Auto-fit up to 3 columns, minimum 300px wide
                     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                    gap: "0.75rem",
-                    marginBottom: "0.75rem",
+                    gap: isMobile ? "1rem" : "2.50rem",
+                    width: "100%",
+                    boxSizing: "border-box"
                 }}
             >
-                <TableWidget
-                    title={dataMap.pa_table_machine?.title || "Book-wise Sales"}
-                    data={dataMap.pa_table_machine?.data}
-                />
+                {dataMap.pa_table_machine?.data && (
+                    <TableWidget
+                        title={dataMap.pa_table_machine?.title || "Book-wise Sales"}
+                        data={dataMap.pa_table_machine?.data}
+                    />
+                )}
 
-                <TableWidget
-                    title={dataMap.pa_table_item?.title || "Category-wise Sales"}
-                    data={dataMap.pa_table_item?.data}
-                />
+                {dataMap.pa_table_item?.data && (
+                    <TableWidget
+                        title={dataMap.pa_table_item?.title || "Category-wise Sales"}
+                        data={dataMap.pa_table_item?.data}
+                    />
+                )}
             </div>
+
             {loading && (
                 <div
                     style={{
