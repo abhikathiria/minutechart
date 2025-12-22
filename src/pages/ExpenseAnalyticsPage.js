@@ -698,7 +698,7 @@ function AdvancedDatePicker({ value, onChange }) {
           }}>
             {[
               "Today", "Yesterday", "Last 7 Days", "Last 30 Days",
-              "This Month", "Last Month", "This Year"
+              "This Month", "Last Month", "This Year", "Last Year" // <--- Added "Last Year" here
             ].map(preset => (
               <button
                 key={preset}
@@ -829,7 +829,7 @@ function DonutWidget({ title, data }) {
   const containerStyle = {
     textAlign: "center",
     marginBottom: "0.75rem",
-    height: widgetHeight,
+    minHeight: widgetHeight,
     display: "flex",
     flexDirection: "column",
   };
@@ -873,8 +873,8 @@ function DonutWidget({ title, data }) {
                 dataKey="value"
                 cx="50%"
                 cy="50%"
-                outerRadius={isMobile ? 70 : 100} // Slightly smaller to fit fixed height
-                innerRadius={isMobile ? 30 : 45}
+                outerRadius={isMobile ? 70 : 85} // Slightly smaller to fit fixed height
+                innerRadius={isMobile ? 30 : 40}
                 paddingAngle={5}
                 label={renderInsideLabel}
                 labelLine={false}
@@ -1103,14 +1103,16 @@ function TableWidget({ title, data }) {
   const [page, setPage] = useState(1);
   const width = useWindowWidth();
   const isMobile = width < 768;
+  const isMedium = width >= 768 && width <= 1366; // New breakpoint for your issue
+
   const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
   const widgetHeight = getWidgetHeight(isMobile);
 
-  // --- RESPONSIVE DIMENSIONS ---
-  const VALUE_COL_WIDTH = isMobile ? 110 : 150;
-  const VALUE_NUMBER_WIDTH = isMobile ? 60 : 80;
-  const VALUE_BAR_WIDTH = isMobile ? 30 : 50;
-  const TEXT_COL_WIDTH = isMobile ? 120 : 180;
+  // --- ADJUSTED RESPONSIVE DIMENSIONS ---
+  const VALUE_COL_WIDTH = isMobile ? 110 : (isMedium ? 100 : 120);
+  const VALUE_NUMBER_WIDTH = isMobile ? 60 : (isMedium ? 55 : 70);
+  const VALUE_BAR_WIDTH = isMobile ? 30 : (isMedium ? 30 : 40);
+  const TEXT_COL_WIDTH = isMobile ? 120 : (isMedium ? 100 : 150);
 
   const safeColumns = Array.isArray(data?.current?.columns) ? data.current.columns : [];
   const safeRows = Array.isArray(data?.current?.rows) ? data.current.rows : [];
@@ -1119,12 +1121,14 @@ function TableWidget({ title, data }) {
 
   useEffect(() => { setPage(1); }, [dataKey]);
 
-  // Wrapper Style
+  // Wrapper Style - CHANGED height to minHeight
   const containerStyle = {
     marginBottom: "0.75rem",
     display: "flex",
     flexDirection: "column",
-    height: widgetHeight
+    height: widgetHeight,
+    width: "100%",
+    overflow: "hidden" // Prevent the card itself from growing
   };
 
   if (data == null) return <div style={containerStyle}></div>;
@@ -1143,43 +1147,36 @@ function TableWidget({ title, data }) {
 
   if (rows.length === 0) return <div style={containerStyle}><NoDataWidget title={title} /></div>;
 
-  // --- COLUMN DETECTION LOGIC ---
   const MONEY_NAME_REGEX = /(amount|amt|total|price|value|cost|net|revenue|sales|balance|paid|receipt|gross)/i;
   const moneyColumnIndexes = new Set();
   const numberColumnIndexes = new Set();
 
-  // 1. Identify Money Columns by Name
   safeColumns.forEach((col, idx) => {
     if (MONEY_NAME_REGEX.test(String(col))) moneyColumnIndexes.add(idx);
   });
 
-  // 2. Identify Number Columns by Content
   const sampleSize = Math.min(6, rows.length);
   for (let colIdx = 0; colIdx < safeColumns.length; colIdx++) {
     let numericCount = 0;
     for (let r = 0; r < sampleSize; r++) {
       const val = rows[r]?.[colIdx];
-      const cleaned = String(val).replace(/[,₹$Lkmb]/gi, ""); // Expanded regex to strip suffixes like L, k
+      const cleaned = String(val).replace(/[,₹$Lkmb]/gi, "");
       if (val !== null && val !== undefined && val !== "" && !isNaN(Number(cleaned))) numericCount++;
     }
-    // If it looks like a number and wasn't already tagged as money, tag as number
     if (numericCount >= Math.ceil(sampleSize * 0.6) && !moneyColumnIndexes.has(colIdx)) {
       numberColumnIndexes.add(colIdx);
     }
   }
 
-  // Ensure we have at least one value column if numbers exist
   if (moneyColumnIndexes.size === 0 && numberColumnIndexes.size > 0) {
     const firstNumCol = [...numberColumnIndexes][0];
     moneyColumnIndexes.add(firstNumCol);
     numberColumnIndexes.delete(firstNumCol);
   }
 
-  // Select the "Primary" value column (for the bar chart) - usually the first money col found
   const valueColIndex = [...moneyColumnIndexes][0];
   const keyColIndex = safeColumns.findIndex((_, i) => typeof safeRows[0]?.[i] === "string");
 
-  // --- PREVIOUS DATA MAPPING ---
   const prevMap = new Map();
   if (keyColIndex !== -1 && valueColIndex !== undefined) {
     prevRows.forEach(r => {
@@ -1200,6 +1197,7 @@ function TableWidget({ title, data }) {
       if (Number.isFinite(prevVal)) previousTotal += prevVal;
     });
   }
+
   const totalDeltaPercent = previousTotal !== 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : null;
 
   const total = rows.length;
@@ -1213,10 +1211,9 @@ function TableWidget({ title, data }) {
     return Number.isFinite(v) ? v : 0;
   }));
 
-  // Reusable style for line clamping
   const lineClampStyle = {
     display: "-webkit-box",
-    WebkitLineClamp: 3,
+    WebkitLineClamp: 2, // Reduced to 2 for tighter screens
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -1244,10 +1241,9 @@ function TableWidget({ title, data }) {
           style={{
             flex: 1,
             minHeight: 0,
-            overflow: "auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none"
+            overflowX: "auto",
+            overflowY: "hidden",
+            scrollbarWidth: "none"
           }}
         >
           <style>{`
@@ -1256,7 +1252,16 @@ function TableWidget({ title, data }) {
             }
           `}</style>
 
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: isMobile ? "100%" : "400px" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "separate",
+              borderSpacing: 0,
+              // minWidth: isMobile ? "100%" : "400px",
+              tableLayout: safeColumns.length > 4 ? "auto" : "fixed", // flexible if many columns
+              fontSize: isMedium ? "11px" : "13px"
+            }}
+          >
             <thead>
               <tr>
                 <th style={{ position: "sticky", top: 0, zIndex: 10, width: "40px", padding: "8px", background: NGRAPH_THEME.primary, color: "white", textAlign: "left", fontSize: 13 }}>#</th>
@@ -1514,7 +1519,7 @@ export default function ExpenseAnalyticsPage({ userId: propUserId }) {
   }
 
   return (
-    <div style={{ padding: 0, fontFamily: "Arial, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
+    <div style={{ padding: 0, fontFamily: "Tahoma, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
       <div style={{ position: "sticky", top: "96px", zIndex: 90, background: NGRAPH_THEME.header }}>
         <Header companyLogoUrl={companyLogoUrl} />
         <div style={{

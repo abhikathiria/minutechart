@@ -262,7 +262,7 @@ function normalizeKpi(rows, componentId) {
 async function postExecuteSalesComponent(userId, body) {
   try {
     const res = await api.post(
-      `/salesmodules/execute/${encodeURIComponent(userId)}`,
+      `/salesmodules/executesales/${encodeURIComponent(userId)}`,
       body,
       { headers: { "Content-Type": "application/json" } }
     );
@@ -788,7 +788,7 @@ function AdvancedDatePicker({ value, onChange }) {
           }}>
             {[
               "Today", "Yesterday", "Last 7 Days", "Last 30 Days",
-              "This Month", "Last Month", "This Year"
+              "This Month", "Last Month", "This Year", "Last Year" // <--- Added "Last Year" here
             ].map(preset => (
               <button
                 key={preset}
@@ -860,7 +860,8 @@ function KpiGrid({ items }) {
       style={{
         display: "grid",
         // Mobile: 135px allows 2 columns on almost all phones. Desktop: 160px standard.
-        gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "135px" : "180px"}, 1fr))`,
+        // Change from 180px to 140px to allow all 6 to stay on one line
+        gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "135px" : "140px"}, 1fr))`,
         // Mobile: Tighter gap (16px). Desktop: Spacious gap (40px).
         gap: isMobile ? "1rem" : "2.50rem",
         marginBottom: "0.75rem",
@@ -887,7 +888,7 @@ function KpiGrid({ items }) {
               alignItems: "center",
               justifyContent: "center",
               textAlign: "center",
-              minHeight: isMobile ? "100px" : "120px", // Visual consistency
+              minHeight: isMobile ? "80px" : "100px", // Visual consistency
             }}
           >
             {/* TITLE */}
@@ -1190,7 +1191,7 @@ function DonutWidget({ title, data }) {
   const containerStyle = {
     textAlign: "center",
     marginBottom: "0.75rem",
-    height: widgetHeight,
+    minHeight: widgetHeight,
     display: "flex",
     flexDirection: "column",
   };
@@ -1234,8 +1235,8 @@ function DonutWidget({ title, data }) {
                 dataKey="value"
                 cx="50%"
                 cy="50%"
-                outerRadius={isMobile ? 70 : 100} // Slightly smaller to fit fixed height
-                innerRadius={isMobile ? 30 : 45}
+                outerRadius={isMobile ? 70 : 85} // Slightly smaller to fit fixed height
+                innerRadius={isMobile ? 30 : 40}
                 paddingAngle={5}
                 label={renderInsideLabel}
                 labelLine={false}
@@ -1689,14 +1690,16 @@ function TableWidget({ title, data }) {
   const [page, setPage] = useState(1);
   const width = useWindowWidth();
   const isMobile = width < 768;
+  const isMedium = width >= 768 && width <= 1366; // New breakpoint for your issue
+
   const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
   const widgetHeight = getWidgetHeight(isMobile);
 
-  // --- RESPONSIVE DIMENSIONS ---
-  const VALUE_COL_WIDTH = isMobile ? 110 : 150;
-  const VALUE_NUMBER_WIDTH = isMobile ? 60 : 80;
-  const VALUE_BAR_WIDTH = isMobile ? 30 : 50;
-  const TEXT_COL_WIDTH = isMobile ? 120 : 180;
+  // --- ADJUSTED RESPONSIVE DIMENSIONS ---
+  const VALUE_COL_WIDTH = isMobile ? 110 : (isMedium ? 100 : 120);
+  const VALUE_NUMBER_WIDTH = isMobile ? 60 : (isMedium ? 55 : 70);
+  const VALUE_BAR_WIDTH = isMobile ? 30 : (isMedium ? 30 : 40);
+  const TEXT_COL_WIDTH = isMobile ? 120 : (isMedium ? 100 : 150);
 
   const safeColumns = Array.isArray(data?.current?.columns) ? data.current.columns : [];
   const safeRows = Array.isArray(data?.current?.rows) ? data.current.rows : [];
@@ -1705,12 +1708,14 @@ function TableWidget({ title, data }) {
 
   useEffect(() => { setPage(1); }, [dataKey]);
 
-  // Wrapper Style
+  // Wrapper Style - CHANGED height to minHeight
   const containerStyle = {
     marginBottom: "0.75rem",
     display: "flex",
     flexDirection: "column",
-    height: widgetHeight
+    height: widgetHeight,
+    width: "100%",
+    overflow: "hidden" // Prevent the card itself from growing
   };
 
   if (data == null) return <div style={containerStyle}></div>;
@@ -1729,43 +1734,36 @@ function TableWidget({ title, data }) {
 
   if (rows.length === 0) return <div style={containerStyle}><NoDataWidget title={title} /></div>;
 
-  // --- COLUMN DETECTION LOGIC ---
   const MONEY_NAME_REGEX = /(amount|amt|total|price|value|cost|net|revenue|sales|balance|paid|receipt|gross)/i;
   const moneyColumnIndexes = new Set();
   const numberColumnIndexes = new Set();
 
-  // 1. Identify Money Columns by Name
   safeColumns.forEach((col, idx) => {
     if (MONEY_NAME_REGEX.test(String(col))) moneyColumnIndexes.add(idx);
   });
 
-  // 2. Identify Number Columns by Content
   const sampleSize = Math.min(6, rows.length);
   for (let colIdx = 0; colIdx < safeColumns.length; colIdx++) {
     let numericCount = 0;
     for (let r = 0; r < sampleSize; r++) {
       const val = rows[r]?.[colIdx];
-      const cleaned = String(val).replace(/[,₹$Lkmb]/gi, ""); // Expanded regex to strip suffixes like L, k
+      const cleaned = String(val).replace(/[,₹$Lkmb]/gi, "");
       if (val !== null && val !== undefined && val !== "" && !isNaN(Number(cleaned))) numericCount++;
     }
-    // If it looks like a number and wasn't already tagged as money, tag as number
     if (numericCount >= Math.ceil(sampleSize * 0.6) && !moneyColumnIndexes.has(colIdx)) {
       numberColumnIndexes.add(colIdx);
     }
   }
 
-  // Ensure we have at least one value column if numbers exist
   if (moneyColumnIndexes.size === 0 && numberColumnIndexes.size > 0) {
     const firstNumCol = [...numberColumnIndexes][0];
     moneyColumnIndexes.add(firstNumCol);
     numberColumnIndexes.delete(firstNumCol);
   }
 
-  // Select the "Primary" value column (for the bar chart) - usually the first money col found
   const valueColIndex = [...moneyColumnIndexes][0];
   const keyColIndex = safeColumns.findIndex((_, i) => typeof safeRows[0]?.[i] === "string");
 
-  // --- PREVIOUS DATA MAPPING ---
   const prevMap = new Map();
   if (keyColIndex !== -1 && valueColIndex !== undefined) {
     prevRows.forEach(r => {
@@ -1799,10 +1797,9 @@ function TableWidget({ title, data }) {
     return Number.isFinite(v) ? v : 0;
   }));
 
-  // Reusable style for line clamping
   const lineClampStyle = {
     display: "-webkit-box",
-    WebkitLineClamp: 3,
+    WebkitLineClamp: 2, // Reduced to 2 for tighter screens
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -1830,10 +1827,9 @@ function TableWidget({ title, data }) {
           style={{
             flex: 1,
             minHeight: 0,
-            overflow: "auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none"
+            overflowX: "auto",
+            overflowY: "hidden",
+            scrollbarWidth: "none"
           }}
         >
           <style>{`
@@ -1842,7 +1838,16 @@ function TableWidget({ title, data }) {
             }
           `}</style>
 
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: isMobile ? "100%" : "400px" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "separate",
+              borderSpacing: 0,
+              // minWidth: isMobile ? "100%" : "400px",
+              tableLayout: safeColumns.length > 4 ? "auto" : "fixed", // flexible if many columns
+              fontSize: isMedium ? "11px" : "13px"
+            }}
+          >
             <thead>
               <tr>
                 <th style={{ position: "sticky", top: 0, zIndex: 10, width: "40px", padding: "8px", background: NGRAPH_THEME.primary, color: "white", textAlign: "left", fontSize: 13 }}>#</th>
@@ -1921,9 +1926,9 @@ function TableWidget({ title, data }) {
                       const deltaVal = prevVal == null ? null : currVal - prevVal;
                       const deltaPct = prevVal == null || prevVal === 0 ? null : (deltaVal / prevVal) * 100;
                       if (deltaVal === 0 || deltaVal == null || deltaPct == 0 || deltaPct == null) {
-                        return <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: "#999", borderBottom: "1px solid #eee", verticalAlign: "top" }}>–</td>;
+                        return <td style={{ padding: "6px", textAlign: "right", fontWeight: 700, fontSize: 13, color: "#999", borderBottom: "1px solid #eee", verticalAlign: "top" }}>–</td>;
                       }
-                      return <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: deltaPct < 0 ? "#d12b2b" : "#0B6623", whiteSpace: "nowrap", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{deltaPct == null ? "–" : `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}</td>;
+                      return <td style={{ padding: "6px", textAlign: "right", fontWeight: 700, fontSize: 13, color: deltaPct < 0 ? "#d12b2b" : "#0B6623", whiteSpace: "nowrap", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{deltaPct == null ? "–" : `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}</td>;
                     })()}
                   </tr>
                 );
@@ -1992,13 +1997,15 @@ function TableWidget({ title, data }) {
 
 function ProfessionalMap({ title, data }) {
   const [tooltip, setTooltip] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false); 
+  
   const mapRef = useRef(null);
   const width = useWindowWidth();
   const isMobile = width < 768;
   const isSmallMobile = width < 400;
-  const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
-
-  const widgetHeight = getWidgetHeight(isMobile);
+  
+  // Standard height for the widget when not fullscreen
+  const widgetHeight = isMobile ? 420 : 340;
 
   // Wrapper Style
   const containerStyle = {
@@ -2030,19 +2037,88 @@ function ProfessionalMap({ title, data }) {
   const max = values.length ? Math.max(...values) : 0;
   const colorScale = scaleLinear().domain([min, max]).range(["#E9F6FF", "#08306B"]);
 
+  // --- STYLE LOGIC ---
+  // When fullscreen, we want fixed positioning covering the screen.
+  // We use flex to center the map in the middle of that screen.
+  const mapContainerStyle = isFullscreen ? {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    zIndex: 9999,
+    background: "#fff",
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box"
+  } : {
+    background: "#fff",
+    padding: isMobile ? 8 : 12,
+    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    position: "relative"
+  };
+
   return (
     <div style={containerStyle}>
       <div style={{ fontWeight: 700, fontSize: 16, color: "#0B3A66", marginBottom: 8, flexShrink: 0 }}>{title}</div>
 
-      <div ref={mapRef} style={{ background: "#fff", padding: isMobile ? 8 : 12, border: `2px solid ${NGRAPH_THEME.kpiBorder}`, flex: 1, display: "flex", flexDirection: "column", minHeight: 0, position: "relative" }}>
+      <div ref={mapRef} style={mapContainerStyle}>
+        
+        {/* Fullscreen Toggle Button */}
+        <button 
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          style={{
+            position: isFullscreen ? "fixed" : "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 10,
+            background: "#fff",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "5px",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+          }}
+          title={isFullscreen ? "Close Fullscreen" : "Expand Map"}
+        >
+          {isFullscreen ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B3A66" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B3A66" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+            </svg>
+          )}
+        </button>
+
         {tooltip && (
           <div style={{ position: "absolute", top: tooltip.y, left: Math.min(tooltip.x, width - 150), background: "#fff", padding: "6px 10px", border: "1px solid #dcefff", borderRadius: 4, fontSize: 12, pointerEvents: "none", zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.15)", textAlign: "left" }}>
             <strong style={{ color: "#0B3A66" }}>{tooltip.state}</strong><br />
             {moneyFmt(tooltip.value)}
           </div>
         )}
-        <div style={{ flex: 1, width: "100%", minHeight: 0 }}>
-          <ComposableMap projection="geoMercator" projectionConfig={{ scale: isMobile ? 850 : 1000, center: [78.9629, 22.5937] }} style={{ width: "100%", height: "100%" }}>
+
+        {/* Map Area */}
+        {/* We use flex: 1 to fill space, but alignItems center to ensure map doesn't stretch weirdly */}
+        <div style={{ flex: 1, width: "100%", minHeight: 0, display: "flex", justifyContent: "center", alignItems: "center", overflow: "hidden" }}>
+          
+          <ComposableMap 
+            projection="geoMercator" 
+            // 1. FIXED WIDTH/HEIGHT: This defines the aspect ratio (Taller for India)
+            width={600} 
+            height={700}
+            // 2. FIXED SCALE: 1000 fits perfectly inside a 600x700 box
+            projectionConfig={{ scale: 1000, center: [78.9629, 22.5937] }} 
+            // 3. RESPONSIVE CSS: object-fit equivalent. "100%" makes it fit the parent container automatically
+            style={{ width: "100%", height: "100%", maxHeight: "100%" }}
+          >
             <Geographies geography={INDIA_GEOJSON}>
               {({ geographies }) => geographies.map((geo) => {
                 const stateName = geo.properties.NAME_1 || geo.properties.name || geo.properties.STATE || "";
@@ -2054,13 +2130,19 @@ function ProfessionalMap({ title, data }) {
                       setTooltip({ state: stateName, value, x: evt.clientX - rect.left + 10, y: evt.clientY - rect.top - 10 });
                     }}
                     onMouseLeave={() => setTooltip(null)}
-                    style={{ default: { outline: "none", fill: value > 0 ? colorScale(value) : "#ffffff", stroke: "#666", strokeWidth: 0.5 }, hover: { outline: "none", fill: value ? colorScale(value) : "#f0f0f0", stroke: "#000", strokeWidth: 1 }, pressed: { outline: "none", stroke: "#000", strokeWidth: 1 } }}
+                    style={{ 
+                      default: { outline: "none", fill: value > 0 ? colorScale(value) : "#ffffff", stroke: "#666", strokeWidth: 0.5 }, 
+                      hover: { outline: "none", fill: value ? colorScale(value) : "#f0f0f0", stroke: "#000", strokeWidth: 1 }, 
+                      pressed: { outline: "none", stroke: "#000", strokeWidth: 1 } 
+                    }}
                   />
                 );
               })}
             </Geographies>
           </ComposableMap>
         </div>
+
+        {/* Legend */}
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 10 : 20, flexShrink: 0, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, color: "#0B3A66", fontSize: isMobile ? 12 : 14 }}>Sales</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2165,7 +2247,7 @@ export default function SalesAnalyticsPage({ userId: propUserId }) {
   }
 
   return (
-    <div style={{ padding: 0, fontFamily: "Arial, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
+    <div style={{ padding: 0, fontFamily: "Tahoma, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
       <div style={{ position: "sticky", top: "96px", zIndex: 90, background: NGRAPH_THEME.header }}>
         <Header companyLogoUrl={companyLogoUrl} />
         <div style={{

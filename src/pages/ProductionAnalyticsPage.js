@@ -628,224 +628,224 @@ function Header({ companyLogoUrl }) {
 }
 
 function AdvancedDatePicker({ value, onChange }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef(null);
-    const windowWidth = useWindowWidth();
-    const isMobile = windowWidth < 768; // Mobile breakpoint
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const windowWidth = useWindowWidth();
+  const isMobile = windowWidth < 768; // Mobile breakpoint
 
-    const startDate = value?.start ? parseISO(value.start) : new Date();
-    const endDate = value?.end ? parseISO(value.end) : new Date();
+  const startDate = value?.start ? parseISO(value.start) : new Date();
+  const endDate = value?.end ? parseISO(value.end) : new Date();
 
-    const [viewDate, setViewDate] = useState(() => subMonths(startOfMonth(endDate), 1));
+  const [viewDate, setViewDate] = useState(() => subMonths(startOfMonth(endDate), 1));
 
-    useEffect(() => {
-        if (value?.end && isOpen) {
-            setViewDate(subMonths(startOfMonth(parseISO(value.end)), 1));
-        }
-    }, [isOpen, value]);
+  useEffect(() => {
+    if (value?.end && isOpen) {
+      setViewDate(subMonths(startOfMonth(parseISO(value.end)), 1));
+    }
+  }, [isOpen, value]);
 
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    const handleDateClick = (day) => {
-        if ((startDate && endDate && !isSameDay(startDate, endDate)) || (!startDate && !endDate)) {
-            onChange({ start: format(day, "yyyy-MM-dd"), end: format(day, "yyyy-MM-dd") });
-        } else if (startDate && isSameDay(startDate, endDate)) {
-            if (isBefore(day, startDate)) {
-                onChange({ start: format(day, "yyyy-MM-dd"), end: format(startDate, "yyyy-MM-dd") });
-            } else {
-                onChange({ start: format(startDate, "yyyy-MM-dd"), end: format(day, "yyyy-MM-dd") });
-            }
-        }
-    };
+  const handleDateClick = (day) => {
+    if ((startDate && endDate && !isSameDay(startDate, endDate)) || (!startDate && !endDate)) {
+      onChange({ start: format(day, "yyyy-MM-dd"), end: format(day, "yyyy-MM-dd") });
+    } else if (startDate && isSameDay(startDate, endDate)) {
+      if (isBefore(day, startDate)) {
+        onChange({ start: format(day, "yyyy-MM-dd"), end: format(startDate, "yyyy-MM-dd") });
+      } else {
+        onChange({ start: format(startDate, "yyyy-MM-dd"), end: format(day, "yyyy-MM-dd") });
+      }
+    }
+  };
 
-    const applyPreset = (type) => {
-        const today = new Date();
-        let s, e;
-        if (type === "Today") { s = today; e = today; }
-        else if (type === "Yesterday") { s = subDays(today, 1); e = subDays(today, 1); }
-        else if (type === "Last 7 Days") { s = subDays(today, 6); e = today; }
-        else if (type === "Last 30 Days") { s = subDays(today, 29); e = today; }
-        else if (type === "This Month") { s = startOfMonth(today); e = today; }
-        else if (type === "Last Month") { s = startOfMonth(subMonths(today, 1)); e = endOfMonth(subMonths(today, 1)); }
-        else if (type === "This Year") { s = startOfYear(today); e = today; }
-        else if (type === "Last Year") { s = startOfYear(subYears(today, 1)); e = endOfYear(subYears(today, 1)); }
+  const applyPreset = (type) => {
+    const today = new Date();
+    let s, e;
+    if (type === "Today") { s = today; e = today; }
+    else if (type === "Yesterday") { s = subDays(today, 1); e = subDays(today, 1); }
+    else if (type === "Last 7 Days") { s = subDays(today, 6); e = today; }
+    else if (type === "Last 30 Days") { s = subDays(today, 29); e = today; }
+    else if (type === "This Month") { s = startOfMonth(today); e = today; }
+    else if (type === "Last Month") { s = startOfMonth(subMonths(today, 1)); e = endOfMonth(subMonths(today, 1)); }
+    else if (type === "This Year") { s = startOfYear(today); e = today; }
+    else if (type === "Last Year") { s = startOfYear(subYears(today, 1)); e = endOfYear(subYears(today, 1)); }
 
-        if (s && e) {
-            onChange({ start: format(s, "yyyy-MM-dd"), end: format(e, "yyyy-MM-dd") });
-            if (isMobile) setIsOpen(false); // Auto close on mobile for better UX
-        }
-    };
+    if (s && e) {
+      onChange({ start: format(s, "yyyy-MM-dd"), end: format(e, "yyyy-MM-dd") });
+      if (isMobile) setIsOpen(false); // Auto close on mobile for better UX
+    }
+  };
 
-    const renderCalendar = (baseDate) => {
-        const monthStart = startOfMonth(baseDate);
-        const monthEnd = endOfMonth(monthStart);
-        const startDateGrid = startOfWeek(monthStart);
-        const endDateGrid = endOfWeek(monthEnd);
-        const days = eachDayOfInterval({ start: startDateGrid, end: endDateGrid });
-        const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-        return (
-            <div style={{ width: isMobile ? "100%" : 230 }}>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, fontWeight: "bold", color: "#333", fontSize: 14 }}>
-                    {format(baseDate, "MMM yyyy")}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
-                    {weekDays.map(d => (
-                        <div key={d} style={{ textAlign: "center", fontSize: 12, color: "#888", fontWeight: 600 }}>{d}</div>
-                    ))}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 4 }}>
-                    {days.map(day => {
-                        const isCurrentMonth = isSameMonth(day, baseDate);
-                        const isSelected = (startDate && isSameDay(day, startDate)) || (endDate && isSameDay(day, endDate));
-                        const isInRange = startDate && endDate && isWithinInterval(day, { start: startDate, end: endDate });
-
-                        let bg = "transparent";
-                        let color = isCurrentMonth ? "#333" : "#ccc";
-                        let borderRadius = 0;
-
-                        if (isSelected) {
-                            bg = NGRAPH_THEME.primary;
-                            color = "#fff";
-                            borderRadius = 4;
-                        } else if (isInRange) {
-                            bg = "#ebf8ff";
-                            color = NGRAPH_THEME.primary;
-                        }
-
-                        return (
-                            <div
-                                key={day.toString()}
-                                onClick={() => handleDateClick(day)}
-                                style={{
-                                    textAlign: "center",
-                                    padding: "6px 0", // Larger touch target
-                                    fontSize: 12,
-                                    cursor: "pointer",
-                                    background: bg,
-                                    color: color,
-                                    borderRadius
-                                }}
-                            >
-                                {format(day, "d")}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
+  const renderCalendar = (baseDate) => {
+    const monthStart = startOfMonth(baseDate);
+    const monthEnd = endOfMonth(monthStart);
+    const startDateGrid = startOfWeek(monthStart);
+    const endDateGrid = endOfWeek(monthEnd);
+    const days = eachDayOfInterval({ start: startDateGrid, end: endDateGrid });
+    const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
     return (
-        <div ref={containerRef} style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                style={{
-                    display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
-                    border: "1px solid #ccc", background: "#fff", borderRadius: 4,
-                    cursor: "pointer", fontSize: 14, color: "#333",
-                    width: "100%", // Full width of flex container
-                    minWidth: isMobile ? "unset" : 260
-                }}
-            >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                <span style={{ fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {value.start && value.end
-                        ? `${format(parseISO(value.start), "MMM d, yyyy")} - ${format(parseISO(value.end), "MMM d, yyyy")}`
-                        : "Select Date Range"
-                    }
-                </span>
-                <span style={{ marginLeft: "auto", fontSize: 10 }}>▼</span>
-            </button>
-
-            {isOpen && (
-                <div style={{
-                    position: "absolute",
-                    top: "110%",
-                    right: isMobile ? "0" : "0",
-                    left: isMobile ? "0" : "auto", // Center on mobile
-                    background: "#fff", border: "1px solid #ccc", borderRadius: 6,
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.15)", zIndex: 1000,
-                    display: "flex",
-                    flexDirection: isMobile ? "column" : "row", // Stack on mobile
-                    width: isMobile ? "100%" : "max-content",
-                    maxWidth: isMobile ? "90vw" : "unset",
-                    margin: isMobile ? "0 auto" : "unset"
-                }}>
-                    {/* Presets Panel */}
-                    <div style={{
-                        width: isMobile ? "100%" : 140,
-                        borderRight: isMobile ? "none" : "1px solid #eee",
-                        borderBottom: isMobile ? "1px solid #eee" : "none",
-                        padding: "12px 0",
-                        background: "#f9fafb",
-                        display: "flex",
-                        flexDirection: isMobile ? "row" : "column", // Horizontal scroll on mobile
-                        gap: 2,
-                        overflowX: isMobile ? "auto" : "visible", // Enable scrolling for presets
-                        paddingLeft: isMobile ? 10 : 0
-                    }}>
-                        {[
-                            "Today", "Yesterday", "Last 7 Days", "Last 30 Days",
-                            "This Month", "Last Month", "This Year"
-                        ].map(preset => (
-                            <button
-                                key={preset}
-                                onClick={() => applyPreset(preset)}
-                                style={{
-                                    display: "block",
-                                    width: isMobile ? "auto" : "100%",
-                                    textAlign: isMobile ? "center" : "left",
-                                    padding: isMobile ? "6px 12px" : "8px 16px",
-                                    border: isMobile ? "1px solid #ddd" : "none",
-                                    borderRadius: isMobile ? 20 : 0,
-                                    marginRight: isMobile ? 5 : 0,
-                                    background: isMobile ? "#fff" : "transparent",
-                                    fontSize: 13, cursor: "pointer", color: "#444",
-                                    whiteSpace: "nowrap"
-                                }}
-                            >
-                                {preset}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Calendar Panel */}
-                    <div style={{ padding: isMobile ? "16px 10px" : "16px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                            <button
-                                onClick={() => setViewDate(subMonths(viewDate, 1))}
-                                style={{ border: "1px solid #eee", background: "#fff", borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                            >
-                                &lt;
-                            </button>
-
-                            <div style={{ display: "flex", gap: 24, justifyContent: "center", width: "100%" }}>
-                                {/* Show 1 calendar on mobile, 2 on desktop */}
-                                {renderCalendar(viewDate)}
-                                {!isMobile && renderCalendar(addMonths(viewDate, 1))}
-                            </div>
-
-                            <button
-                                onClick={() => setViewDate(addMonths(viewDate, 1))}
-                                style={{ border: "1px solid #eee", background: "#fff", borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                            >
-                                &gt;
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+      <div style={{ width: isMobile ? "100%" : 230 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, fontWeight: "bold", color: "#333", fontSize: 14 }}>
+          {format(baseDate, "MMM yyyy")}
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
+          {weekDays.map(d => (
+            <div key={d} style={{ textAlign: "center", fontSize: 12, color: "#888", fontWeight: 600 }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 4 }}>
+          {days.map(day => {
+            const isCurrentMonth = isSameMonth(day, baseDate);
+            const isSelected = (startDate && isSameDay(day, startDate)) || (endDate && isSameDay(day, endDate));
+            const isInRange = startDate && endDate && isWithinInterval(day, { start: startDate, end: endDate });
+
+            let bg = "transparent";
+            let color = isCurrentMonth ? "#333" : "#ccc";
+            let borderRadius = 0;
+
+            if (isSelected) {
+              bg = NGRAPH_THEME.primary;
+              color = "#fff";
+              borderRadius = 4;
+            } else if (isInRange) {
+              bg = "#ebf8ff";
+              color = NGRAPH_THEME.primary;
+            }
+
+            return (
+              <div
+                key={day.toString()}
+                onClick={() => handleDateClick(day)}
+                style={{
+                  textAlign: "center",
+                  padding: "6px 0", // Larger touch target
+                  fontSize: 12,
+                  cursor: "pointer",
+                  background: bg,
+                  color: color,
+                  borderRadius
+                }}
+              >
+                {format(day, "d")}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: isMobile ? "100%" : "auto" }}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+          border: "1px solid #ccc", background: "#fff", borderRadius: 4,
+          cursor: "pointer", fontSize: 14, color: "#333",
+          width: "100%", // Full width of flex container
+          minWidth: isMobile ? "unset" : 260
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span style={{ fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {value.start && value.end
+            ? `${format(parseISO(value.start), "MMM d, yyyy")} - ${format(parseISO(value.end), "MMM d, yyyy")}`
+            : "Select Date Range"
+          }
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: 10 }}>▼</span>
+      </button>
+
+      {isOpen && (
+        <div style={{
+          position: "absolute",
+          top: "110%",
+          right: isMobile ? "0" : "0",
+          left: isMobile ? "0" : "auto", // Center on mobile
+          background: "#fff", border: "1px solid #ccc", borderRadius: 6,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.15)", zIndex: 1000,
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row", // Stack on mobile
+          width: isMobile ? "100%" : "max-content",
+          maxWidth: isMobile ? "90vw" : "unset",
+          margin: isMobile ? "0 auto" : "unset"
+        }}>
+          {/* Presets Panel */}
+          <div style={{
+            width: isMobile ? "100%" : 140,
+            borderRight: isMobile ? "none" : "1px solid #eee",
+            borderBottom: isMobile ? "1px solid #eee" : "none",
+            padding: "12px 0",
+            background: "#f9fafb",
+            display: "flex",
+            flexDirection: isMobile ? "row" : "column", // Horizontal scroll on mobile
+            gap: 2,
+            overflowX: isMobile ? "auto" : "visible", // Enable scrolling for presets
+            paddingLeft: isMobile ? 10 : 0
+          }}>
+            {[
+              "Today", "Yesterday", "Last 7 Days", "Last 30 Days",
+              "This Month", "Last Month", "This Year", "Last Year" // <--- Added "Last Year" here
+            ].map(preset => (
+              <button
+                key={preset}
+                onClick={() => applyPreset(preset)}
+                style={{
+                  display: "block",
+                  width: isMobile ? "auto" : "100%",
+                  textAlign: isMobile ? "center" : "left",
+                  padding: isMobile ? "6px 12px" : "8px 16px",
+                  border: isMobile ? "1px solid #ddd" : "none",
+                  borderRadius: isMobile ? 20 : 0,
+                  marginRight: isMobile ? 5 : 0,
+                  background: isMobile ? "#fff" : "transparent",
+                  fontSize: 13, cursor: "pointer", color: "#444",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          {/* Calendar Panel */}
+          <div style={{ padding: isMobile ? "16px 10px" : "16px 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <button
+                onClick={() => setViewDate(subMonths(viewDate, 1))}
+                style={{ border: "1px solid #eee", background: "#fff", borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                &lt;
+              </button>
+
+              <div style={{ display: "flex", gap: 24, justifyContent: "center", width: "100%" }}>
+                {/* Show 1 calendar on mobile, 2 on desktop */}
+                {renderCalendar(viewDate)}
+                {!isMobile && renderCalendar(addMonths(viewDate, 1))}
+              </div>
+
+              <button
+                onClick={() => setViewDate(addMonths(viewDate, 1))}
+                style={{ border: "1px solid #eee", background: "#fff", borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                &gt;
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function KpiGrid({ items }) {
@@ -867,7 +867,8 @@ function KpiGrid({ items }) {
             style={{
                 display: "grid",
                 // Mobile: 135px allows 2 columns on almost all phones. Desktop: 160px standard.
-                gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "135px" : "180px"}, 1fr))`,
+                // Change from 180px to 140px to allow all 6 to stay on one line
+                gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? "135px" : "140px"}, 1fr))`,
                 // Mobile: Tighter gap (16px). Desktop: Spacious gap (40px).
                 gap: isMobile ? "1rem" : "2.50rem",
                 marginBottom: "0.75rem",
@@ -894,7 +895,7 @@ function KpiGrid({ items }) {
                             alignItems: "center",
                             justifyContent: "center",
                             textAlign: "center",
-                            minHeight: isMobile ? "100px" : "120px", // Visual consistency
+                            minHeight: isMobile ? "80px" : "100px", // Visual consistency
                         }}
                     >
                         {/* TITLE */}
@@ -1021,18 +1022,24 @@ function DonutWidget({ title, data }) {
         return str.length > limit ? str.slice(0, limit) + "…" : str;
     };
 
+    // --- RENDERING ---
+
     // Wrapper Style: Strict Fixed Height
     const containerStyle = {
         textAlign: "center",
         marginBottom: "0.75rem",
-        height: widgetHeight,
+        minHeight: widgetHeight,
         display: "flex",
         flexDirection: "column",
     };
 
     if (data == null) return <div style={containerStyle}></div>; // Placeholder to keep grid intact
     if (data?.empty || !finalItems.length)
-        return <NoDataWidget title={title} />;
+        return (
+            <div style={containerStyle}>
+                <NoDataWidget title={title} />
+            </div>
+        );
 
     return (
         <div style={containerStyle}>
@@ -1065,8 +1072,8 @@ function DonutWidget({ title, data }) {
                                 dataKey="value"
                                 cx="50%"
                                 cy="50%"
-                                outerRadius={isMobile ? 70 : 100} // Slightly smaller to fit fixed height
-                                innerRadius={isMobile ? 30 : 45}
+                                outerRadius={isMobile ? 70 : 85} // Slightly smaller to fit fixed height
+                                innerRadius={isMobile ? 30 : 40}
                                 paddingAngle={5}
                                 label={renderInsideLabel}
                                 labelLine={false}
@@ -1294,14 +1301,16 @@ function TableWidget({ title, data }) {
     const [page, setPage] = useState(1);
     const width = useWindowWidth();
     const isMobile = width < 768;
+    const isMedium = width >= 768 && width <= 1366; // New breakpoint for your issue
+
     const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
     const widgetHeight = getWidgetHeight(isMobile);
 
-    // --- RESPONSIVE DIMENSIONS ---
-    const VALUE_COL_WIDTH = isMobile ? 110 : 150;
-    const VALUE_NUMBER_WIDTH = isMobile ? 60 : 80;
-    const VALUE_BAR_WIDTH = isMobile ? 30 : 50;
-    const TEXT_COL_WIDTH = isMobile ? 120 : 180;
+    // --- ADJUSTED RESPONSIVE DIMENSIONS ---
+    const VALUE_COL_WIDTH = isMobile ? 110 : (isMedium ? 100 : 120);
+    const VALUE_NUMBER_WIDTH = isMobile ? 60 : (isMedium ? 55 : 70);
+    const VALUE_BAR_WIDTH = isMobile ? 30 : (isMedium ? 30 : 40);
+    const TEXT_COL_WIDTH = isMobile ? 120 : (isMedium ? 100 : 150);
 
     const safeColumns = Array.isArray(data?.current?.columns) ? data.current.columns : [];
     const safeRows = Array.isArray(data?.current?.rows) ? data.current.rows : [];
@@ -1310,16 +1319,18 @@ function TableWidget({ title, data }) {
 
     useEffect(() => { setPage(1); }, [dataKey]);
 
-    // Wrapper Style
+    // Wrapper Style - CHANGED height to minHeight
     const containerStyle = {
         marginBottom: "0.75rem",
         display: "flex",
         flexDirection: "column",
-        height: widgetHeight
+        height: widgetHeight,
+        width: "100%",
+        overflow: "hidden" // Prevent the card itself from growing
     };
 
     if (data == null) return <div style={containerStyle}></div>;
-    if (data.empty || !safeColumns.length) return <NoDataWidget title={title} />;
+    if (data.empty || !safeColumns.length) return <div style={containerStyle}><NoDataWidget title={title} /></div>;
 
     let rows = [...safeRows];
     let totalRow = null;
@@ -1334,43 +1345,36 @@ function TableWidget({ title, data }) {
 
     if (rows.length === 0) return <div style={containerStyle}><NoDataWidget title={title} /></div>;
 
-    // --- COLUMN DETECTION LOGIC ---
     const MONEY_NAME_REGEX = /(amount|amt|total|price|value|cost|net|revenue|sales|balance|paid|receipt|gross)/i;
     const moneyColumnIndexes = new Set();
     const numberColumnIndexes = new Set();
 
-    // 1. Identify Money Columns by Name
     safeColumns.forEach((col, idx) => {
         if (MONEY_NAME_REGEX.test(String(col))) moneyColumnIndexes.add(idx);
     });
 
-    // 2. Identify Number Columns by Content
     const sampleSize = Math.min(6, rows.length);
     for (let colIdx = 0; colIdx < safeColumns.length; colIdx++) {
         let numericCount = 0;
         for (let r = 0; r < sampleSize; r++) {
             const val = rows[r]?.[colIdx];
-            const cleaned = String(val).replace(/[,₹$Lkmb]/gi, ""); // Expanded regex to strip suffixes like L, k
+            const cleaned = String(val).replace(/[,₹$Lkmb]/gi, "");
             if (val !== null && val !== undefined && val !== "" && !isNaN(Number(cleaned))) numericCount++;
         }
-        // If it looks like a number and wasn't already tagged as money, tag as number
         if (numericCount >= Math.ceil(sampleSize * 0.6) && !moneyColumnIndexes.has(colIdx)) {
             numberColumnIndexes.add(colIdx);
         }
     }
 
-    // Ensure we have at least one value column if numbers exist
     if (moneyColumnIndexes.size === 0 && numberColumnIndexes.size > 0) {
         const firstNumCol = [...numberColumnIndexes][0];
         moneyColumnIndexes.add(firstNumCol);
         numberColumnIndexes.delete(firstNumCol);
     }
 
-    // Select the "Primary" value column (for the bar chart) - usually the first money col found
     const valueColIndex = [...moneyColumnIndexes][0];
     const keyColIndex = safeColumns.findIndex((_, i) => typeof safeRows[0]?.[i] === "string");
 
-    // --- PREVIOUS DATA MAPPING ---
     const prevMap = new Map();
     if (keyColIndex !== -1 && valueColIndex !== undefined) {
         prevRows.forEach(r => {
@@ -1391,6 +1395,7 @@ function TableWidget({ title, data }) {
             if (Number.isFinite(prevVal)) previousTotal += prevVal;
         });
     }
+
     const totalDeltaValue = previousTotal !== 0 ? currentTotal - previousTotal : null;
     const totalDeltaPercent = previousTotal !== 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : null;
 
@@ -1405,10 +1410,9 @@ function TableWidget({ title, data }) {
         return Number.isFinite(v) ? v : 0;
     }));
 
-    // Reusable style for line clamping
     const lineClampStyle = {
         display: "-webkit-box",
-        WebkitLineClamp: 3,
+        WebkitLineClamp: 2, // Reduced to 2 for tighter screens
         WebkitBoxOrient: "vertical",
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -1436,10 +1440,9 @@ function TableWidget({ title, data }) {
                     style={{
                         flex: 1,
                         minHeight: 0,
-                        overflow: "auto",
-                        WebkitOverflowScrolling: "touch",
-                        scrollbarWidth: "none",
-                        msOverflowStyle: "none"
+                        overflowX: "auto",
+                        overflowY: "hidden",
+                        scrollbarWidth: "none"
                     }}
                 >
                     <style>{`
@@ -1448,7 +1451,16 @@ function TableWidget({ title, data }) {
             }
           `}</style>
 
-                    <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: isMobile ? "100%" : "400px" }}>
+                    <table
+                        style={{
+                            width: "100%",
+                            borderCollapse: "separate",
+                            borderSpacing: 0,
+                            // minWidth: isMobile ? "100%" : "400px",
+                            tableLayout: safeColumns.length > 4 ? "auto" : "fixed", // flexible if many columns
+                            fontSize: isMedium ? "11px" : "13px"
+                        }}
+                    >
                         <thead>
                             <tr>
                                 <th style={{ position: "sticky", top: 0, zIndex: 10, width: "40px", padding: "8px", background: NGRAPH_THEME.primary, color: "white", textAlign: "left", fontSize: 13 }}>#</th>
@@ -1728,7 +1740,7 @@ export default function ProductionAnalyticsPage({ userId: propUserId }) {
     }
 
     return (
-        <div style={{ padding: 0, fontFamily: "Arial, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
+        <div style={{ padding: 0, fontFamily: "Tahoma, sans-serif", background: NGRAPH_THEME.background, maxWidth: "100%", minWidth: "320px", margin: "0 auto" }}>
             <div style={{ position: "sticky", top: "96px", zIndex: 90, background: NGRAPH_THEME.header }}>
                 <Header companyLogoUrl={companyLogoUrl} />
                 <div style={{

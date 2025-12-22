@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Data;
 
 namespace minutechart.Controllers
 {
@@ -304,6 +305,240 @@ namespace minutechart.Controllers
             {
                 await _activityLogger.LogAsync("failed execute sales module", "SalesModule", req.ComponentId, targetUser);
                 return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("executesales/{userId}")]
+        public async Task<IActionResult> ExecuteSales(string userId, [FromBody] ExecuteRequest req)
+        {
+            var profile = await _db.UserProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.AppUserId == userId);
+
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+
+            var module = await _db.SalesModules
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x =>
+                    x.AppUserId == userId &&
+                    x.ComponentId == req.ComponentId &&
+                    !x.HideQuery);
+
+            if (module == null)
+                return Ok(new { success = false, dummy = true });
+
+            try
+            {
+                using var conn = await _dbService.CreateClientConnectionAsync(profile);
+                using var cmd = conn.CreateCommand();
+
+                cmd.CommandText = SQLShortNameHelper.InjectShortName(
+                    module.SqlQuery,
+                    profile.ShortName
+                );
+
+                void AddParam(string name, object? value)
+                {
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = name;
+                    p.Value = value ?? DBNull.Value;
+                    cmd.Parameters.Add(p);
+                }
+
+                AddParam("@startDate", req.StartDate);
+                AddParam("@endDate", req.EndDate);
+                AddParam("@clientId", req.ClientId);
+                AddParam("@agentId", req.AgentId);
+                AddParam("@productId", req.ProductId);
+                AddParam("@consigneeId", req.ConsigneeId);
+
+                using var reader = await cmd.ExecuteReaderAsync(
+                    CommandBehavior.SequentialAccess
+                );
+
+                var table = new List<Dictionary<string, object>>();
+
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>(reader.FieldCount);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] =
+                            reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    }
+                    table.Add(row);
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    title = module.ModuleTitle,
+                    data = table
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+
+        public class BulkExecuteRequest
+        {
+            public DateTime? StartDate { get; set; }
+            public DateTime? EndDate { get; set; }
+
+            public string? ClientId { get; set; }
+            public string? AgentId { get; set; }
+            public string? ProductId { get; set; }
+            public string? ConsigneeId { get; set; }
+
+            public List<string> Components { get; set; } = new();
+
+            public bool IncludePrevious { get; set; } = true;
+        }
+
+        private (DateTime? prevStart, DateTime? prevEnd) GetPreviousRange(DateTime? start, DateTime? end)
+        {
+            if (start == null || end == null) return (null, null);
+
+            var days = (end.Value.Date - start.Value.Date).Days + 1;
+            var prevEnd = start.Value.Date.AddDays(-1);
+            var prevStart = prevEnd.AddDays(-(days - 1));
+
+            return (prevStart, prevEnd);
+        }
+
+
+        [HttpPost("executesales/bulk/{userId}")]
+        public async Task<IActionResult> ExecuteSalesBulk(
+            string userId,
+            [FromBody] BulkExecuteRequest req
+        )
+        {
+            // --- Profile (read-only) ---
+            var profile = await _db.UserProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.AppUserId == userId);
+
+            if (profile == null)
+                return BadRequest(new { success = false, message = "User profile not found" });
+
+            // --- Load ALL user's sales modules (NO component filter in SQL) ---
+            var modules = await _db.SalesModules
+                .AsNoTracking()
+                .Where(m =>
+                    m.AppUserId == userId &&
+                    !m.HideQuery
+                )
+                .ToListAsync();
+
+            // --- Filter components IN MEMORY (NO SQL translation) ---
+            var componentSet = new HashSet<string>(req.Components);
+
+            modules = modules
+                .Where(m => componentSet.Contains(m.ComponentId))
+                .ToList();
+
+            // Map for fast lookup
+            var moduleMap = modules.ToDictionary(m => m.ComponentId);
+
+            var result = new Dictionary<string, object?>();
+
+            try
+            {
+                // 🔥 ONE DB CONNECTION FOR ALL COMPONENTS
+                using var conn = await _dbService.CreateClientConnectionAsync(profile);
+
+                var (prevStart, prevEnd) = req.IncludePrevious
+    ? GetPreviousRange(req.StartDate, req.EndDate)
+    : (null, null);
+
+                foreach (var componentId in req.Components)
+                {
+                    if (!moduleMap.TryGetValue(componentId, out var module))
+                    {
+                        result[componentId] = new { success = false, dummy = true };
+                        continue;
+                    }
+
+                    async Task<List<Dictionary<string, object>>> ExecuteAsync(
+                        DateTime? start,
+                        DateTime? end
+                    )
+                    {
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = SQLShortNameHelper.InjectShortName(
+                            module.SqlQuery,
+                            profile.ShortName
+                        );
+
+                        void Add(string n, object? v)
+                        {
+                            var p = cmd.CreateParameter();
+                            p.ParameterName = n;
+                            p.Value = v ?? DBNull.Value;
+                            cmd.Parameters.Add(p);
+                        }
+
+                        Add("@startDate", start);
+                        Add("@endDate", end);
+                        Add("@clientId", req.ClientId);
+                        Add("@agentId", req.AgentId);
+                        Add("@productId", req.ProductId);
+                        Add("@consigneeId", req.ConsigneeId);
+
+                        using var reader = await cmd.ExecuteReaderAsync(
+    CommandBehavior.SequentialAccess
+);
+                        var list = new List<Dictionary<string, object>>();
+
+                        while (await reader.ReadAsync())
+                        {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++)
+                                row[reader.GetName(i)] =
+                                    reader.IsDBNull(i) ? null : reader.GetValue(i);
+                            list.Add(row);
+                        }
+
+                        return list;
+                    }
+
+                    // CURRENT
+                    var current = await ExecuteAsync(req.StartDate, req.EndDate);
+
+                    // PREVIOUS
+                    var previous = req.IncludePrevious
+                        ? await ExecuteAsync(prevStart, prevEnd)
+                        : new List<Dictionary<string, object>>();
+
+                    result[componentId] = new
+                    {
+                        success = true,
+                        title = module.ModuleTitle,
+                        current,
+                        previous
+                    };
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
             }
         }
 

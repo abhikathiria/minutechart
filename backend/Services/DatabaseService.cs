@@ -31,7 +31,6 @@ namespace minutechart.Services
             return $"Server={server};Database={database};User Id={username};Password={password};Encrypt=False;TrustServerCertificate=True;Column Encryption Setting=Disabled;Persist Security Info=False;MultipleActiveResultSets=True";
         }
 
-        // ✅ This is what you were missing
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
         {
             var connectionString = BuildConnectionString(
