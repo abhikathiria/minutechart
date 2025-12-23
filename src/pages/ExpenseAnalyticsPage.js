@@ -269,27 +269,34 @@ async function fetchComponentData(componentId, { userId, dateRange }) {
         const sample = rows[0];
         const keys = Object.keys(sample);
 
-        // 1. find a DATE column
+        // 1️⃣ Detect date / label column
         const dateKey =
           keys.find(k =>
             typeof sample[k] === "string" &&
             !isNaN(Date.parse(sample[k]))
           )
           || keys.find(k => k.toLowerCase().includes("date"))
+          || keys.find(k => k.toLowerCase().includes("month"))
           || keys.find(k => k.toLowerCase().includes("label"))
-          || keys[0]; // fallback
+          || keys[0];
 
-        // 2. find NUMERIC column
-        const numericKey =
-          keys.find(k => typeof sample[k] === "number")
-          || keys.find(k => !isNaN(Number(sample[k])))
-          || keys[1]; // fallback
+        // 2️⃣ Detect ALL numeric metrics
+        const metricKeys = keys.filter(
+          k => k !== dateKey && typeof sample[k] === "number"
+        );
 
-        return rows.map(r => ({
-          x: r[dateKey],
-          sales: Number(r[numericKey]) || 0,
-          realCurrDate: r[dateKey]
-        }));
+        return rows.map(r => {
+          const row = {
+            x: r[dateKey],
+            realCurrDate: r[dateKey]
+          };
+
+          metricKeys.forEach(k => {
+            row[k] = Number(r[k]) || 0;
+          });
+
+          return row;
+        });
       };
 
       const current = normalizeLine(curr);
@@ -761,6 +768,9 @@ const DONUT_COLORS = [
 ];
 
 function DonutWidget({ title, data }) {
+  // --- CHANGE 1: Add State for Fullscreen ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const width = useWindowWidth();
   const isMobile = width < 768;
   const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
@@ -823,9 +833,9 @@ function DonutWidget({ title, data }) {
     return str.length > limit ? str.slice(0, limit) + "…" : str;
   };
 
-  // --- RENDERING ---
+  // --- STYLES ---
 
-  // Wrapper Style: Strict Fixed Height
+  // 1. Placeholder Container
   const containerStyle = {
     textAlign: "center",
     marginBottom: "0.75rem",
@@ -834,7 +844,44 @@ function DonutWidget({ title, data }) {
     flexDirection: "column",
   };
 
-  if (data == null) return <div style={containerStyle}></div>; // Placeholder to keep grid intact
+  // 2. Main Box Frame (Switches between Widget and Fullscreen)
+  const boxStyle = isFullscreen ? {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    zIndex: 9999,
+    background: "#fff",
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
+    overflow: "hidden" 
+  } : {
+    background: "#fff",
+    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+    padding: "0.75rem",
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column", // Kept column to handle inner wrapper consistently
+    overflow: "hidden",
+    position: "relative"
+  };
+
+  // 3. Inner Content Wrapper (Handles Row/Col layout for Chart vs Legend)
+  const innerContentStyle = {
+    display: "flex",
+    flexDirection: isMobile ? "column" : "row",
+    alignItems: "center",
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
+    overflow: "hidden" 
+  };
+
+  if (data == null) return <div style={containerStyle}></div>;
   if (data?.empty || !finalItems.length)
     return (
       <div style={containerStyle}>
@@ -844,85 +891,147 @@ function DonutWidget({ title, data }) {
 
   return (
     <div style={containerStyle}>
-      <div style={{ fontWeight: 700, fontSize: "1rem", color: "#0B3A66", marginBottom: "0.5rem", flexShrink: 0 }}>
-        {title}
-      </div>
-
-      <div style={{
-        background: "#fff",
-        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-        padding: "0.75rem",
-        flex: 1,
-        minHeight: 0, // CRITICAL for nested flex scrolling
-        display: "flex",
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: "center",
-        overflow: "hidden" // Ensure nothing spills out of the fixed box
-      }}>
-        {/* DONUT CHART AREA */}
-        <div style={{
-          width: isMobile ? "100%" : "55%",
-          height: isMobile ? "50%" : "100%", // Split height on mobile
-          marginBottom: isMobile ? 12 : 0,
-          flexShrink: 0
-        }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={finalItems}
-                dataKey="value"
-                cx="50%"
-                cy="50%"
-                outerRadius={isMobile ? 70 : 85} // Slightly smaller to fit fixed height
-                innerRadius={isMobile ? 30 : 40}
-                paddingAngle={5}
-                label={renderInsideLabel}
-                labelLine={false}
-              >
-                {finalItems.map((e, i) => (
-                  <Cell key={i} fill={e.isOthers ? "#CBD5E1" : DONUT_COLORS[i % DONUT_COLORS.length]} />
-                ))}
-              </Pie>
-              <Customized>
-                {({ width, height }) => (
-                  <g>
-                    <text x={width / 2} y={height / 2 - 8} textAnchor="middle" style={{ fontSize: isMobile ? 12 : 14, fontWeight: 700, fill: "#0B3A66" }}>
-                      {moneyFmt(totalValue)}
-                    </text>
-                    <text x={width / 2} y={height / 2 + 10} textAnchor="middle" style={{ fontSize: 10, fill: "#6b8fbf" }}>
-                      Total
-                    </text>
-                  </g>
-                )}
-              </Customized>
-              <ReTooltip formatter={(v, n, p) => [moneyFmt(v), `${p.payload.label} (${p.payload.percentage.toFixed(1)}%)`]} />
-            </PieChart>
-          </ResponsiveContainer>
+      
+      {/* --- 1. NORMAL TITLE (Click to OPEN) --- */}
+      {!isFullscreen && (
+        <div 
+          onClick={() => setIsFullscreen(true)} // Clicking title opens expand
+          style={{ 
+            fontWeight: 700, 
+            fontSize: "1rem", 
+            color: "#0B3A66", 
+            marginBottom: "0.5rem", 
+            flexShrink: 0,
+            cursor: "pointer" // Indicates clickable
+          }}
+        >
+          {title}
         </div>
+      )}
 
-        {/* LEGEND AREA */}
-        <div style={{
-          width: isMobile ? "100%" : "45%",
-          height: isMobile ? "50%" : "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: isMobile ? "flex-start" : "center", // Align top on mobile
-          gap: 8,
-          overflowY: "auto", // SCROLLABLE if too many items
-          paddingLeft: isMobile ? 0 : 10,
-          borderTop: isMobile ? "1px solid #eee" : "none",
-          paddingTop: isMobile ? 12 : 0
-        }}>
-          {finalItems.map((it, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: it.isOthers ? "#CBD5E1" : DONUT_COLORS[i % DONUT_COLORS.length], flexShrink: 0 }} />
-              <div style={{ color: "#0B3A66", fontSize: 13, flex: 1, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {truncateLabel(it.label)}
+      {/* --- Main Box --- */}
+      <div style={boxStyle}>
+
+        {/* --- CHANGE 2: Expand/Close Button (TOP-LEFT) --- */}
+        <button 
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 10,
+            background: "#fff",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "6px",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            color: "#0B3A66"
+          }}
+          title={isFullscreen ? "Close Fullscreen" : "Expand Widget"}
+        >
+          {isFullscreen ? (
+            // Close Icon
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>
+          ) : (
+            // Expand Icon
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+          )}
+        </button>
+
+        {/* --- 3. FULLSCREEN TITLE (Click to CLOSE) --- */}
+        {isFullscreen && (
+          <div 
+            onClick={() => setIsFullscreen(false)} // Clicking here closes it
+            style={{
+              textAlign: "center",
+              width: "100%",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#0B3A66",
+              marginBottom: 20,
+              marginTop: 10,
+              flexShrink: 0,
+              cursor: "pointer"
+            }}
+          >
+            {title}
+          </div>
+        )}
+
+        {/* --- Inner Content --- */}
+        <div style={innerContentStyle}>
+          
+          {/* DONUT CHART AREA */}
+          <div style={{
+            width: isMobile ? "100%" : "55%",
+            height: isMobile ? "50%" : "100%",
+            marginBottom: isMobile ? 12 : 0,
+            flexShrink: 0,
+            padding: isFullscreen ? "0 20px" : "0"
+          }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={finalItems}
+                  dataKey="value"
+                  cx="50%"
+                  cy="50%"
+                  // Make chart bigger in fullscreen
+                  outerRadius={isFullscreen ? (isMobile ? 120 : 200) : (isMobile ? 70 : 85)}
+                  innerRadius={isFullscreen ? (isMobile ? 60 : 100) : (isMobile ? 30 : 40)}
+                  paddingAngle={5}
+                  label={renderInsideLabel}
+                  labelLine={false}
+                >
+                  {finalItems.map((e, i) => (
+                    <Cell key={i} fill={e.isOthers ? "#CBD5E1" : DONUT_COLORS[i % DONUT_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Customized>
+                  {({ width, height }) => (
+                    <g>
+                      <text x={width / 2} y={height / 2 - 8} textAnchor="middle" style={{ fontSize: isMobile ? 12 : 14, fontWeight: 700, fill: "#0B3A66" }}>
+                        {moneyFmt(totalValue)}
+                      </text>
+                      <text x={width / 2} y={height / 2 + 10} textAnchor="middle" style={{ fontSize: 10, fill: "#6b8fbf" }}>
+                        Total
+                      </text>
+                    </g>
+                  )}
+                </Customized>
+                <ReTooltip formatter={(v, n, p) => [moneyFmt(v), `${p.payload.label} (${p.payload.percentage.toFixed(1)}%)`]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* LEGEND AREA */}
+          <div style={{
+            width: isMobile ? "100%" : "45%",
+            height: isMobile ? "50%" : "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: isMobile ? "flex-start" : "center",
+            gap: 8,
+            overflowY: "auto",
+            paddingLeft: isMobile ? 0 : 10,
+            borderTop: isMobile ? "1px solid #eee" : "none",
+            paddingTop: isMobile ? 12 : 0,
+            paddingRight: isFullscreen ? "20px" : "0"
+          }}>
+            {finalItems.map((it, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: it.isOthers ? "#CBD5E1" : DONUT_COLORS[i % DONUT_COLORS.length], flexShrink: 0 }} />
+                <div style={{ color: "#0B3A66", fontSize: isFullscreen ? 16 : 13, flex: 1, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {isFullscreen ? it.label : truncateLabel(it.label)}
+                </div>
+                {(isMobile || isFullscreen) && <div style={{ fontSize: isFullscreen ? 14 : 12, fontWeight: 600, color: "#555" }}>{it.percentage.toFixed(0)}%</div>}
               </div>
-              {isMobile && <div style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>{it.percentage.toFixed(0)}%</div>}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+        </div> 
       </div>
     </div>
   );
@@ -935,10 +1044,13 @@ function getDateRange(arr) {
   return `${formatDateShort(first)} - ${formatDateShort(last)}`;
 }
 
-function detectMetricKey(data) {
-  if (!data?.current?.length) return "sales";
+function detectMetricKeys(data) {
+  if (!data?.current?.length) return [];
+
   const row = data.current[0];
-  return Object.keys(row).find(k => k !== "Label" && k !== "x" && typeof row[k] === "number") || "sales";
+  return Object.keys(row).filter(
+    (k) => k !== "Label" && k !== "x" && typeof row[k] === "number"
+  );
 }
 
 function formatLegendLabel(dataKey, prevRange) {
@@ -955,14 +1067,26 @@ function prettify(label) {
 
 function CustomLineLegend({ payload, prevData }) {
   const prevRange = getDateRange(prevData);
+  const hasPrevData = Array.isArray(prevData) && prevData.length > 0;
 
-  const sortedPayload = [...payload].sort((a, b) => {
-    const aIsPrev = a.dataKey.startsWith("prev");
-    const bIsPrev = b.dataKey.startsWith("prev");
+  // Build metric map from payload (current always exists)
+  const metrics = payload.reduce((acc, p) => {
+    const isPrev = p.dataKey.startsWith("prev");
+    const baseKey = isPrev ? p.dataKey.replace(/^prev/, "") : p.dataKey;
 
-    if (aIsPrev === bIsPrev) return 0;
-    return aIsPrev ? 1 : -1; // current first
-  });
+    if (!acc[baseKey]) {
+      acc[baseKey] = {
+        color: p.color,
+        hasCurrent: false,
+        hasPrevious: false
+      };
+    }
+
+    if (isPrev) acc[baseKey].hasPrevious = true;
+    else acc[baseKey].hasCurrent = true;
+
+    return acc;
+  }, {});
 
   return (
     <ul
@@ -970,60 +1094,155 @@ function CustomLineLegend({ payload, prevData }) {
         display: "flex",
         justifyContent: "center",
         flexWrap: "wrap",
-        gap: "10px 20px",
+        gap: "8px 24px",
         listStyle: "none",
         padding: 0,
         margin: 0
       }}
     >
-      {sortedPayload.map((p, i) => (
-        <li
-          key={i}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            fontSize: 12,
-            color: "#1f2937"
-          }}
-        >
-          <span
+      {Object.entries(metrics).map(([key, meta]) => (
+        <React.Fragment key={key}>
+          {/* CURRENT */}
+          <li
             style={{
-              width: 16,
-              height: 3,
-              background: p.color,
-              display: "inline-block",
-              marginRight: 6
+              display: "grid",
+              gridTemplateColumns: "16px minmax(0, 1fr)",
+              alignItems: "center",
+              gap: 8,
+              maxWidth: 320,
+              fontSize: 12,
+              color: "#1f2937"
             }}
-          />
-          {/* formatting logic remains the same */}
-          {prettify(formatLegendLabel(p.dataKey, prevRange))}
-        </li>
+          >
+            <span
+              style={{
+                width: 16,
+                height: 4,
+                background: meta.color,
+                borderRadius: 2,
+                position: "relative",
+                display: "inline-block"
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: meta.color,
+                  transform: "translate(-50%, -50%)"
+                }}
+              />
+            </span>
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis"
+              }}
+              title={prettify(key)}
+            >
+              {prettify(key)}
+            </span>
+          </li>
+
+          {/* PREVIOUS (only if previous data exists) */}
+          {hasPrevData && (
+            <li
+              style={{
+                display: "grid",
+                gridTemplateColumns: "16px minmax(0, 1fr)",
+                alignItems: "center",
+                gap: 8,
+                maxWidth: 320,
+                fontSize: 12,
+                color: "#1f2937",
+                opacity: meta.hasPrevious ? 1 : 0.4
+              }}
+            >
+              <span
+                style={{
+                  width: 16,
+                  height: 4,
+                  background: meta.color,
+                  borderRadius: 2,
+                  opacity: 0.4,
+                  position: "relative",
+                  display: "inline-block"
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: meta.color,
+                    transform: "translate(-50%, -50%)",
+                    opacity: 0.8
+                  }}
+                />
+              </span>
+
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }}
+                title={`${prettify(key)} (${prevRange})`}
+              >
+                {prettify(key)} ({prevRange})
+              </span>
+            </li>
+          )}
+        </React.Fragment>
       ))}
     </ul>
   );
 }
 
 function LineAreaWidget({ title, data }) {
+  // --- CHANGE 1: Add State for Fullscreen ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const width = useWindowWidth();
   const isMobile = width < 768;
   const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
   const widgetHeight = getWidgetHeight(isMobile);
-  const metricKey = detectMetricKey(data);
+  const metricKeys = detectMetricKeys(data);
 
   const merged = useMemo(() => {
     const curr = data?.current || [];
     const prev = data?.previous || [];
     if (!curr.length) return [];
-    return curr.map((d, i) => ({
-      x: d.x,
-      [metricKey]: d[metricKey] ?? null,
-      [`prev${metricKey}`]: prev[i]?.[metricKey] ?? null,
-      realCurrDate: d.x,
-      realPrevDate: prev[i]?.x,
-    }));
-  }, [data, metricKey]);
 
-  // Wrapper Style
+    return curr.map((d, i) => {
+      const row = {
+        x: d.x,
+        realCurrDate: d.x,
+        realPrevDate: prev[i]?.x,
+      };
+
+      metricKeys.forEach((k) => {
+        row[k] = d[k] ?? null;
+        row[`prev${k}`] = prev[i]?.[k] ?? null;
+      });
+
+      return row;
+    });
+  }, [data, metricKeys]);
+
+  const COLORS = ["#2563eb", "#9333ea", "#10c67aff", "#ea580c", "#084b58ff", "#112d6b"];
+
+  // --- STYLES ---
+
+  // 1. Placeholder Container (Keeps the grid layout intact)
   const containerStyle = {
     textAlign: "center",
     marginBottom: "0.75rem",
@@ -1032,67 +1251,240 @@ function LineAreaWidget({ title, data }) {
     flexDirection: "column"
   };
 
+  // 2. Main Box Frame (Switches between Widget and Fullscreen)
+  const boxStyle = isFullscreen ? {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    zIndex: 9999, // High z-index to cover everything
+    background: "#fff",
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
+    overflow: "hidden" 
+  } : {
+    background: "#fff",
+    padding: isMobile ? "8px 4px" : 12,
+    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    position: "relative" // Needed for the absolute button
+  };
+
   if (data == null) return <div style={containerStyle}></div>;
   if (data?.empty) return <div style={containerStyle}><NoDataWidget title={title} /></div>;
 
   return (
     <div style={containerStyle}>
-      <div style={{ fontWeight: 700, fontSize: 16, color: "#0B3A66", marginBottom: 8, flexShrink: 0 }}>{title}</div>
+      
+      {/* --- 1. NORMAL TITLE (Click to OPEN) --- */}
+      {!isFullscreen && (
+        <div 
+          onClick={() => setIsFullscreen(true)}
+          style={{ 
+            fontWeight: 700, 
+            fontSize: 16, 
+            color: "#0B3A66", 
+            marginBottom: 8, 
+            flexShrink: 0,
+            cursor: "pointer" // Indicates clickable
+          }}
+        >
+          {title}
+        </div>
+      )}
 
-      <div style={{ background: "#fff", padding: isMobile ? "8px 4px" : 12, border: `2px solid ${NGRAPH_THEME.kpiBorder}`, flex: 1, position: "relative", minHeight: 0 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={merged} margin={{ top: 5, right: isMobile ? 10 : 30, bottom: 5, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e6efff" />
-            <XAxis dataKey="x" fontSize={11} tick={{ fill: "#33527a" }} axisLine={{ stroke: "#c3d7ff" }} tickLine={{ stroke: "#c3d7ff" }} tickFormatter={formatDateShort} interval={isMobile ? "preserveStartEnd" : 0} />
-            <YAxis
-              tickFormatter={(v) => {
-                if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;      // Billion
-                if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;      // Million
-                if (v >= 1e5) return `${(v / 1e5).toFixed(1)}L`;      // Lakh
-                if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;      // Thousand
-                return v;
-              }}
-              fontSize={11}
-              tick={{ fill: "#33527a" }}
-              axisLine={{ stroke: "#c3d7ff" }}
-              tickLine={{ stroke: "#c3d7ff" }}
-              width={isMobile ? 40 : 50}
-            />
-            <ReTooltip content={(props) => {
-              const p = props?.payload?.[0];
-              if (!p) return null;
-              const row = p.payload;
-              return (
-                <div style={{ background: "#fff", padding: 8, border: "1px solid #ddd", borderRadius: 6, boxShadow: "0 2px 10px rgba(0,0,0,0.1)", textAlign: 'left' }}>
-                  {row[metricKey] != null && (
-                    <div style={{ marginBottom: 4 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: "#555" }}>{prettify(metricKey)} ({formatDateShort(row.realCurrDate)})</div>
-                      <div style={{ fontWeight: 700, color: "#2563eb" }}>{moneyFmt(row[metricKey])}</div>
+      {/* --- Main Box --- */}
+      <div style={boxStyle}>
+
+        {/* --- CHANGE 2: Expand/Close Button (TOP-LEFT) --- */}
+        <button 
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 10,
+            background: "#fff",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "6px", // Square padding for icon only
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#0B3A66",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+          }}
+          title={isFullscreen ? "Close Fullscreen" : "Expand Widget"}
+        >
+          {isFullscreen ? (
+            // Close Icon
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>
+          ) : (
+            // Expand Icon
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+          )}
+        </button>
+
+        {/* --- 3. FULLSCREEN TITLE (Click to CLOSE) --- */}
+        {isFullscreen && (
+          <div 
+            onClick={() => setIsFullscreen(false)}
+            style={{
+              textAlign: "center",
+              width: "100%",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#0B3A66",
+              marginBottom: 20,
+              marginTop: 10,
+              flexShrink: 0,
+              cursor: "pointer" // Indicates clickable
+            }}
+          >
+            {title}
+          </div>
+        )}
+
+        {/* Legend (fixed height, no shrink) */}
+        {/* Added paddingLeft to prevent overlap with the button in small views */}
+        <div style={{ marginBottom: 8, flexShrink: 0, paddingLeft: isFullscreen ? 0 : 30 }}>
+          <CustomLineLegend
+            payload={[
+              ...metricKeys.flatMap((k, i) => ([
+                { dataKey: k, color: COLORS[i % COLORS.length] },
+                { dataKey: `prev${k}`, color: COLORS[i % COLORS.length] }
+              ]))
+            ]}
+            prevData={data?.previous}
+          />
+        </div>
+
+        {/* Chart takes remaining height */}
+        <div style={{ flex: 1, minHeight: 0, padding: isFullscreen ? "0 20px" : "0" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={merged}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e6efff" />
+
+              <XAxis
+                dataKey="x"
+                tickFormatter={formatDateShort}
+                fontSize={11}
+              />
+
+              <YAxis
+                tickFormatter={(v) => {
+                  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+                  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+                  if (v >= 1e5) return `${(v / 1e5).toFixed(1)}L`;
+                  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+                  return v;
+                }}
+                fontSize={11}
+                width={isMobile ? 40 : 50}
+              />
+
+              {/* Tooltip */}
+              <ReTooltip
+                content={({ payload }) => {
+                  if (!payload?.length) return null;
+
+                  // group by base metric
+                  const grouped = payload.reduce((acc, p) => {
+                    const isPrev = p.dataKey.startsWith("prev");
+                    const baseKey = isPrev ? p.dataKey.replace(/^prev/, "") : p.dataKey;
+
+                    acc[baseKey] ??= {};
+                    acc[baseKey][isPrev ? "prev" : "curr"] = p;
+                    return acc;
+                  }, {});
+
+                  return (
+                    <div
+                      style={{
+                        background: "#fff",
+                        padding: 10,
+                        border: "1px solid #ddd",
+                        borderRadius: 6,
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                        textAlign: "left",
+                        minWidth: 180
+                      }}
+                    >
+                      {Object.entries(grouped).map(([key, pair]) => (
+                        <div key={key} style={{ marginBottom: 10 }}>
+                          {/* Title */}
+                          <div style={{ fontWeight: 700, color: pair.curr?.color || pair.prev?.color }}>
+                            {prettify(key)}
+                          </div>
+
+                          {/* Current */}
+                          {pair.curr && (
+                            <div style={{ color: pair.curr.color, fontWeight: 600, fontSize: 13 }}>
+                              ● {formatDateShort(pair.curr.payload.realCurrDate)}: {moneyFmt(pair.curr.value)}
+                            </div>
+                          )}
+
+                          {/* Previous */}
+                          {pair.prev && (
+                            <div style={{ color: pair.prev.color, fontWeight: 600, opacity: 0.7, fontSize: 13 }}>
+                              ● {formatDateShort(pair.prev.payload.realPrevDate)}: {moneyFmt(pair.prev.value)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {row[`prev${metricKey}`] != null && (
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: "#555" }}>{prettify(metricKey)} ({formatDateShort(row.realPrevDate)})</div>
-                      <div style={{ fontWeight: 700, color: "#8dabec" }}>{moneyFmt(row[`prev${metricKey}`])}</div>
-                    </div>
-                  )}
-                </div>
-              );
-            }} />
-            <Line type="monotone" dataKey={metricKey} stroke="#2563eb" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-            <Line type="monotone" dataKey={`prev${metricKey}`} stroke="#8dabecff" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-            <Legend
-              content={(props) => (
-                <CustomLineLegend
-                  {...props}
-                  prevData={data?.previous} // <--- Pass the specific data here
-                />
-              )}
-              verticalAlign="top"
-              height={isMobile ? 40 : 30}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+                  );
+                }}
+              />
+
+              {/* Lines */}
+              {metricKeys.map((k, i) => {
+                const prevCount = data?.previous?.length || 0;
+
+                return (
+                  <React.Fragment key={k}>
+                    {/* CURRENT */}
+                    <Line
+                      type="monotone"
+                      dataKey={k}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={3}
+                      dot={{
+                        r: 3,
+                        fill: COLORS[i % COLORS.length],
+                        stroke: COLORS[i % COLORS.length],
+                        strokeWidth: 1
+                      }}
+                    />
+
+                    {/* PREVIOUS */}
+                    <Line
+                      type="monotone"
+                      dataKey={`prev${k}`}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeOpacity={0.4}
+                      strokeWidth={3}
+                      dot={{
+                        r: 3,
+                        fill: COLORS[i % COLORS.length],
+                        fillOpacity: 0.4,
+                        stroke: COLORS[i % COLORS.length],
+                        strokeOpacity: 0.4,
+                        strokeWidth: 1
+                      }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </React.Fragment>
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
@@ -1101,9 +1493,12 @@ function LineAreaWidget({ title, data }) {
 // scroll hided and wrapping+truncate
 function TableWidget({ title, data }) {
   const [page, setPage] = useState(1);
+  // --- CHANGE 1: Add Fullscreen State ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const width = useWindowWidth();
   const isMobile = width < 768;
-  const isMedium = width >= 768 && width <= 1366; // New breakpoint for your issue
+  const isMedium = width >= 768 && width <= 1366;
 
   const getWidgetHeight = (isMobile) => (isMobile ? 420 : 340);
   const widgetHeight = getWidgetHeight(isMobile);
@@ -1121,14 +1516,38 @@ function TableWidget({ title, data }) {
 
   useEffect(() => { setPage(1); }, [dataKey]);
 
-  // Wrapper Style - CHANGED height to minHeight
+  // --- STYLES ---
+
+  // 1. Placeholder Container
   const containerStyle = {
     marginBottom: "0.75rem",
     display: "flex",
     flexDirection: "column",
     height: widgetHeight,
     width: "100%",
-    overflow: "hidden" // Prevent the card itself from growing
+  };
+
+  // 2. Main Box Frame (Switches between Widget and Fullscreen)
+  const boxStyle = isFullscreen ? {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    zIndex: 9999, // High z-index
+    background: "#fff",
+    display: "flex",
+    flexDirection: "column",
+    padding: "20px",
+    boxSizing: "border-box"
+  } : {
+    background: "#fff",
+    border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    minHeight: 0,
+    position: "relative"
   };
 
   if (data == null) return <div style={containerStyle}></div>;
@@ -1197,7 +1616,6 @@ function TableWidget({ title, data }) {
       if (Number.isFinite(prevVal)) previousTotal += prevVal;
     });
   }
-
   const totalDeltaPercent = previousTotal !== 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : null;
 
   const total = rows.length;
@@ -1213,7 +1631,7 @@ function TableWidget({ title, data }) {
 
   const lineClampStyle = {
     display: "-webkit-box",
-    WebkitLineClamp: 2, // Reduced to 2 for tighter screens
+    WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -1224,18 +1642,48 @@ function TableWidget({ title, data }) {
 
   return (
     <div style={containerStyle}>
-      <div style={{ textAlign: "center", fontWeight: 700, fontSize: "1rem", color: "#0B3A66", marginBottom: 8, flexShrink: 0 }}>
-        {title}
-      </div>
+      
+      {/* --- CHANGE: Clickable Normal Title (Click to Open) --- */}
+      {!isFullscreen && (
+        <div 
+          onClick={() => setIsFullscreen(true)}
+          style={{ 
+            textAlign: "center", 
+            fontWeight: 700, 
+            fontSize: "1rem", 
+            color: "#0B3A66", 
+            marginBottom: 8, 
+            flexShrink: 0,
+            cursor: "pointer" // Indicates clickable
+          }}
+        >
+          {title}
+        </div>
+      )}
 
-      <div style={{
-        background: "#fff",
-        border: `2px solid ${NGRAPH_THEME.kpiBorder}`,
-        display: "flex",
-        flexDirection: "column",
-        flex: 1,
-        minHeight: 0
-      }}>
+      {/* --- Main Box --- */}
+      <div style={boxStyle}>
+
+        {/* --- CHANGE: Clickable Fullscreen Title (Click to Close) --- */}
+        {isFullscreen && (
+          <div 
+            onClick={() => setIsFullscreen(false)}
+            style={{
+              textAlign: "center",
+              width: "100%",
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#0B3A66",
+              marginBottom: 20,
+              marginTop: 10,
+              flexShrink: 0,
+              cursor: "pointer"
+            }}
+          >
+            {title}
+          </div>
+        )}
+
         <div
           className="hide-scrollbar"
           style={{
@@ -1257,8 +1705,7 @@ function TableWidget({ title, data }) {
               width: "100%",
               borderCollapse: "separate",
               borderSpacing: 0,
-              // minWidth: isMobile ? "100%" : "400px",
-              tableLayout: safeColumns.length > 4 ? "auto" : "fixed", // flexible if many columns
+              tableLayout: safeColumns.length > 4 ? "auto" : "fixed",
               fontSize: isMedium ? "11px" : "13px"
             }}
           >
@@ -1273,7 +1720,6 @@ function TableWidget({ title, data }) {
                     <th key={c} style={{
                       position: "sticky", top: 0, zIndex: 10,
                       textAlign: isDeltaCol || isNumeric ? "right" : "left",
-                      // textAlign: isDeltaCol ? "right" : "left",
                       padding: "8px", color: "#fff", background: NGRAPH_THEME.primary,
                       fontSize: 13, whiteSpace: "nowrap",
                       minWidth: isValueCol ? VALUE_COL_WIDTH : isDeltaCol ? 80 : 100
@@ -1292,7 +1738,6 @@ function TableWidget({ title, data }) {
                       const cleaned = String(v).replace(/[,₹$Lkmb]/gi, "");
                       const numericValue = !isNaN(Number(cleaned)) ? Number(cleaned) : null;
 
-                      // CASE 1: Primary Value Column (Render Bar + MoneyFmt)
                       if (j === valueColIndex && numericValue !== null) {
                         const barPx = Math.round((numericValue / maxValueOnPage) * VALUE_BAR_WIDTH);
                         return (
@@ -1306,24 +1751,16 @@ function TableWidget({ title, data }) {
                           </td>
                         );
                       }
-
-                      // CASE 2: Percentage Columns
                       if (typeof v === "string" && v.trim().endsWith("%")) {
                         const num = parseFloat(v.replace("%", ""));
                         return <td key={j} style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: !isNaN(num) && num < 0 ? "#d12b2b" : "#0B6623", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{v}</td>;
                       }
-
-                      // CASE 3: Secondary Money Columns (Render MoneyFmt only) - FIX ADDED HERE
                       if (moneyColumnIndexes.has(j) && numericValue !== null) {
                         return <td key={j} style={{ padding: "8px", textAlign: "right", fontSize: 13, color: "#333", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{moneyFmt(numericValue)}</td>
                       }
-
-                      // CASE 4: Standard Number Columns (Render NumberFmt)
                       if (numberColumnIndexes.has(j) && numericValue !== null) {
                         return <td key={j} style={{ padding: "8px", textAlign: "right", fontSize: 13, color: "#333", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{numberFmt(numericValue)}</td>
                       }
-
-                      // Case 4: Text/Generic - Wrapped with Line Clamp
                       return (
                         <td key={j} style={{ padding: "8px", borderBottom: "1px solid #eee", verticalAlign: "top" }} title={String(v)}>
                           <div style={{ ...lineClampStyle, fontSize: 13, color: "#333" }}>
@@ -1340,9 +1777,9 @@ function TableWidget({ title, data }) {
                       const deltaVal = prevVal == null ? null : currVal - prevVal;
                       const deltaPct = prevVal == null || prevVal === 0 ? null : (deltaVal / prevVal) * 100;
                       if (deltaVal === 0 || deltaVal == null || deltaPct == 0 || deltaPct == null) {
-                        return <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: "#999", borderBottom: "1px solid #eee", verticalAlign: "top" }}>–</td>;
+                        return <td style={{ padding: "6px", textAlign: "right", fontWeight: 700, fontSize: 13, color: "#999", borderBottom: "1px solid #eee", verticalAlign: "top" }}>–</td>;
                       }
-                      return <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, fontSize: 13, color: deltaPct < 0 ? "#d12b2b" : "#0B6623", whiteSpace: "nowrap", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{deltaPct == null ? "–" : `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}</td>;
+                      return <td style={{ padding: "6px", textAlign: "right", fontWeight: 700, fontSize: 13, color: deltaPct < 0 ? "#d12b2b" : "#0B6623", whiteSpace: "nowrap", borderBottom: "1px solid #eee", verticalAlign: "top" }}>{deltaPct == null ? "–" : `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}</td>;
                     })()}
                   </tr>
                 );
@@ -1357,33 +1794,22 @@ function TableWidget({ title, data }) {
                     const cleaned = String(v).replace(/[,₹$]/g, "");
                     const isNumeric = cleaned !== "" && !isNaN(Number(cleaned));
 
-                    // FIX 1: Primary Value Column - Apply spacing logic
                     if (j === valueColIndex && isNumeric) {
                       return (
                         <td key={j} style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>
-                          <div style={{ marginRight: VALUE_BAR_WIDTH + 6 }}>
-                            {moneyFmt(Number(cleaned))}
-                          </div>
+                          <div style={{ marginRight: VALUE_BAR_WIDTH + 6 }}>{moneyFmt(Number(cleaned))}</div>
                         </td>
                       );
                     }
-
-                    // FIX 2: Other Money Columns (Standard MoneyFmt)
                     if (moneyColumnIndexes.has(j) && isNumeric) {
                       return <td key={j} style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>{moneyFmt(Number(cleaned))}</td>;
                     }
-
-                    // FIX 3: Number Columns (Standard NumberFmt)
                     if (numberColumnIndexes.has(j) && isNumeric) {
                       return <td key={j} style={{ padding: "8px", textAlign: "right", whiteSpace: "nowrap", verticalAlign: "top" }}>{numberFmt(Number(cleaned))}</td>;
                     }
-
-                    // String Column in Footer - Also Wrapped
                     return (
                       <td key={j} style={{ padding: "8px", textAlign: isNumeric ? "right" : "left", verticalAlign: "top" }}>
-                        <div style={{ ...lineClampStyle, color: "#fff" }}>
-                          {v}
-                        </div>
+                        <div style={{ ...lineClampStyle, color: "#fff" }}>{v}</div>
                       </td>
                     );
                   })}
@@ -1395,15 +1821,48 @@ function TableWidget({ title, data }) {
             )}
           </table>
         </div>
-        {pages > 1 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px", borderTop: "1px solid #eee", flexShrink: 0 }}>
-            <span style={{ marginRight: 12, fontSize: 13, display: "flex", alignItems: "center" }}>{start + 1}–{Math.min(start + TABLE_PAGE_SIZE, total)} of {total}</span>
-            <div style={{ display: "flex", gap: 4 }}>
-              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} style={{ padding: "4px 10px", background: "#f3f4f6", border: "1px solid #ddd", borderRadius: 4, cursor: page === 1 ? "not-allowed" : "pointer", opacity: page === 1 ? 0.5 : 1 }}>{"<"}</button>
-              <button disabled={page === pages} onClick={() => setPage((p) => p + 1)} style={{ padding: "4px 10px", background: "#f3f4f6", border: "1px solid #ddd", borderRadius: 4, cursor: page === pages ? "not-allowed" : "pointer", opacity: page === pages ? 0.5 : 1 }}>{">"}</button>
+
+        {/* --- CHANGE: Footer with Left Button and Right Pagination --- */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", borderTop: "1px solid #eee", flexShrink: 0, background: "#fff" }}>
+          
+          {/* LEFT: Expand/Collapse Button (Symbolic) */}
+          <button 
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            style={{
+              background: "#fff",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              padding: "6px",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#0B3A66",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+            }}
+            title={isFullscreen ? "Close Fullscreen" : "Expand Table"}
+          >
+            {isFullscreen ? (
+               // Close Icon
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>
+            ) : (
+               // Expand Icon
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+            )}
+          </button>
+
+          {/* RIGHT: Pagination */}
+          {pages > 1 ? (
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <span style={{ marginRight: 12, fontSize: 13 }}>{start + 1}–{Math.min(start + TABLE_PAGE_SIZE, total)} of {total}</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} style={{ padding: "4px 10px", background: "#f3f4f6", border: "1px solid #ddd", borderRadius: 4, cursor: page === 1 ? "not-allowed" : "pointer", opacity: page === 1 ? 0.5 : 1 }}>{"<"}</button>
+                <button disabled={page === pages} onClick={() => setPage((p) => p + 1)} style={{ padding: "4px 10px", background: "#f3f4f6", border: "1px solid #ddd", borderRadius: 4, cursor: page === pages ? "not-allowed" : "pointer", opacity: page === pages ? 0.5 : 1 }}>{">"}</button> 
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div /> 
+          )}
+        </div>
+
       </div>
     </div>
   );
