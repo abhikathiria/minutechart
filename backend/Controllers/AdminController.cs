@@ -678,7 +678,7 @@ namespace minutechart.Controllers
                 CompanyLogoUrl = user.UserProfile.CompanyLogoUrl,
                 DatabaseName = user.UserProfile.DatabaseName,
                 DbUsername = user.UserProfile.DbUsername,
-                DbPassword = user.UserProfile.DbPassword,
+                DbPassword = null,
             };
 
             return Ok(dto);
@@ -694,15 +694,47 @@ namespace minutechart.Controllers
             if (user == null)
                 return NotFound(new { message = "User not found" });
 
-            if (!_dbService.TestConnection(model.ServerName, model.DatabaseName, model.DbUsername, model.DbPassword, out string error))
-            {
-                // LOG: Failed profile set (Connection failed)
-                await _activityLogger.LogAsync("failed to set/update profile (DB connection failed) for", "User", user.UserName ?? user.Email);
-                return BadRequest(new { message = "Database connection failed", details = error });
-            }
-
             var profile = user.UserProfile;
-            bool isNewProfile = (profile == null);
+
+            bool isNewProfile = profile == null;
+
+            bool dbCredentialsChanged =
+                isNewProfile ||
+                profile.ServerName != model.ServerName ||
+                profile.DatabaseName != model.DatabaseName ||
+                profile.DbUsername != model.DbUsername ||
+                !string.IsNullOrWhiteSpace(model.DbPassword);
+
+            if (dbCredentialsChanged)
+            {
+                if (string.IsNullOrWhiteSpace(model.DbPassword))
+                {
+                    return BadRequest(new
+                    {
+                        message = "DB password is required when changing database connection details"
+                    });
+                }
+
+                if (!_dbService.TestConnection(
+                        model.ServerName,
+                        model.DatabaseName,
+                        model.DbUsername,
+                        model.DbPassword,
+                        out string error))
+                {
+                    await _activityLogger.LogAsync(
+                        "failed to set/update profile (DB connection failed) for",
+                        "User",
+                        user.UserName ?? user.Email
+                    );
+
+                    return BadRequest(new
+                    {
+                        message = "Database connection failed",
+                        details = error
+                    });
+                }
+            }
 
             if (isNewProfile)
             {
@@ -729,7 +761,7 @@ namespace minutechart.Controllers
                     DatabaseName = model.DatabaseName,
                     ShortName = model.ShortName,
                     DbUsername = model.DbUsername,
-                    DbPassword = model.DbPassword,
+                    DbPassword = EncryptionHelper.Encrypt(model.DbPassword),
                     CustomerGST = model.CustomerGST ?? user.GST ?? "",
                     CustomerCode = customerCode
                 };
@@ -765,7 +797,10 @@ namespace minutechart.Controllers
                 profile.ServerName = model.ServerName;
                 profile.DatabaseName = model.DatabaseName;
                 profile.DbUsername = model.DbUsername;
-                profile.DbPassword = model.DbPassword;
+                if (!string.IsNullOrWhiteSpace(model.DbPassword))
+                {
+                    profile.DbPassword = EncryptionHelper.Encrypt(model.DbPassword);
+                }
                 profile.CompanyLogoUrl = model.CompanyLogoUrl ?? profile.CompanyLogoUrl;
                 profile.CustomerGST = model.CustomerGST ?? user.GST ?? "";
 
@@ -797,6 +832,134 @@ namespace minutechart.Controllers
 
                 // LOG: Admin updated existing profile
                 await _activityLogger.LogAsync(updateMessage, "User", user.UserName ?? user.Email);
+            }
+
+            return Ok(new { message = "Profile saved successfully" });
+        }
+
+        [HttpGet("admin/{id}/profile")]
+        public async Task<IActionResult> AdminUserProfile(string id)
+        {
+            var user = await _db.Users
+                .Include(u => u.AdminProfile)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+            if (user == null)
+                return NotFound(new { message = "Admin not found" });
+
+            // LOG: Admin viewed user's profile (logged in previous AdminController full update, retained here for context)
+            await _activityLogger.LogAsync("viewed profile details for", "Admin", user.UserName ?? user.Email);
+
+            if (user.AdminProfile == null)
+            {
+                return Ok(new AdminProfileDto
+                {
+                    CompanyName = user.CompanyName ?? "",
+                    AdminName = user.AdminName ?? "",
+                    GST = user.GST ?? "",
+                    CommissionPercentage = user.CommissionPercentage ?? 0
+                });
+            }
+
+            var dto = new AdminProfileDto
+            {
+                CompanyName = user.AdminProfile.CompanyName ?? user.CompanyName ?? "",
+                AdminName = user.AdminProfile.AdminName ?? user.AdminName ?? "",
+                GST = user.AdminProfile.GST ?? user.GST ?? "",  // Default to AppUser.GST if profile GST is null
+                AdminCode = user.AdminProfile.AdminCode ?? "",
+                ProfilePhotoUrl = user.AdminProfile.ProfilePhotoUrl,
+                CompanyLogoUrl = user.AdminProfile.CompanyLogoUrl,
+                CommissionPercentage = user.AdminProfile.CommissionPercentage ?? user.CommissionPercentage ?? 0,
+            };
+
+            return Ok(dto);
+        }
+
+        [HttpPost("admin/{id}/profile")]
+        public async Task<IActionResult> SetAdminProfile(string id, [FromBody] AdminProfileDto model)
+        {
+            var user = await _db.Users
+                .Include(u => u.AdminProfile)
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+            if (user == null)
+                return NotFound(new { message = "Admin not found" });
+
+            var profile = user.AdminProfile;
+
+            bool isNewProfile = profile == null;
+
+            if (isNewProfile)
+            {
+                // --- Profile Creation (Activation/Trial Start) ---
+
+                // --- UPDATED CustomerCode Generation logic to use model data ---
+                var regYear = user.RegistrationDate?.Year.ToString() ?? DateTimeHelper.GetIndianTime().Year.ToString();
+                // Use model.CompanyName for code generation on first creation
+                var companyWords = model.CompanyName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+                var companyInitials = string.Join("", companyWords.Take(2).Select(w => w[0])).ToUpper();
+                // Use model.CustomerName for code generation on first creation
+                var adminWords = model.AdminName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+                var adminInitials = string.Join("", adminWords.Select(w => w[0])).ToUpper();
+                var userIdPart = $"{user.Id.Substring(0, 2)}{user.Id.Substring(user.Id.Length - 2)}".ToUpper();
+                var adminCode = $"A-{regYear}-{companyInitials}{adminInitials}-{userIdPart}";
+                // -----------------------------------------------------------------
+
+                profile = new AdminProfile
+                {
+                    AppUserId = user.Id,
+                    CompanyName = model.CompanyName ?? user.CompanyName,
+                    AdminName = model.AdminName ?? user.AdminName,
+                    CommissionPercentage = model.CommissionPercentage ?? user.CommissionPercentage,
+                    GST = model.GST ?? user.GST ?? "",
+                    AdminCode = adminCode
+                };
+                _db.AdminProfiles.Add(profile);
+                await _db.SaveChangesAsync(); // Save profile first to get ID/link relationship
+
+                // Activate admin
+                // user.AccountStatus = "Active";
+
+                // --- UPDATED: Update AppUser fields based on model ---
+                user.CompanyName = model.CompanyName ?? user.CompanyName;
+                user.AdminName = model.AdminName ?? user.AdminName;
+                user.GST = model.GST ?? user.GST;
+                user.CommissionPercentage = model.CommissionPercentage ?? user.CommissionPercentage;
+                // ----------------------------------------------------
+                _db.Users.Update(user);
+                await _db.SaveChangesAsync();
+
+                // LOG: Admin created new profile and activated user
+                await _activityLogger.LogAsync("created new profile for", "Admin", user.UserName ?? user.Email);
+            }
+            else
+            {
+                // --- Profile Update ---
+                profile.CompanyName = model.CompanyName ?? user.CompanyName;
+                profile.AdminName = model.AdminName ?? user.AdminName;
+                if (model.CommissionPercentage.HasValue)
+                {
+                    profile.CommissionPercentage = model.CommissionPercentage;
+                    user.CommissionPercentage = model.CommissionPercentage;
+                }
+                profile.CompanyLogoUrl = model.CompanyLogoUrl ?? profile.CompanyLogoUrl;
+                profile.GST = model.GST ?? user.GST ?? "";
+
+                // Update AppUser fields if they were present in the model and changed
+                if (!string.IsNullOrEmpty(model.CompanyName) && user.CompanyName != model.CompanyName)
+                {
+                    user.CompanyName = model.CompanyName;
+                }
+                if (!string.IsNullOrEmpty(model.AdminName) && user.AdminName != model.AdminName)
+                {
+                    user.AdminName = model.AdminName;
+                }
+
+                _db.AdminProfiles.Update(profile);
+                user.GST = model.GST ?? user.GST ?? ""; // Also update AppUser.GST
+                _db.Users.Update(user);
+                await _db.SaveChangesAsync();
+
             }
 
             return Ok(new { message = "Profile saved successfully" });
@@ -1133,14 +1296,14 @@ Nchart Team";
 
             // Map simple fields
             if (!string.IsNullOrWhiteSpace(dto.CompanyLogoPath))
-{
-    settings.CompanyLogoPath = dto.CompanyLogoPath;
-}
+            {
+                settings.CompanyLogoPath = dto.CompanyLogoPath;
+            }
 
-if (!string.IsNullOrWhiteSpace(dto.OwnerSignaturePath))
-{
-    settings.OwnerSignaturePath = dto.OwnerSignaturePath;
-}
+            if (!string.IsNullOrWhiteSpace(dto.OwnerSignaturePath))
+            {
+                settings.OwnerSignaturePath = dto.OwnerSignaturePath;
+            }
 
             settings.CompanyName = dto.CompanyName;
             settings.CompanyAddress = dto.CompanyAddress;
@@ -1696,6 +1859,20 @@ if (!string.IsNullOrWhiteSpace(dto.OwnerSignaturePath))
         public string DatabaseName { get; set; }
         public string DbUsername { get; set; }
         public string DbPassword { get; set; }
+
+    }
+
+    public class AdminProfileDto
+    {
+        public string? ProfilePhotoUrl { get; set; }
+        public string? CompanyLogoUrl { get; set; }
+        public string? CompanyName { get; set; }
+        public string? Email { get; set; }
+        public string AdminName { get; set; } = "";
+        public string GST { get; set; } = "";
+        public string AdminCode { get; set; } = "";
+        public string? PhoneNumber { get; set; }
+        public decimal? CommissionPercentage { get; set; }
 
     }
 }

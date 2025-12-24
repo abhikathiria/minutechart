@@ -265,6 +265,11 @@ function Header({ user, onLogout }) {
                         <DropdownItem to="/subscription/addon" icon={<FaPlus className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Add Ons</DropdownItem>
                     </>
                 )}
+                {isAdmin && (
+                    <>
+                        <DropdownItem to="/my-admin-profile" icon={<FaUserCircle className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>My Profile</DropdownItem>
+                    </>
+                )}
                 <DropdownItem to="/change-password" icon={<FaLock className="w-4 h-4 shrink-0" />} onClick={() => closeAllMenus()}>Change Password</DropdownItem>
             </div>
 
@@ -621,6 +626,8 @@ function Header({ user, onLogout }) {
                                     {!isAnyAdmin && <Link to="/complaints" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaEnvelope className="text-cyan-400 w-5 h-5 shrink-0" /> My Complaints</Link>}
                                     {!isAnyAdmin && <Link to="/suggestions-history" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaClipboardList className="text-cyan-400 w-5 h-5 shrink-0" /> Suggestions History</Link>}
                                     {!isAnyAdmin && <Link to="/subscription/addon" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaPlus className="text-cyan-400 w-5 h-5 shrink-0" /> Add Ons</Link>}
+
+                                    {isAdmin && <Link to="/my-admin-profile" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaUserCircle className="text-cyan-400 w-5 h-5 shrink-0" /> My Profile</Link>}
 
                                     <Link to="/change-password" className="block px-3 py-3 text-white hover:bg-cyan-900/30 rounded-md flex items-center gap-3 border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}><FaLock className="text-cyan-400 w-5 h-5 shrink-0" /> Change Password</Link>
 

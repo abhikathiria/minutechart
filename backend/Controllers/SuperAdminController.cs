@@ -90,6 +90,7 @@ namespace minutechart.Controllers
                     user.CompanyName,
                     user.CustomerName,
                     user.AdminName,
+                    user.CommissionPercentage,
                     user.PhoneNumber,
                     user.AccountStatus,
                     ProfileConfigured = user.UserProfile != null,

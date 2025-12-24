@@ -64,34 +64,34 @@ namespace minutechart
             .AddEntityFrameworkStores<MinutechartDbContext>()
             .AddDefaultTokenProviders();
 
-            // local code
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy("AllowReactApp", policy =>
-                {
-                    policy.WithOrigins("http://localhost:3000", "http://192.168.1.116:3000", "http://192.168.1.116:5027")
-                          .AllowAnyHeader()
-                          .AllowAnyMethod()
-                          .AllowCredentials();
-                });
-            });
-
-            // // render code
-            // builder.Services.ConfigureApplicationCookie(options =>
-            //  {
-            //      options.Cookie.SameSite = SameSiteMode.None;
-            //      options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            //  });
+            // // local code
             // builder.Services.AddCors(options =>
             // {
             //     options.AddPolicy("AllowReactApp", policy =>
             //     {
-            //         policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.116:3000")
+            //         policy.WithOrigins("http://localhost:3000", "http://192.168.1.116:3000", "http://192.168.1.116:5027")
             //               .AllowAnyHeader()
             //               .AllowAnyMethod()
             //               .AllowCredentials();
             //     });
             // });
+
+            // render code
+            builder.Services.ConfigureApplicationCookie(options =>
+             {
+                 options.Cookie.SameSite = SameSiteMode.None;
+                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+             });
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowReactApp", policy =>
+                {
+                    policy.WithOrigins("https://minutechart.vercel.app", "http://192.168.1.116:3000")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials();
+                });
+            });
 
 
             builder.Services.AddControllers()
@@ -134,6 +134,7 @@ namespace minutechart
 
             builder.Services.AddSignalR();
             // builder.Services.AddHttpContextAccessor();
+            EncryptionHelper.Initialize(builder.Configuration);
 
             var app = builder.Build();
 

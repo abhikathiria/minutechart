@@ -53,6 +53,8 @@ import ExpenseModules from "./pages/ExpenseModules";
 import ExpenseAnalyticsPage from "./pages/ExpenseAnalyticsPage";
 import FinanceModules from "./pages/FinanceModules";
 import FinanceAnalyticsPage from "./pages/FinanceAnalyticsPage";
+import AdminProfile from "./pages/AdminProfile";
+import MyAdminProfile from "./pages/MyAdminProfile";
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -435,6 +437,7 @@ function AppContent() {
                 <Route path="/user/:id/expense-modules" element={<AdminRoute><ExpenseModules /></AdminRoute>} />
                 <Route path="/user/:id/finance-modules" element={<AdminRoute><FinanceModules /></AdminRoute>} />
                 <Route path="/user/:id/tools" element={<AdminRoute><UserToolsPage /></AdminRoute>} />
+                <Route path="/my-admin-profile" element={<AdminRoute><MyAdminProfile /></AdminRoute>} />
 
                 {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
                 <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRestrictedRoute>} />
@@ -442,6 +445,7 @@ function AppContent() {
                 <Route path="/admin/invoicesettings" element={<AdminRestrictedRoute><InvoiceSettingsPage /></AdminRestrictedRoute>} />
                 <Route path="/superadmin/pricing" element={<AdminRestrictedRoute><Pricing /></AdminRestrictedRoute>} />
                 <Route path="/superadmin/admin-commission" element={<AdminRestrictedRoute><CommissionPage /></AdminRestrictedRoute>} />
+                <Route path="/adminprofile/:id" element={<AdminRestrictedRoute><AdminProfile /></AdminRestrictedRoute>} />
 
                 {/* Private routes (logged-in users) */}
                 <Route path="/my-profile" element={<PrivateRoute><MyProfile /></PrivateRoute>} />

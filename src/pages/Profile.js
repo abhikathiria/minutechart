@@ -363,7 +363,6 @@ export default function Profile() {
                   onChange={onChange}
                   icon={FaKey}
                   placeholder="e.g. MCMSL"
-                  required
                   info="Used in SQL queries as {{SHORTNAME}}."
                 />
 
@@ -424,7 +423,9 @@ export default function Profile() {
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
                     <FaKey className="w-4 h-4 text-indigo-500" /> DB Password
-                    <span className="text-red-500 text-xs">*</span>
+                    <span className="text-xs text-gray-40">
+                      (required only if DB details change)
+                    </span>
                   </label>
                   <div className="relative">
                     <input
@@ -432,8 +433,8 @@ export default function Profile() {
                       type={showPassword ? "text" : "password"}
                       value={form.dbPassword}
                       onChange={onChange}
-                      required
-                      placeholder="DB password (only required if changing/setting)"
+                      // required
+                      placeholder="DB password"
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none pr-12"
                     />
                     <button

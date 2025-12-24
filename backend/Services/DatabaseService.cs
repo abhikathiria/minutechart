@@ -33,11 +33,13 @@ namespace minutechart.Services
 
         public async Task<SqlConnection> CreateClientConnectionAsync(UserProfile profile)
         {
+            var decryptedPassword = EncryptionHelper.Decrypt(profile.DbPassword);
+
             var connectionString = BuildConnectionString(
                 profile.ServerName,
                 profile.DatabaseName,
                 profile.DbUsername,
-                profile.DbPassword
+                decryptedPassword
             );
 
             var connection = new SqlConnection(connectionString);

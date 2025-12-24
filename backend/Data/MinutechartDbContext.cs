@@ -10,6 +10,7 @@ namespace minutechart.Data
 
         public DbSet<AppUser> AppUsers { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
+        public DbSet<AdminProfile> AdminProfiles { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<Agent> Agents { get; set; }
         public DbSet<Broker> Brokers { get; set; }

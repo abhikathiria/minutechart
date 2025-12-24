@@ -116,6 +116,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
         adminName: "",
         phoneNumber: "",
         email: "",
+        commissionPercentage: "",
         accountStatus: "",
         subscriptionStatus: ""
     });
@@ -451,6 +452,11 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                     (user.adminName ?? "").toLowerCase().includes((adminColumnFilters.adminName ?? "").toLowerCase()) &&
                     (user.phoneNumber ?? "").toLowerCase().includes((adminColumnFilters.phoneNumber ?? "").toLowerCase()) &&
                     (user.email ?? "").toLowerCase().includes((adminColumnFilters.email ?? "").toLowerCase()) &&
+                    String(user.commissionPercentage ?? "")
+                        .toLowerCase()
+                        .includes(
+                            String(adminColumnFilters.commissionPercentage ?? "").toLowerCase()
+                        ) &&
                     (user.accountStatus ?? "").toLowerCase().includes((adminColumnFilters.accountStatus ?? "").toLowerCase()) &&
                     (user.subscriptionStatus ?? "").toLowerCase().includes((adminColumnFilters.subscriptionStatus ?? "").toLowerCase());
             }
@@ -493,7 +499,7 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
     // Dynamic Headers based on activeTab
     const baseHeaders = ["email", "phoneNumber", "accountStatus", "subscriptionStatus"];
     const userDisplayCols = ["companyName", "customerName", "assignedAdminId"];
-    const adminDisplayCols = ["adminName"];
+    const adminDisplayCols = ["adminName", "commissionPercentage"];
 
     const dynamicHeaders = activeTab === 'User' ? userDisplayCols : adminDisplayCols;
 
@@ -613,21 +619,6 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                     <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
                         <FaUserShield className="w-8 h-8" /> Central User Management
                     </h2>
-
-                    {/* Search Bar */}
-                    {/* <div className="relative">
-                        <FaSearch className="absolute left-4 top-3 text-white/70 w-4 h-4" />
-                        <input
-                            type="text"
-                            placeholder="Search by name, company, or email..."
-                            className="pl-11 pr-4 py-3 w-full rounded-xl border-0 bg-white/10 text-white placeholder-white/70 focus:ring-2 focus:ring-white focus:bg-white/20 transition shadow-inner"
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                        />
-                    </div> */}
 
                     {/* Filters and Actions */}
                     <div className="flex flex-wrap gap-3 pt-2 items-center justify-between">
@@ -764,18 +755,39 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                                     }
 
                                     {/* ADMIN TAB FILTERS */}
-                                    {activeTab === "Admin" &&
-                                        <th className="p-2">
-                                            <input
-                                                value={adminColumnFilters.adminName}
-                                                onChange={(e) =>
-                                                    setAdminColumnFilters({ ...adminColumnFilters, adminName: e.target.value })
-                                                }
-                                                className="w-full px-2 py-1 border rounded"
-                                                placeholder="Search..."
-                                            />
-                                        </th>
-                                    }
+                                    {activeTab === "Admin" && (
+                                        <>
+                                            {/* Admin Name */}
+                                            <th className="p-2">
+                                                <input
+                                                    value={adminColumnFilters.adminName}
+                                                    onChange={(e) =>
+                                                        setAdminColumnFilters({
+                                                            ...adminColumnFilters,
+                                                            adminName: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full px-2 py-1 border rounded"
+                                                    placeholder="Admin name"
+                                                />
+                                            </th>
+
+                                            {/* Commission Percentage */}
+                                            <th className="p-2">
+                                                <input
+                                                    value={adminColumnFilters.commissionPercentage}
+                                                    onChange={(e) =>
+                                                        setAdminColumnFilters({
+                                                            ...adminColumnFilters,
+                                                            commissionPercentage: e.target.value
+                                                        })
+                                                    }
+                                                    className="w-full px-2 py-1 border rounded"
+                                                    placeholder="Commission %"
+                                                />
+                                            </th>
+                                        </>
+                                    )}
 
                                     {/* SHARED FILTERS: email / phone / accountStatus / subscriptionStatus */}
                                     <th className="p-2">
@@ -874,55 +886,83 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
                                             {/* Actions */}
                                             <td className="p-4">
                                                 <div className="flex flex-col gap-2 items-center min-w-max">
-
-                                                    {/* SUPER ADMIN ACTIONS for PENDING USERS */}
-                                                    {isPendingUser && isUnassignedUser && (
-                                                        <button
-                                                            onClick={() => handlePromoteToAdmin(user.id)}
-                                                            className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md"
-                                                            title="Promote to Admin"
-                                                        >
-                                                            <FaUserShield /> Promote to Admin
-                                                        </button>
-                                                    )}
-
-                                                    {isPendingUser && (
-                                                        <button
-                                                            onClick={() => handleAssignAdminClick(user.id)}
-                                                            className="px-3 py-1 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md"
-                                                            title={user.assignedAdminId ? "Re-assign Admin" : "Assign Admin"}
-                                                        >
-                                                            <FaUserTag className="w-3 h-3" />
-                                                            {user.assignedAdminId ? 'Re-assign Admin' : 'Assign Admin'}
-                                                        </button>
-                                                    )}
-
-                                                    {/* STANDARD ACTIONS for ACTIVE/BLOCKED USERS */}
-                                                    {user.accountStatus !== "Pending" && (
+                                                    {activeTab === "Admin" ? (
                                                         <>
-                                                            {/* Group: Profile/Setup/Purchases */}
-                                                            <div className="flex flex-wrap gap-1 justify-center w-full">
-                                                                <Link to={`/profile/${user.id}`} state={{ keepFilters: true }} className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md" title="DB Setup">
-                                                                    <FaDatabase className="w-4 h-4" />
-                                                                </Link>
-                                                                <Link to={`/user/${user.id}/tools`} state={{ keepFilters: true }} className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-md" title="Set Modules">
-                                                                    <FaChartPie className="w-4 h-4" />
-                                                                </Link>
-                                                                <button onClick={() => handleShowPurchases(user.id)} className="p-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition shadow-md" title="View Purchases">
-                                                                    <FaReceipt className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
+                                                            {user.accountStatus !== "Pending" && (
+                                                                <>
+                                                                    {/* Group: Profile/Setup/Purchases */}
+                                                                    <div className="flex flex-wrap gap-1 justify-center w-full">
+                                                                        <Link to={`/adminprofile/${user.id}`} state={{ keepFilters: true }} className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md" title="DB Setup">
+                                                                            <FaDatabase className="w-4 h-4" />
+                                                                        </Link>
+                                                                    </div>
 
-                                                            {/* Group: Status Toggles */}
-                                                            {user.accountStatus === "Active" ? (
-                                                                <button onClick={() => handleDeactivate(user.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md">
-                                                                    <FaLock /> Block Account
+                                                                    {/* Group: Status Toggles */}
+                                                                    {user.accountStatus === "Active" ? (
+                                                                        <button onClick={() => handleDeactivate(user.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md">
+                                                                            <FaLock /> Block Account
+                                                                        </button>
+                                                                    ) : (user.accountStatus === "Blocked" && (
+                                                                        <button onClick={() => handleReactivate(user.id)} className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md">
+                                                                            <FaUnlock /> Reactivate
+                                                                        </button>
+                                                                    ))}
+                                                                </>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <>
+
+                                                            {/* SUPER ADMIN ACTIONS for PENDING USERS */}
+                                                            {isPendingUser && isUnassignedUser && (
+                                                                <button
+                                                                    onClick={() => handlePromoteToAdmin(user.id)}
+                                                                    className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md"
+                                                                    title="Promote to Admin"
+                                                                >
+                                                                    <FaUserShield /> Promote to Admin
                                                                 </button>
-                                                            ) : (user.accountStatus === "Blocked" && (
-                                                                <button onClick={() => handleReactivate(user.id)} className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md">
-                                                                    <FaUnlock /> Reactivate
+                                                            )}
+
+                                                            {isPendingUser && (
+                                                                <button
+                                                                    onClick={() => handleAssignAdminClick(user.id)}
+                                                                    className="px-3 py-1 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md"
+                                                                    title={user.assignedAdminId ? "Re-assign Admin" : "Assign Admin"}
+                                                                >
+                                                                    <FaUserTag className="w-3 h-3" />
+                                                                    {user.assignedAdminId ? 'Re-assign Admin' : 'Assign Admin'}
                                                                 </button>
-                                                            ))}
+                                                            )}
+
+                                                            {/* STANDARD ACTIONS for ACTIVE/BLOCKED USERS */}
+                                                            {user.accountStatus !== "Pending" && (
+                                                                <>
+                                                                    {/* Group: Profile/Setup/Purchases */}
+                                                                    <div className="flex flex-wrap gap-1 justify-center w-full">
+                                                                        <Link to={`/profile/${user.id}`} state={{ keepFilters: true }} className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md" title="DB Setup">
+                                                                            <FaDatabase className="w-4 h-4" />
+                                                                        </Link>
+                                                                        <Link to={`/user/${user.id}/tools`} state={{ keepFilters: true }} className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-md" title="Set Modules">
+                                                                            <FaChartPie className="w-4 h-4" />
+                                                                        </Link>
+                                                                        <button onClick={() => handleShowPurchases(user.id)} className="p-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition shadow-md" title="View Purchases">
+                                                                            <FaReceipt className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+
+                                                                    {/* Group: Status Toggles */}
+                                                                    {user.accountStatus === "Active" ? (
+                                                                        <button onClick={() => handleDeactivate(user.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md">
+                                                                            <FaLock /> Block Account
+                                                                        </button>
+                                                                    ) : (user.accountStatus === "Blocked" && (
+                                                                        <button onClick={() => handleReactivate(user.id)} className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs font-medium w-full flex items-center justify-center gap-1 shadow-md">
+                                                                            <FaUnlock /> Reactivate
+                                                                        </button>
+                                                                    ))}
+                                                                </>
+                                                            )}
                                                         </>
                                                     )}
                                                 </div>
