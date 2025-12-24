@@ -439,7 +439,7 @@ export default function HomeContent() {
               <h4 className="text-lg font-semibold text-white">OFFICE</h4>
               <p className="text-white/50 text-sm font-mono">SECTOR: SURAT, GUJARAT, INDIA</p>
               <p className="text-white/70 mt-1">
-                A-801, Swastik Universsal Business Hub, Beside Valentine Multiplex, Opp. Central Mall, Pipload-Dumas Road, Surat-395007. (Gujarat) India
+                A-801, Swastik Universsal Business Hub, Beside Valentine Multiplex, Opp. Central Mall, Piplod-Dumas Road, Surat-395007. (Gujarat) India
               </p>
               <a
                 href="https://maps.google.com/?cid=10944234556965079462&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNl"
