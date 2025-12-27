@@ -139,7 +139,7 @@ namespace minutechart.Services
             {
                 var file = $"INVOICE_{invoice.Id}_{now:ddMMMyyyy_hhmmtt}.pdf";
                 await _invoiceService.GenerateInvoiceAsync(invoice, file);
-                await _invoiceService.SendInvoiceEmailAsync(invoice);
+                // await _invoiceService.SendInvoiceEmailAsync(invoice);
             }
 
             return invoice;
@@ -191,7 +191,7 @@ namespace minutechart.Services
             {
                 var file = $"INVOICE_{invoice.Id}_{now:ddMMMyyyy_hhmmtt}.pdf";
                 await _invoiceService.GenerateInvoiceAsync(invoice, file);
-                await _invoiceService.SendInvoiceEmailAsync(invoice);
+                // await _invoiceService.SendInvoiceEmailAsync(invoice);
             }
 
             return invoice;

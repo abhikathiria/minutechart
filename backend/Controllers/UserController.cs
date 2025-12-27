@@ -716,7 +716,7 @@ namespace minutechart.Controllers
             var fileName4 = $"INVOICE_ADDON_{invoice.Id}_{now.ToString("ddMMMyyyy")}_{now.ToString("hhmmtt")}.pdf";
 
             await _addonInvoiceService.GenerateInvoiceAsync(invoice, fileName4);
-            await _addonInvoiceService.SendInvoiceEmailAsync(invoice);
+            // await _addonInvoiceService.SendInvoiceEmailAsync(invoice);
 
             return Ok(new { success = true, invoiceNumber = invoice.InvoiceNumber });
         }

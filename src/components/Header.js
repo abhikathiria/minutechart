@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
     FaUserCircle, FaSignOutAlt, FaSignInAlt, FaChevronDown, FaUserPlus, FaUserShield,
     FaBars, FaTimes, FaCog, FaChevronUp, FaChartArea, FaHome, FaTags, FaLock, FaHistory, FaEnvelope,
@@ -118,6 +118,15 @@ function Header({ user, onLogout }) {
     const [dashboardOpen, setDashboardOpen] = useState(false);
     const [mobileDashOpen, setMobileDashOpen] = useState(false);
     const [mobileAdminOpen, setMobileAdminOpen] = useState(false);
+    const [homeOpen, setHomeOpen] = useState(false);
+    const location = useLocation();
+
+    const activeHomeLabel = (() => {
+        if (location.pathname.startsWith("/catalogs")) return "CATALOGS";
+        if (location.pathname.startsWith("/sales")) return "SALES";
+        return "HOME";
+    })();
+
 
     // Refs (KEEPING ALL EXISTING LOGIC)
     const profileRef = useRef(null);
@@ -125,13 +134,16 @@ function Header({ user, onLogout }) {
     const mobiledashRef = useRef(null);
     const mobileadminRef = useRef(null);
     const adminSettingsRef = useRef(null);
+    const homeRef = useRef(null);
     const adminSettingsButtonRef = useRef(null);
     const profileButtonRef = useRef(null);
     const dashButtonRef = useRef(null);
     const mobiledashButtonRef = useRef(null);
     const mobileadminButtonRef = useRef(null);
+    const homeButtonRef = useRef(null);
     const navRef = useRef(null);
     const navToggleButtonRef = useRef(null);
+
 
     const roles = user?.roles || [];
     const isUser = roles.includes("User");
@@ -157,6 +169,9 @@ function Header({ user, onLogout }) {
             }
             if (isClickOutside(profileRef, profileButtonRef)) {
                 setProfileOpen(false);
+            }
+            if (isClickOutside(homeRef, homeButtonRef)) {
+                setHomeOpen(false);
             }
             if (isClickOutside(dashRef, dashButtonRef)) {
                 setDashboardOpen(false);
@@ -186,6 +201,7 @@ function Header({ user, onLogout }) {
 
     const closeAllMenus = (callback) => {
         setProfileOpen(false);
+        setHomeOpen(false);
         setDashboardOpen(false);
         setMobileDashOpen(false);
         setMobileAdminOpen(false);
@@ -318,7 +334,76 @@ function Header({ user, onLogout }) {
                         <nav className="hidden md:flex items-center h-full">
                             <div className="flex items-center space-x-4 lg:space-x-6 h-full">
 
-                                <NavLinkDesktop to="/">HOME</NavLinkDesktop>
+                                {/* HOME – visible for everyone */}
+                                {isUser ? (
+                                    /* USER: HOME with dropdown */
+                                    <div className="relative h-full flex items-center">
+                                        <button
+                                            ref={homeButtonRef}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setHomeOpen(p => !p);
+                                                setDashboardOpen(false);
+                                                setProfileOpen(false);
+                                                setAdminSettingsOpen(false);
+                                            }}
+                                            className="flex items-center gap-1 px-3 py-2 text-lg font-medium text-white/80 hover:text-cyan-400 transition-colors rounded-full border-2 border-transparent hover:border-cyan-400 hover:bg-cyan-900/30"
+                                        >
+                                            {activeHomeLabel}
+                                            <FaChevronDown
+                                                className={`text-sm transition-transform duration-200 ${homeOpen ? "rotate-180 text-cyan-400" : ""
+                                                    }`}
+                                            />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {homeOpen && (
+                                                <motion.div
+                                                    ref={homeRef}
+                                                    initial={{ opacity: 0, y: -10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    className="absolute top-full left-0 mt-2 bg-black/70 backdrop-blur-lg shadow-[0_0_30px_rgba(0,240,255,0.4)] rounded-lg w-52 z-[60] border border-cyan-400/30 overflow-hidden"
+                                                >
+                                                    <DropdownItem
+                                                        to="/"
+                                                        icon={<FaHome />}
+                                                        onClick={() => {
+                                                            closeAllMenus();
+                                                        }}
+                                                    >
+                                                        Home
+                                                    </DropdownItem>
+
+                                                    <DropdownItem
+                                                        to="/catalogs"
+                                                        icon={<FaUsers />}
+                                                        onClick={() => {
+                                                            closeAllMenus();
+                                                        }}
+                                                    >
+                                                        Catalogs
+                                                    </DropdownItem>
+
+
+                                                    {/* <DropdownItem
+                                                        to="/sales"
+                                                        icon={<FaChartLine />}
+                                                        onClick={() => {
+                                                            closeAllMenus();
+                                                        }}
+                                                    >
+                                                        Sales
+                                                    </DropdownItem> */}
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                ) : (
+                                    /* ADMIN / SUPERADMIN / GUEST: plain HOME */
+                                    <NavLinkDesktop to="/">HOME</NavLinkDesktop>
+                                )}
 
                                 {/* Admin Tools Dropdown (Re-rendered using new wrapper) */}
                                 {(isAnyAdmin) && (
@@ -490,9 +575,41 @@ function Header({ user, onLogout }) {
                     >
                         <div className="px-4 py-4 space-y-2">
                             {/* Primary Links */}
-                            <Link to="/" className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 transition-colors border-l-4 border-transparent hover:border-cyan-400" onClick={() => closeAllMenus()}>
-                                <FaHome className="inline mr-3 text-cyan-400" /> HOME
-                            </Link>
+                            {/* HOME – always visible */}
+                            {isUser ? (
+                                <div className="border-b border-cyan-700/50 pb-2">
+                                    <button
+                                        onClick={() => setHomeOpen(p => !p)}
+                                        className="w-full px-3 py-3 text-left text-xl text-white flex items-center justify-between rounded-md hover:bg-cyan-900/30 border-l-4 border-transparent hover:border-cyan-400"
+                                    >
+                                        <span>
+                                            <FaHome className="inline mr-3 text-cyan-400" /> HOME
+                                        </span>
+                                        <FaChevronDown
+                                            className={`transition-transform ${homeOpen ? "rotate-180" : ""}`}
+                                        />
+                                    </button>
+
+                                    {homeOpen && (
+                                        <div className="pl-8 flex flex-col gap-2 mt-1">
+                                            <Link to="/catalogs" onClick={() => closeAllMenus()} className="text-white hover:text-cyan-300 py-2">
+                                                <FaUsers className="inline mr-2 text-cyan-400" /> Catalogs
+                                            </Link>
+                                            {/* <Link to="/sales" onClick={() => closeAllMenus()} className="text-white hover:text-cyan-300 py-2">
+                                                <FaChartLine className="inline mr-2 text-cyan-400" /> Sales
+                                            </Link> */}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <Link
+                                    to="/"
+                                    className="block px-3 py-3 rounded-md text-xl font-medium text-white hover:bg-cyan-900/30 border-l-4 border-transparent hover:border-cyan-400"
+                                    onClick={() => closeAllMenus()}
+                                >
+                                    <FaHome className="inline mr-3 text-cyan-400" /> HOME
+                                </Link>
+                            )}
 
                             {/* ADMIN/SUPERADMIN Links (Mobile) */}
                             {isAnyAdmin && (

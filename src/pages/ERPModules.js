@@ -11,55 +11,27 @@ import {
     FaIndustry
 } from "react-icons/fa";
 
-export default function UserToolsPage() {
+export default function ERPModules() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [returnPath, setReturnPath] = useState(`/admin/users`);
+    const [returnPath, setReturnPath] = useState(`/user/${id}/tools`);
 
     // Define the tool button data with updated modules and distinct colors
     const buttons = [
         {
-            name: "User Modules",
-            description: "Access and manage user-specific dashboards and activity logs.",
-            link: `/user/${id}/modules`,
+            name: "Catalogs",
+            description: "Manage Catalogs.",
+            link: `/erp/${id}/catalogs`,
             icon: <FaUserCog className="w-8 h-8 text-indigo-600" />,
             color: "indigo"
         },
-        {
-            name: "Sales Modules",
-            description: "Monitor sales performance, track leads, and manage pipeline activities.",
-            link: `/user/${id}/sales-modules`,
-            icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
-            color: "teal"
-        },
-        {
-            name: "Financial Module",
-            description: "View ledgers, manage accounts, and analyze balance sheets and profitability.",
-            link: `/user/${id}/finance-modules`,
-            icon: <FaMoneyBillWave className="w-8 h-8 text-green-600" />, // Strong green for finance
-            color: "green"
-        },
-        {
-            name: "Expenses Module",
-            description: "Submit, review, and approve employee expense reports and track budget consumption.",
-            link: `/user/${id}/expense-modules`,
-            icon: <FaReceipt className="w-8 h-8 text-red-600" />, // Red often used for expenses/debt
-            color: "red"
-        },
-        {
-            name: "Production Module",
-            description: "Manage manufacturing orders, track inventory levels, and optimize production schedules.",
-            link: `/user/${id}/production-modules`,
-            icon: <FaIndustry className="w-8 h-8 text-orange-600" />, // Orange for industrial/operations
-            color: "orange"
-        },
-        {
-            name: "ERP Module",
-            description: "Manage ERP related modules.",
-            link: `/user/${id}/erp-modules`,
-            icon: <FaIndustry className="w-8 h-8 text-orange-600" />, // Orange for industrial/operations
-            color: "orange"
-        },
+        // {
+        //     name: "Party",
+        //     description: "Manage Parties.",
+        //     link: `/erp/${id}/parties`,
+        //     icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
+        //     color: "teal"
+        // },
     ];
 
     // Helper function for dynamic Tailwind classes (kept the same)
@@ -90,7 +62,6 @@ export default function UserToolsPage() {
         loadUserRoles();
     }, []);
 
-
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-10">
             <div className="max-w-7xl mx-auto">
@@ -109,12 +80,12 @@ export default function UserToolsPage() {
                         "
                     >
                         <FaArrowLeft className="w-3 h-3" />
-                        Back to Users
+                        Back to Tools
                     </Link>
 
                     <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
                         <FaToolbox className="w-8 h-8 text-purple-600" />
-                        <span>Modules Control Panel</span>
+                        <span>ERP Modules Control Panel</span>
                     </h1>
 
                     <div className="w-40 sm:block hidden" />
@@ -122,7 +93,7 @@ export default function UserToolsPage() {
 
                 <div className="mb-8">
                     <p className="text-xl text-gray-500 font-light">
-                        Select a module below to manage the user's specific access areas and functionalities.
+                        Select any erp module below to manage the specific module.
                     </p>
                 </div>
 

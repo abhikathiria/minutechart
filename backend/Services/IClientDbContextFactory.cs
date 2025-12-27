@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using minutechart.Models;
+using minutechart.Helpers;
 using System.Threading.Tasks;
 
 namespace minutechart.Services
@@ -22,8 +23,19 @@ namespace minutechart.Services
                 return Task.FromResult<ClientDbContext?>(null);
             }
 
+            // 🔐 DECRYPT HERE
+            var decryptedPassword = EncryptionHelper.Decrypt(profile.DbPassword);
+
             var connectionString =
-                $"Server={profile.ServerName};Database={profile.DatabaseName};User Id={profile.DbUsername};Password={profile.DbPassword};Encrypt=False;TrustServerCertificate=True;Column Encryption Setting=Disabled;Persist Security Info=False;MultipleActiveResultSets=True";
+                $"Server={profile.ServerName};" +
+                $"Database={profile.DatabaseName};" +
+                $"User Id={profile.DbUsername};" +
+                $"Password={decryptedPassword};" +
+                $"Encrypt=False;" +
+                $"TrustServerCertificate=True;" +
+                $"Column Encryption Setting=Disabled;" +
+                $"Persist Security Info=False;" +
+                $"MultipleActiveResultSets=True";
 
             var optionsBuilder = new DbContextOptionsBuilder<ClientDbContext>();
             optionsBuilder.UseSqlServer(connectionString);

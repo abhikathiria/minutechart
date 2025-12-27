@@ -55,6 +55,12 @@ import FinanceModules from "./pages/FinanceModules";
 import FinanceAnalyticsPage from "./pages/FinanceAnalyticsPage";
 import AdminProfile from "./pages/AdminProfile";
 import MyAdminProfile from "./pages/MyAdminProfile";
+import ERPModules from "./pages/ERPModules"
+import CatalogsModules from "./pages/Catalogs/CatalogsModules";
+import CatalogsProductModules from "./pages/Catalogs/CatalogsProductModules";
+import CatalogsLayout from "./pages/Catalogs/CatalogsLayout";
+import CatalogsMain from "./pages/Catalogs/CatalogsMain";
+import CatalogsProducts from "./pages/Catalogs/CatalogsProducts";
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -438,6 +444,9 @@ function AppContent() {
                 <Route path="/user/:id/finance-modules" element={<AdminRoute><FinanceModules /></AdminRoute>} />
                 <Route path="/user/:id/tools" element={<AdminRoute><UserToolsPage /></AdminRoute>} />
                 <Route path="/my-admin-profile" element={<AdminRoute><MyAdminProfile /></AdminRoute>} />
+                <Route path="/user/:id/erp-modules" element={<AdminRoute><ERPModules /></AdminRoute>} />
+                <Route path="/erp/:id/catalogs" element={<AdminRoute><CatalogsModules /></AdminRoute>} />
+                <Route path="/erp/:id/catalogs/product" element={<AdminRoute><CatalogsProductModules /></AdminRoute>} />
 
                 {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
                 <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRestrictedRoute>} />
@@ -461,6 +470,11 @@ function AppContent() {
                 <Route path="/productionanalytics/:id" element={<PrivateRoute><ProductionAnalyticsPage /></PrivateRoute>} />
                 <Route path="/expenseanalytics/:id" element={<PrivateRoute><ExpenseAnalyticsPage /></PrivateRoute>} />
                 <Route path="/financeanalytics/:id" element={<PrivateRoute><FinanceAnalyticsPage /></PrivateRoute>} />
+
+                <Route path="/catalogs" element={<PrivateRoute><CatalogsLayout /></PrivateRoute>}>
+                    <Route index element={<PrivateRoute><CatalogsMain /></PrivateRoute>} />
+                    <Route path="products" element={<PrivateRoute><CatalogsProducts /></PrivateRoute>} />
+                </Route>
 
                 {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

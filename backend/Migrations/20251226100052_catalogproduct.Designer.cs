@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using minutechart.Data;
 
@@ -11,9 +12,11 @@ using minutechart.Data;
 namespace Backend.Migrations
 {
     [DbContext(typeof(MinutechartDbContext))]
-    partial class MinutechartDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251226100052_catalogproduct")]
+    partial class catalogproduct
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -603,14 +606,8 @@ namespace Backend.Migrations
                     b.Property<string>("CachedJsonData")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("InsertQuery")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime?>("LastRefreshedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("PrimaryKeyColumn")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("QueryCreatedAtTime")
                         .HasColumnType("datetime2");
@@ -624,9 +621,6 @@ namespace Backend.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UpdateQuery")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("UserIpAddress")
