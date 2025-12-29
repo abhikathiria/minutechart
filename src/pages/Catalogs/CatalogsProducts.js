@@ -497,8 +497,8 @@ export default function CatalogsProducts() {
                                         onChange={e => setEditRow(r => ({ ...r, "Mode": e.target.value }))}
                                     >
                                         <option value="">-Select-</option>
-                                        <option value="job">JOB</option>
-                                        <option value="regular">Regular</option>
+                                        <option value="JOB">JOB</option>
+                                        <option value="Regular">Regular</option>
                                     </select>
                                 </div>
 
