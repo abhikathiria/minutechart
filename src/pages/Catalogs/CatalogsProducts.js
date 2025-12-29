@@ -4,6 +4,7 @@ import { FaArrowUp, FaArrowDown, FaDownload } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
+
 const PAGE_SIZES = [20, 30, 50, 100, 200];
 
 function TruncatedCell({ children, style }) {
@@ -44,6 +45,15 @@ export default function CatalogsProducts() {
     const [userId, setUserId] = useState(null);
     const [queryId, setQueryId] = useState(null);
 
+    const [showTaxableDetails, setShowTaxableDetails] = useState(false);
+    const [showInventoryDetails, setShowInventoryDetails] = useState(false);
+
+    const [showMeasurementDetails, setShowMeasurementDetails] = useState(false);
+    const [showSalesShippingDetails, setShowSalesShippingDetails] = useState(false);
+
+    const [showOtherDetails, setShowOtherDetails] = useState(false);
+    const [showLongDescription, setShowLongDescription] = useState(false);
+
     const [rows, setRows] = useState([]);
     const [columns, setColumns] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -64,6 +74,9 @@ export default function CatalogsProducts() {
     const [primaryKey, setPrimaryKey] = useState("");
 
     const isEditMode = !!(editRow && primaryKey && editRow[primaryKey]);
+
+    const [categories, setCategories] = useState([]);
+    const [uoms, setUoms] = useState([]);
 
     /* ---------- USER ---------- */
     useEffect(() => {
@@ -125,19 +138,65 @@ export default function CatalogsProducts() {
     };
 
     /* ---------- SAVE ---------- */
+    /* ---------- REFINED SAVE ---------- */
     const handleSave = async () => {
-        try {
-            await api.post(`/catalogs/save-row/${userId}/${queryId}`, editRow);
-            setEditRow(null);
+        // 1. Identify the PK value from the row
+        // If adding new, we use the input value. If editing, we use the original value.
+        const pkValue = editRow[primaryKey] || editRow["MainCode"];
 
-            const res = await api.get(
-                `/catalogs/run-saved-query/${userId}/${queryId}`
-            );
-            setRows(res.data.data || []);
+        if (!pkValue || !editRow["MainName"]) {
+            alert("Main Code and Main Name are required.");
+            return;
+        }
+
+        try {
+            // 2. Check if this record exists in our current table to decide Add vs Update
+            const isExisting = rows.some(r => String(r[primaryKey]) === String(pkValue));
+
+            const url = isExisting
+                ? `/catalogs/item/update/${userId}`
+                : `/catalogs/item/save/${userId}`;
+
+            // 3. Map the fields to the DTO expected by C#
+            const payload = {
+                MainCode: pkValue,
+                MainName: editRow["MainName"] || editRow["WIP_NAME"],
+                Mode: editRow["Mode"] || editRow["WIP_MODE"] || null
+            };
+
+            await api.post(url, payload);
+
+            setEditRow(null);
+            refreshData();
+            alert("Saved successfully!");
         } catch (e) {
-            alert(e.response?.data || "Save failed");
+            // 4. Capture specific SQL errors
+            const errorMsg = e.response?.data || e.message;
+            alert(`Database Error: ${errorMsg}`);
         }
     };
+
+    /* ---------- REFINED DELETE ---------- */
+    const handleDelete = async () => {
+        const pkValue = editRow[primaryKey];
+        if (!pkValue) return;
+
+        if (!window.confirm(`Delete item ${pkValue}?`)) return;
+
+        try {
+            await api.delete(`/catalogs/item/delete/${userId}/${pkValue}`);
+            setEditRow(null);
+            refreshData();
+        } catch (e) {
+            alert("Delete failed: " + (e.response?.data || e.message));
+        }
+    };
+
+    const refreshData = async () => {
+        const res = await api.get(`/catalogs/run-saved-query/${userId}/${queryId}`);
+        setRows(res.data.data || []);
+    };
+
 
     /* ---------- FILTER + SORT ---------- */
     const filteredRows = useMemo(() => {
@@ -233,7 +292,24 @@ export default function CatalogsProducts() {
                         >
                             <FaDownload /> Download Excel
                         </button>
-                        <button className="btn primary" onClick={() => setEditRow({})}>
+                        <button
+                            className="btn primary"
+                            onClick={async () => {
+                                setEditRow({}); // ADD mode only
+
+                                try {
+                                    const [catRes, uomRes] = await Promise.all([
+                                        api.get(`/catalogs/lookups/categories/${userId}`),
+                                        api.get(`/catalogs/lookups/uoms/${userId}`)
+                                    ]);
+
+                                    setCategories(catRes.data || []);
+                                    setUoms(uomRes.data || []);
+                                } catch (e) {
+                                    console.error("Failed to load lookups", e);
+                                }
+                            }}
+                        >
                             + Add Data
                         </button>
                     </div>
@@ -375,30 +451,82 @@ export default function CatalogsProducts() {
             {/* ---------- MODAL ---------- */}
             {editRow && (
                 <div className="modal-backdrop">
-                    <div className="modal">
-                        <h3 className="modal-title">
-                            {isEditMode ? "Edit Row" : "Add Row"}
+                    <div className="modal" style={{ maxWidth: "500px", width: "100%", padding: "0" }}> {/* Increased width for 2 columns */}
+                        <h3 className="modal-title" style={{ backgroundColor: "#eef2f5", padding: "15px", margin: "0", borderBottom: "1px solid #ddd", fontSize: "20px", fontWeight: "700", textAlign: "center" }}>
+                            MAIN GROUP MASTER
                         </h3>
 
-                        <div className="modal-body grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {modalFields.map(col => (
-                                <div key={col}>
-                                    <label className="text-xs font-semibold">{col}</label>
+                        <div className="modal-body flex flex-col items-center gap-y-4 text-sm p-6">
+                            {/* --- SINGLE COLUMN CONTAINER --- */}
+                            <div className="flex flex-col gap-3 w-full max-w-md">
+
+                                {/* Main Code */}
+                                <div className="flex items-center">
+                                    <label className="w-1/3 text-right pr-4 font-bold text-gray-700">{!isEditMode && <span className="text-red-500 mr-1">*</span>}Main Code:</label>
                                     <input
-                                        className="w-full border px-2 py-1"
-                                        value={editRow[col] || ""}
-                                        onChange={e =>
-                                            setEditRow(r => ({ ...r, [col]: e.target.value }))
-                                        }
+                                        disabled={rows.some(r => String(r[primaryKey]) === String(editRow[primaryKey]))}
+
+                                        className={`w-2/3 border p-1 rounded ${rows.some(r => String(r[primaryKey]) === String(editRow[primaryKey]))
+                                            ? "bg-gray-100 cursor-not-allowed text-gray-500" // Grey out if disabled
+                                            : "bg-white"
+                                            }`}
+                                        title="WIP_CODE"
+                                        value={editRow[primaryKey] || editRow["MainCode"] || ""}
+                                        onChange={e => setEditRow(r => ({ ...r, "MainCode": e.target.value }))}
                                     />
                                 </div>
-                            ))}
+
+                                {/* Main Name */}
+                                <div className="flex items-center">
+                                    <label className="w-1/3 text-right pr-4 font-bold text-gray-700"><span className="text-red-500 mr-1">*</span>Main Name:</label>
+                                    <input
+                                        className="w-2/3 border p-1 rounded"
+                                        title="WIP_NAME"
+                                        value={editRow["MainName"] || ""}
+                                        onChange={e => setEditRow(r => ({ ...r, "MainName": e.target.value }))}
+                                    />
+                                </div>
+
+                                {/* Mode */}
+                                <div className="flex items-center">
+                                    <label className="w-1/3 text-right pr-4 font-bold text-gray-700">Mode:</label>
+                                    <select
+                                        className="w-2/3 border p-1 rounded"
+                                        title="WIP_MODE"
+                                        value={editRow["Mode"] || ""}
+                                        onChange={e => setEditRow(r => ({ ...r, "Mode": e.target.value }))}
+                                    >
+                                        <option value="">-Select-</option>
+                                        <option value="job">JOB</option>
+                                        <option value="regular">Regular</option>
+                                    </select>
+                                </div>
+
+                            </div>
                         </div>
 
-                        <div className="modal-actions">
-                            <button onClick={() => setEditRow(null)}>Cancel</button>
-                            <button className="btn primary" onClick={handleSave}>
-                                Save
+                        <div className="modal-actions mt-4 mb-4 pt-4 border-t flex justify-center gap-2 px-6">
+                            {rows.some(r => r[primaryKey] === editRow[primaryKey]) && (
+                                <button
+                                    className="px-4 py-1 bg-gray-200 text-red-600 border border-red-200 rounded hover:bg-red-50 font-bold mr-auto"
+                                    onClick={handleDelete}
+                                >
+                                    Delete
+                                </button>
+                            )}
+
+                            <button
+                                className="px-4 py-1 bg-red-600 text-white rounded hover:bg-red-700 shadow-sm"
+                                onClick={() => setEditRow(null)}
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm"
+                                onClick={handleSave}
+                            >
+                                {rows.some(r => r[primaryKey] === editRow[primaryKey]) ? "Update" : "Save"}
                             </button>
                         </div>
                     </div>

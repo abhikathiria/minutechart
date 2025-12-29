@@ -27,8 +27,6 @@ export default function CatalogsProductModules() {
     const [batchActionLoading, setBatchActionLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
 
-    const [returnPath, setReturnPath] = useState(`/erp/{id}/catalogs/product`);
-
     // --- New State for Search ---
     const [searchTerm, setSearchTerm] = useState("");
     // --------------------------
@@ -133,16 +131,6 @@ export default function CatalogsProductModules() {
                 updatedAt: m.queryLastUpdated,
             }));
             setModules(normalizedModules);
-
-            const viewerRes = await api.get("/account/me");
-            const viewerRoles = viewerRes.data?.roles || [];
-
-            // // 🎯 FIX 1: Determine the correct return path based on the viewer's role
-            // if (viewerRoles.includes("SuperAdmin")) {
-            //     setReturnPath("/superadmin/user-management");
-            // } else {
-            //     setReturnPath("/admin/users");
-            // }
 
             const userRes = await api.get(`/admin/users`);
             const activeUsers = (userRes.data || []).filter((u) => u.accountStatus === "Active");

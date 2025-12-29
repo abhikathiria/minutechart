@@ -14,17 +14,16 @@ import {
 export default function CatalogsModules() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [returnPath, setReturnPath] = useState(`/erp/${id}/catalogs`);
 
     // Define the tool button data with updated modules and distinct colors
     const buttons = [
-        // {
-        //     name: "Main",
-        //     description: "Manage Catalogs Main Module.",
-        //     link: `/erp/${id}/catalogs/main`,
-        //     icon: <FaUserCog className="w-8 h-8 text-indigo-600" />,
-        //     color: "indigo"
-        // },
+        {
+            name: "Main",
+            description: "Manage Catalogs Main Module.",
+            link: `/erp/${id}/catalogs/main`,
+            icon: <FaUserCog className="w-8 h-8 text-indigo-600" />,
+            color: "indigo"
+        },
         {
             name: "Product",
             description: "Manage Catalogs Product Module.",
@@ -42,26 +41,6 @@ export default function CatalogsModules() {
         shadowHover: `hover:shadow-lg-${color}`,
     });
 
-    const loadUserRoles = async () => {
-        try {
-            const viewerRes = await api.get("/account/me");
-            const viewerRoles = viewerRes.data?.roles || [];
-
-            if (viewerRoles.includes("SuperAdmin")) {
-                setReturnPath("/superadmin/user-management");
-            } else {
-                setReturnPath("/admin/users");
-            }
-        } catch (err) {
-            console.error("Failed to load user role", err);
-            setReturnPath("/admin/users");
-        }
-    };
-
-    useEffect(() => {
-        loadUserRoles();
-    }, []);
-
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-10">
             <div className="max-w-7xl mx-auto">
@@ -69,7 +48,7 @@ export default function CatalogsModules() {
                 {/* Header Section */}
                 <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-10 border-b pb-4">
                     <Link
-                        to={returnPath}
+                        to={`/user/${id}/erp-modules`}
                         state={{ keepFilters: true }}
                         className="
                             flex items-center gap-2 text-sm font-medium 

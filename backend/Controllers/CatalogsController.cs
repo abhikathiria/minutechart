@@ -626,5 +626,221 @@ namespace minutechart.Controllers
             return Ok(new { success = true });
         }
 
+        [HttpGet("lookups/categories/{userId}")]
+        public async Task<IActionResult> GetCategories(string userId)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null) return BadRequest("Profile not found");
+
+            using var conn = await _dbService.CreateClientConnectionAsync(profile);
+            using var cmd = conn.CreateCommand();
+
+            cmd.CommandText = "SELECT Cat_Code, Cat_Name FROM CategoryMst ORDER BY Cat_Name";
+
+            var list = new List<object>();
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                list.Add(new
+                {
+                    code = reader["Cat_Code"],
+                    name = reader["Cat_Name"]
+                });
+            }
+
+            return Ok(list);
+        }
+
+        [HttpGet("lookups/uoms/{userId}")]
+        public async Task<IActionResult> GetUoms(string userId)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null) return BadRequest("Profile not found");
+
+            using var conn = await _dbService.CreateClientConnectionAsync(profile);
+            using var cmd = conn.CreateCommand();
+
+            cmd.CommandText = "SELECT Unit_Code, Unit_Name FROM UnitMst ORDER BY Unit_Name";
+
+            var list = new List<object>();
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                list.Add(new
+                {
+                    code = reader["Unit_Code"],
+                    name = reader["Unit_Name"]
+                });
+            }
+
+            return Ok(list);
+        }
+
+        public class ItemSaveDto
+        {
+            // public string ProductType { get; set; }   // Cat_Code
+            // public string ProductID { get; set; }     // I_CODE
+            // public string InternalName { get; set; }  // I_DispNm
+            // public string PrimaryUOM { get; set; }    // UnitCode
+            // public decimal PerUnitCost { get; set; }  // I_SRate
+            // public string ProductName { get; set; }   // I_Name1
+
+            public string MainCode { get; set; }  // WIP_CODE
+            public string MainName { get; set; }    // WIP_NAME
+            public string? Mode { get; set; }   // WIP_MODE
+        }
+
+        [HttpPost("item/save/{userId}")]
+        public async Task<IActionResult> SaveItem(
+            string userId,
+            [FromBody] ItemSaveDto dto)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null) return BadRequest("Profile not found");
+
+            using var conn = await _dbService.CreateClientConnectionAsync(profile);
+            using var cmd = conn.CreateCommand();
+
+            //     cmd.CommandText = @"
+            // INSERT INTO ItemMst
+            // (
+            //     I_CID,
+            //     I_CODE,
+            //     I_DispNm,
+            //     I_UOM,
+            //     I_SRate,
+            //     I_Name1
+            // )
+            // VALUES
+            // (
+            //     @I_CID,
+            //     @I_CODE,
+            //     @I_DispNm,
+            //     @I_UOM,
+            //     @I_SRate,
+            //     @I_Name1
+            // )";
+
+            //     cmd.Parameters.AddWithValue("@I_CID", dto.ProductType);
+            //     cmd.Parameters.AddWithValue("@I_CODE", dto.ProductID);
+            //     cmd.Parameters.AddWithValue("@I_DispNm", dto.InternalName);
+            //     cmd.Parameters.AddWithValue("@I_UOM", dto.PrimaryUOM);
+            //     cmd.Parameters.AddWithValue("@I_SRate", dto.PerUnitCost);
+            //     cmd.Parameters.AddWithValue("@I_Name1", dto.ProductName);
+
+            cmd.CommandText = @"
+        INSERT INTO WIPMST
+        (
+            WIP_CODE,
+            WIP_NAME,
+            WIP_MODE
+        )
+        VALUES
+        (
+            @WIP_CODE,
+            @WIP_NAME,
+            @WIP_MODE
+        )";
+
+            cmd.Parameters.AddWithValue("@WIP_CODE", dto.MainCode);
+            cmd.Parameters.AddWithValue("@WIP_Name", dto.MainName);
+            cmd.Parameters.AddWithValue("@WIP_MODE", (object?)dto.Mode ?? DBNull.Value);
+
+            try
+            {
+                await cmd.ExecuteNonQueryAsync();
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("item/update/{userId}")]
+        public async Task<IActionResult> UpdateItem(
+    string userId,
+    [FromBody] ItemSaveDto dto)
+        {
+            var profile = await _db.UserProfiles
+                .FirstOrDefaultAsync(p => p.AppUserId == userId);
+
+            if (profile == null)
+                return BadRequest("Profile not found");
+
+            try
+            {
+                using var conn = await _dbService.CreateClientConnectionAsync(profile);
+                using var cmd = conn.CreateCommand();
+
+                //         cmd.CommandText = @"
+                //     UPDATE ItemMst
+                //     SET
+                //         I_CID    = @I_CID,
+                //         I_DispNm = @I_DispNm,
+                //         I_UOM    = @I_UOM,
+                //         I_SRate  = @I_SRate,
+                //         I_Name1  = @I_Name1
+                //     WHERE I_CODE = @I_CODE
+                // ";
+
+                //         cmd.Parameters.AddWithValue("@I_CID", dto.ProductType);
+                //         cmd.Parameters.AddWithValue("@I_DispNm", dto.InternalName);
+                //         cmd.Parameters.AddWithValue("@I_UOM", dto.PrimaryUOM);
+                //         cmd.Parameters.AddWithValue("@I_SRate", dto.PerUnitCost);
+                //         cmd.Parameters.AddWithValue("@I_Name1", dto.ProductName);
+                //         cmd.Parameters.AddWithValue("@I_CODE", dto.ProductID);
+
+                cmd.CommandText = @"
+        UPDATE WIPMST
+        SET
+            WIP_NAME = @WIP_NAME,
+            WIP_MODE  = @WIP_MODE
+        WHERE WIP_CODE = @WIP_CODE
+    ";
+
+                cmd.Parameters.AddWithValue("@WIP_CODE", dto.MainCode);
+                cmd.Parameters.AddWithValue("@WIP_Name", dto.MainName);
+                cmd.Parameters.AddWithValue("@WIP_MODE", (object?)dto.Mode ?? DBNull.Value);
+
+                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+                if (rowsAffected == 0)
+                    return NotFound("No record found with the provided Code.");
+
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                // This returns the specific SQL error (e.g., "String or binary data would be truncated")
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("item/delete/{userId}/{code}")]
+        public async Task<IActionResult> DeleteItem(string userId, string code)
+        {
+            var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.AppUserId == userId);
+            if (profile == null) return BadRequest("Profile not found");
+
+            try
+            {
+                using var conn = await _dbService.CreateClientConnectionAsync(profile);
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM WIPMST WHERE WIP_CODE = @WIP_CODE";
+                cmd.Parameters.AddWithValue("@WIP_CODE", code);
+
+                var rows = await cmd.ExecuteNonQueryAsync();
+                if (rows == 0) return NotFound("Record not found in database.");
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Database Error: {ex.Message}");
+            }
+        }
+
     }
 }
