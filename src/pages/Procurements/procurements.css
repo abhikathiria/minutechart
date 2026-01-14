@@ -39,7 +39,8 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  padding: 0;              /* 🔑 remove padding here */
+  padding: 0;
+  /* 🔑 remove padding here */
 }
 
 
@@ -98,9 +99,9 @@
 }
 
 .party-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
+    width: max-content; /* Critical: Allows table to be wider than the screen */
+    min-width: 100%;
+    border-collapse: collapse;
 }
 
 .party-table td[title] {
@@ -152,34 +153,29 @@
 }
 
 /* Column widths (adjust once, stays consistent) */
-.party-table th:nth-child(1),
+/* .party-table th:nth-child(1),
 .party-table td:nth-child(1) {
   width: 120px;
-  /* Party ID */
 }
 
 .party-table th:nth-child(2),
 .party-table td:nth-child(2) {
   width: 320px;
-  /* Name */
 }
 
 .party-table th:nth-child(3),
 .party-table td:nth-child(3) {
   width: 140px;
-  /* Type */
 }
 
 .party-table th:nth-child(4),
 .party-table td:nth-child(4) {
   width: 180px;
-  /* Main Role */
 }
 
 .party-table th:nth-child(5),
 .party-table td:nth-child(5) {
   width: 140px;
-  /* Status */
 }
 
 .party-table th:nth-child(6),
@@ -187,8 +183,7 @@
 .party-table th:nth-child(7),
 .party-table td:nth-child(7) {
   width: 120px;
-  /* Dates */
-}
+} */
 
 .party-table tr:hover {
   background: #f9fafb;
@@ -206,7 +201,7 @@
   gap: 6px;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid #e5e7eb; 
+  border: 1px solid #e5e7eb;
   /* background: #ecfdf5; */
   /* color: #166534; */
   font-size: 12px;
@@ -323,6 +318,10 @@
   flex: 1;
   min-height: 0;
   padding: 8px 12px 8px 12px;
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .party-table-scroll {
@@ -372,8 +371,10 @@
 
 /* label column */
 .party-create-card .form-field label {
-  width: 180px;            /* fixed label width */
-  margin-bottom: 0;        /* remove stacked spacing */
+  width: 180px;
+  /* fixed label width */
+  margin-bottom: 0;
+  /* remove stacked spacing */
   font-size: 12px;
   font-weight: 600;
   color: #222;
@@ -463,7 +464,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0, 0, 0, 0.55);
   z-index: 50;
 
   display: flex;
@@ -482,18 +483,14 @@
 }
 
 .modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
 }
-
-
-
-

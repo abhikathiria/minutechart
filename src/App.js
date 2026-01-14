@@ -61,6 +61,20 @@ import CatalogsProductModules from "./pages/Catalogs/CatalogsProductModules";
 import CatalogsLayout from "./pages/Catalogs/CatalogsLayout";
 import CatalogsMain from "./pages/Catalogs/CatalogsMain";
 import CatalogsProducts from "./pages/Catalogs/CatalogsProducts";
+import ProcurementsLayout from "./pages/Procurements/ProcurementsLayout";
+import ProcurementsMain from "./pages/Procurements/ProcurementsMain";
+import ProcurementsRequirements from "./pages/Procurements/ProcurementsRequirements";
+import ProcurementsQuote from "./pages/Procurements/ProcurementsQuote";
+import ProcurementsPurchaseOrders from "./pages/Procurements/ProcurementsPurchaseOrders";
+import ProcurementsPurchaseReturns from "./pages/Procurements/ProcurementsPurchaseReturns";
+import ProcurementsReports from "./pages/Procurements/ProcurementsReports";
+import ProcurementsModules from "./pages/Procurements/ProcurementsModule";
+import ProcurementsMainModules from "./pages/Procurements/ProcurementsMainModules";
+import ProcurementsRequirementsModules from "./pages/Procurements/ProcurementsRequirementsModules";
+import ProcurementsReportsModules from "./pages/Procurements/ProcurementsReportsModuels";
+import ProcurementsPurchaseOrdersModules from "./pages/Procurements/ProcurementsPurchaseOrdersModules";
+import ProcurementsPurchaseReturnsModules from "./pages/Procurements/ProcurementsPurchaseReturnsModules";
+import ProcurementsQuoteModules from "./pages/Procurements/ProcurementsQuoteModules";
 
 const FooterLink = memo(({ to, label }) => (
     <li className="mb-2">
@@ -447,6 +461,13 @@ function AppContent() {
                 <Route path="/user/:id/erp-modules" element={<AdminRoute><ERPModules /></AdminRoute>} />
                 <Route path="/erp/:id/catalogs" element={<AdminRoute><CatalogsModules /></AdminRoute>} />
                 <Route path="/erp/:id/catalogs/product" element={<AdminRoute><CatalogsProductModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements" element={<AdminRoute><ProcurementsModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements/main" element={<AdminRoute><ProcurementsMainModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements/requirements" element={<AdminRoute><ProcurementsRequirementsModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements/quote" element={<AdminRoute><ProcurementsQuoteModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements/purchase-orders" element={<AdminRoute><ProcurementsPurchaseOrdersModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements/purchase-returns" element={<AdminRoute><ProcurementsPurchaseReturnsModules /></AdminRoute>} />
+                <Route path="/erp/:id/procurements/reports" element={<AdminRoute><ProcurementsReportsModules /></AdminRoute>} />
 
                 {/* SuperAdmin ONLY routes (The routes removed from standard Admin) */}
                 <Route path="/superadmin/user-management" element={<AdminRestrictedRoute><SuperAdminUserList isViewerSuperAdmin={user?.roles?.includes("SuperAdmin")} /></AdminRestrictedRoute>} />
@@ -474,6 +495,15 @@ function AppContent() {
                 <Route path="/catalogs" element={<PrivateRoute><CatalogsLayout /></PrivateRoute>}>
                     <Route index element={<PrivateRoute><CatalogsMain /></PrivateRoute>} />
                     <Route path="products" element={<PrivateRoute><CatalogsProducts /></PrivateRoute>} />
+                </Route>
+
+                <Route path="/procurements" element={<PrivateRoute><ProcurementsLayout /></PrivateRoute>}>
+                    <Route index element={<PrivateRoute><ProcurementsMain /></PrivateRoute>} />
+                    <Route path="requirements" element={<PrivateRoute><ProcurementsRequirements /></PrivateRoute>} />
+                    <Route path="quote" element={<PrivateRoute><ProcurementsQuote /></PrivateRoute>} />
+                    <Route path="purchase-orders" element={<PrivateRoute><ProcurementsPurchaseOrders /></PrivateRoute>} />
+                    <Route path="purchase-returns" element={<PrivateRoute><ProcurementsPurchaseReturns /></PrivateRoute>} />
+                    <Route path="reports" element={<PrivateRoute><ProcurementsReports /></PrivateRoute>} />
                 </Route>
 
                 {/* Catch-all */}

@@ -123,7 +123,7 @@ function Header({ user, onLogout }) {
 
     const activeHomeLabel = (() => {
         if (location.pathname.startsWith("/catalogs")) return "CATALOGS";
-        if (location.pathname.startsWith("/sales")) return "SALES";
+        if (location.pathname.startsWith("/procurements")) return "PROCUREMENTS";
         return "HOME";
     })();
 
@@ -387,15 +387,15 @@ function Header({ user, onLogout }) {
                                                     </DropdownItem>
 
 
-                                                    {/* <DropdownItem
-                                                        to="/sales"
+                                                    <DropdownItem
+                                                        to="/procurements"
                                                         icon={<FaChartLine />}
                                                         onClick={() => {
                                                             closeAllMenus();
                                                         }}
                                                     >
-                                                        Sales
-                                                    </DropdownItem> */}
+                                                        Procurements
+                                                    </DropdownItem>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
@@ -595,9 +595,9 @@ function Header({ user, onLogout }) {
                                             <Link to="/catalogs" onClick={() => closeAllMenus()} className="text-white hover:text-cyan-300 py-2">
                                                 <FaUsers className="inline mr-2 text-cyan-400" /> Catalogs
                                             </Link>
-                                            {/* <Link to="/sales" onClick={() => closeAllMenus()} className="text-white hover:text-cyan-300 py-2">
-                                                <FaChartLine className="inline mr-2 text-cyan-400" /> Sales
-                                            </Link> */}
+                                            <Link to="/procurements" onClick={() => closeAllMenus()} className="text-white hover:text-cyan-300 py-2">
+                                                <FaChartLine className="inline mr-2 text-cyan-400" /> Procurements
+                                            </Link>
                                         </div>
                                     )}
                                 </div>

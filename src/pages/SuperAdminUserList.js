@@ -11,6 +11,9 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { toast } from 'react-hot-toast';
 import { Loader2 } from "lucide-react";
+import LineChartAnimationLoader from "../components/LineChartAnimationLoader";
+import DonutChartAnimationLoader from "../components/DonutChartAnimationLoader";
+import LogoAnimationLoader from "../components/LogoAnimationLoader";
 
 // --- Custom Components (Reused) ---
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/([A-Z])/g, ' $1');
@@ -598,17 +601,25 @@ function SuperAdminUserList({ isViewerSuperAdmin }) {
         );
     };
 
-    // --- Render ---
+    // if (loading) {
+    //     return (
+    //         <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    //             <div className="text-lg text-white flex items-center gap-2 p-6 bg-red-800 rounded-2xl shadow-lg">
+    //                 <Loader2 className="animate-spin w-6 h-6" /> Loading Users...
+    //             </div>
+    //         </div>
+    //     );
+    // }
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-lg text-white flex items-center gap-2 p-6 bg-red-800 rounded-2xl shadow-lg">
-                    <Loader2 className="animate-spin w-6 h-6" /> Loading Users...
-                </div>
+             <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                {/* <LineChartAnimationLoader /> */}
+                {/* <DonutChartAnimationLoader /> */}
+                <LogoAnimationLoader />
             </div>
         );
-    }
+    }  
 
     return (
         <div className="min-h-screen bg-gray-100 px-4 sm:px-6 lg:px-8 py-8">

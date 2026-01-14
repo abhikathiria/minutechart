@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import ScreenLoader from "../components/ScreenLoader";
+import LineChartAnimationLoader from "../components/LineChartAnimationLoader";
+import DonutChartAnimationLoader from "../components/DonutChartAnimationLoader";
+import LogoAnimationLoader from "../components/LogoAnimationLoader";
 
 /* ---------- Motion variants ---------- */
 const fadeUp = {
@@ -184,7 +187,10 @@ export default function Login({ onLogin }) {
     return (
         <div className="min-h-screen bg-[#0b0d10] text-white flex items-stretch">
 
-            {loadingLogin && <ScreenLoader text="Logging you in… Please wait." />}
+            {/* {loadingLogin && <ScreenLoader text="Logging you in… Please wait." />} */}
+            {loadingLogin && <LineChartAnimationLoader />}
+            {/* {loadingLogin && <DonutChartAnimationLoader />} */}
+            {/* {loadingLogin && <LogoAnimationLoader />} */}
             {/* Left column (dark glass hero) */}
             <MemoizedLeftColumn />
 

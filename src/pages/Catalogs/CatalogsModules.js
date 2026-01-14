@@ -59,7 +59,7 @@ export default function CatalogsModules() {
                         "
                     >
                         <FaArrowLeft className="w-3 h-3" />
-                        Back to Catalogs
+                        Back to ERP
                     </Link>
 
                     <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
@@ -72,7 +72,7 @@ export default function CatalogsModules() {
 
                 <div className="mb-8">
                     <p className="text-xl text-gray-500 font-light">
-                        Select any erp catalog module below to manage the specific module.
+                        Select any erp catalogs module below to manage the specific module.
                     </p>
                 </div>
 

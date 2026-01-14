@@ -72,8 +72,7 @@ export default function CatalogsProducts() {
     const [insertQuery, setInsertQuery] = useState("");
     const [updateQuery, setUpdateQuery] = useState("");
     const [primaryKey, setPrimaryKey] = useState("");
-
-    const isEditMode = !!(editRow && primaryKey && editRow[primaryKey]);
+    const [isEditMode, setIsEditMode] = useState(false);
 
     const [categories, setCategories] = useState([]);
     const [uoms, setUoms] = useState([]);
@@ -151,11 +150,10 @@ export default function CatalogsProducts() {
 
         try {
             // 2. Check if this record exists in our current table to decide Add vs Update
-            const isExisting = rows.some(r => String(r[primaryKey]) === String(pkValue));
-
-            const url = isExisting
+            const url = isEditMode
                 ? `/catalogs/item/update/${userId}`
                 : `/catalogs/item/save/${userId}`;
+
 
             // 3. Map the fields to the DTO expected by C#
             const payload = {
@@ -177,7 +175,8 @@ export default function CatalogsProducts() {
     };
 
     /* ---------- REFINED DELETE ---------- */
-    const handleDelete = async () => {
+    const handleDeleteModal = async () => {
+        if (!isEditMode) return;
         const pkValue = editRow[primaryKey];
         if (!pkValue) return;
 
@@ -191,6 +190,24 @@ export default function CatalogsProducts() {
             alert("Delete failed: " + (e.response?.data || e.message));
         }
     };
+
+    const handleDelete = async (row = editRow) => {
+        if (!row) return;
+
+        const pkValue = row[primaryKey];
+        if (!pkValue) return;
+
+        if (!window.confirm(`Delete item ${pkValue}?`)) return;
+
+        try {
+            await api.delete(`/catalogs/item/delete/${userId}/${pkValue}`);
+            setEditRow(null);
+            refreshData();
+        } catch (e) {
+            alert("Delete failed: " + (e.response?.data || e.message));
+        }
+    };
+
 
     const refreshData = async () => {
         const res = await api.get(`/catalogs/run-saved-query/${userId}/${queryId}`);
@@ -294,20 +311,24 @@ export default function CatalogsProducts() {
                         </button>
                         <button
                             className="btn primary"
-                            onClick={async () => {
-                                setEditRow({}); // ADD mode only
+                            // onClick={async () => {
+                            //     setEditRow({}); // ADD mode only
 
-                                try {
-                                    const [catRes, uomRes] = await Promise.all([
-                                        api.get(`/catalogs/lookups/categories/${userId}`),
-                                        api.get(`/catalogs/lookups/uoms/${userId}`)
-                                    ]);
+                            //     try {
+                            //         const [catRes, uomRes] = await Promise.all([
+                            //             api.get(`/catalogs/lookups/categories/${userId}`),
+                            //             api.get(`/catalogs/lookups/uoms/${userId}`)
+                            //         ]);
 
-                                    setCategories(catRes.data || []);
-                                    setUoms(uomRes.data || []);
-                                } catch (e) {
-                                    console.error("Failed to load lookups", e);
-                                }
+                            //         setCategories(catRes.data || []);
+                            //         setUoms(uomRes.data || []);
+                            //     } catch (e) {
+                            //         console.error("Failed to load lookups", e);
+                            //     }
+                            // }}
+                            onClick={() => {
+                                setIsEditMode(false);
+                                setEditRow({}); // blank row
                             }}
                         >
                             + Add Data
@@ -355,6 +376,9 @@ export default function CatalogsProducts() {
                                                 />
                                             </th>
                                         ))}
+                                        <th style={{ minWidth: 140, textAlign: "center" }}>
+                                            Actions
+                                        </th>
                                     </tr>
                                     <tr>
                                         {columns.map(col => (
@@ -385,7 +409,11 @@ export default function CatalogsProducts() {
                                                     {idx === 0 ? (
                                                         <button
                                                             className="row-link"
-                                                            onClick={() => setEditRow(row)}
+                                                            // onClick={() => setEditRow(row)}
+                                                            onClick={() => {
+                                                                setIsEditMode(true);
+                                                                setEditRow({ ...row });
+                                                            }}
                                                         >
                                                             {row[col]}
                                                         </button>
@@ -394,8 +422,29 @@ export default function CatalogsProducts() {
                                                     )}
                                                 </TruncatedCell>
                                             ))}
+                                            <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                                                <button
+                                                    className="px-2 py-1 text-blue-600 underline hover:underline"
+                                                    onClick={() => {
+                                                        setIsEditMode(true);
+                                                        setEditRow({ ...row });
+                                                    }}
+                                                    title="Update Value"
+                                                >
+                                                    Update
+                                                </button>
+
+                                                <button
+                                                    className="px-2 py-1 text-red-600 underline hover:underline ml-2"
+                                                    onClick={() => handleDelete(row)}
+                                                    title="Delete Value"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
+
                                 </tbody>
                             </table>
                         )}
@@ -464,15 +513,16 @@ export default function CatalogsProducts() {
                                 <div className="flex items-center">
                                     <label className="w-1/3 text-right pr-4 font-bold text-gray-700">{!isEditMode && <span className="text-red-500 mr-1">*</span>}Main Code:</label>
                                     <input
-                                        disabled={rows.some(r => String(r[primaryKey]) === String(editRow[primaryKey]))}
-
-                                        className={`w-2/3 border p-1 rounded ${rows.some(r => String(r[primaryKey]) === String(editRow[primaryKey]))
-                                            ? "bg-gray-100 cursor-not-allowed text-gray-500" // Grey out if disabled
+                                        disabled={isEditMode}
+                                        className={`w-2/3 border p-1 rounded ${isEditMode
+                                            ? "bg-gray-100 cursor-not-allowed text-gray-500"
                                             : "bg-white"
                                             }`}
                                         title="WIP_CODE"
-                                        value={editRow[primaryKey] || editRow["MainCode"] || ""}
-                                        onChange={e => setEditRow(r => ({ ...r, "MainCode": e.target.value }))}
+                                        value={editRow["MainCode"] || ""}
+                                        onChange={e =>
+                                            setEditRow(r => ({ ...r, MainCode: e.target.value }))
+                                        }
                                     />
                                 </div>
 
@@ -506,10 +556,10 @@ export default function CatalogsProducts() {
                         </div>
 
                         <div className="modal-actions mt-4 mb-4 pt-4 border-t flex justify-center gap-2 px-6">
-                            {rows.some(r => r[primaryKey] === editRow[primaryKey]) && (
+                            {isEditMode && (
                                 <button
                                     className="px-4 py-1 bg-gray-200 text-red-600 border border-red-200 rounded hover:bg-red-50 font-bold mr-auto"
-                                    onClick={handleDelete}
+                                    onClick={handleDeleteModal}
                                 >
                                     Delete
                                 </button>
@@ -526,7 +576,7 @@ export default function CatalogsProducts() {
                                 className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm"
                                 onClick={handleSave}
                             >
-                                {rows.some(r => r[primaryKey] === editRow[primaryKey]) ? "Update" : "Save"}
+                                {isEditMode ? "Update" : "Save"}
                             </button>
                         </div>
                     </div>

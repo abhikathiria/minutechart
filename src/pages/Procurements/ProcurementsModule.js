@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import api from "../api";
+import api from "../../api";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import {
     FaArrowLeft,
@@ -11,23 +11,51 @@ import {
     FaIndustry
 } from "react-icons/fa";
 
-export default function ERPModules() {
+export default function ProcurementsModules() {
     const { id } = useParams();
     const navigate = useNavigate();
 
     // Define the tool button data with updated modules and distinct colors
     const buttons = [
         {
-            name: "Catalogs",
-            description: "Manage Catalogs.",
-            link: `/erp/${id}/catalogs`,
+            name: "Main",
+            description: "Manage Procurements Main Module.",
+            link: `/erp/${id}/procurements/main`,
             icon: <FaUserCog className="w-8 h-8 text-indigo-600" />,
             color: "indigo"
         },
         {
-            name: "Procurements",
-            description: "Manage Procurements.",
-            link: `/erp/${id}/procurements`,
+            name: "Requirements",
+            description: "Manage Procurements Requirements Module.",
+            link: `/erp/${id}/procurements/requirements`,
+            icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
+            color: "teal"
+        },
+        {
+            name: "Request for Quote",
+            description: "Manage Procurements Request for Quote Module.",
+            link: `/erp/${id}/procurements/quote`,
+            icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
+            color: "teal"
+        },
+        {
+            name: "Purchase Orders",
+            description: "Manage Procurements Purchase Orders Module.",
+            link: `/erp/${id}/procurements/purchase-orders`,
+            icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
+            color: "teal"
+        },
+        {
+            name: "Purchase Returns",
+            description: "Manage Procurements Purchase Returns Module.",
+            link: `/erp/${id}/procurements/purchase-returns`,
+            icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
+            color: "teal"
+        },
+        {
+            name: "Reports",
+            description: "Manage Procurements Reports Module.",
+            link: `/erp/${id}/procurements/reports`,
             icon: <FaDollarSign className="w-8 h-8 text-teal-600" />,
             color: "teal"
         },
@@ -48,7 +76,7 @@ export default function ERPModules() {
                 {/* Header Section */}
                 <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-10 border-b pb-4">
                     <Link
-                        to={`/user/${id}/tools`}
+                        to={`/user/${id}/erp-modules`}
                         state={{ keepFilters: true }}
                         className="
                             flex items-center gap-2 text-sm font-medium 
@@ -59,12 +87,12 @@ export default function ERPModules() {
                         "
                     >
                         <FaArrowLeft className="w-3 h-3" />
-                        Back to Tools
+                        Back to ERP
                     </Link>
 
                     <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
                         <FaToolbox className="w-8 h-8 text-purple-600" />
-                        <span>ERP Modules Control Panel</span>
+                        <span>ERP Procurements Modules Control Panel</span>
                     </h1>
 
                     <div className="w-40 sm:block hidden" />
@@ -72,7 +100,7 @@ export default function ERPModules() {
 
                 <div className="mb-8">
                     <p className="text-xl text-gray-500 font-light">
-                        Select any erp module below to manage the specific module.
+                        Select any erp procurements module below to manage the specific module.
                     </p>
                 </div>
 

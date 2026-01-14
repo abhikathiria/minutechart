@@ -48,6 +48,12 @@ namespace minutechart.Data
         public DbSet<ExpenseModule> ExpenseModules { get; set; }
         public DbSet<FinanceModule> FinanceModules { get; set; }
         public DbSet<CatalogProduct> CatalogProducts { get; set; }
+        public DbSet<ProcurementsMain> ProcurementsMains { get; set; }
+        public DbSet<ProcurementsRequirement> ProcurementsRequirements { get; set; }
+        public DbSet<ProcurementsQuote> ProcurementsQuotes { get; set; }
+        public DbSet<ProcurementsPurchaseOrder> ProcurementsPurchaseOrders { get; set; }
+        public DbSet<ProcurementsPurchaseReturn> ProcurementsPurchaseReturns { get; set; }
+        public DbSet<ProcurementsReport> ProcurementsReports { get; set; }
         
 
         protected override void OnModelCreating(ModelBuilder builder)
